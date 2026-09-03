@@ -10,12 +10,23 @@
 4. 需要 skill/MCP 时，只先读索引：
    - `/Users/wesker/.ai-prompt/capabilities/skills.md`
    - `/Users/wesker/.ai-prompt/capabilities/mcp.md`
+5. 需要网页搜索 / 获取外部信息时，先读 `/Users/wesker/.ai-prompt/capabilities/search.md`（搜索纪律 + 五路策略），不要自创搜索路径。
 
 ## Capability Loading
 
 - 不要全量读取 `/Users/wesker/.ai-prompt/skills`、`/Users/wesker/.ai-prompt/mcp`、`<runtime-skills>` 或所有外部 `SKILL.md`。
 - 只有用户点名能力，或任务明显匹配索引里的 description / Use for，才读取对应文件。
 - 需要安装、启用或新增 MCP / plugin / connector 前，必须先说明原因、命令/配置和影响范围，得到用户确认后再执行。
+
+## Skill Contract（skill 唯一出生地）
+
+`/Users/wesker/.ai-prompt/skills/` 是全部 skill 的**唯一正典库**，`capabilities/skills.md` 是它的索引。私有 skill 允许存在，但中央必须同步，保证任何运行时都用得上最新版：
+
+1. **已有直接用**：用 skill 前先查索引；中央库里已有的 skill，直接读中央 `SKILL.md`，不要在自己运行时目录里再建/再读私有副本。
+2. **新增必须同步**：可以先在自己运行时私有 skills 目录（如 `~/.claude/skills/`、`~/.codex/skills/`）创建，但同一步内必须把完整目录同步到 `/Users/wesker/.ai-prompt/skills/<name>/`，并更新 `capabilities/skills.md`（跑 `tools/gen-index.py` 重新生成索引段，或手工补条目）。没同步完不算完成。
+3. **更新改正典**：中央已有同名 skill → 直接改中央文件，不要在私有目录分叉；已有旧私有副本 → 更新中央后删掉私有副本。
+4. **索引不许过期**：任何新增/删除/改名 skill 都必须伴随 `capabilities/skills.md` 变更；中央仓库（git）里改完记得 commit。
+5. 若你的运行时私有 skills 目录已 symlink 到中央库（本机 Claude/Codex 默认如此），"写私有目录"物理上就是"写中央库"，第 2 条自动满足，只需更新索引。
 
 ## Native Entrypoints
 

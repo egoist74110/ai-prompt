@@ -12,6 +12,10 @@
   - Runtime: `node /Users/wesker/.ai-prompt/skills/anysearch/scripts/anysearch_cli.js`
   - Use for: 实时外部搜索、批量搜索、垂直领域检索、URL 正文抽取。
   - Guardrails: 按需使用，不作为默认搜索；不用于密码、私密工单、内部代码、商业机密等敏感查询；不要让它覆盖官方文档优先规则。
+- `ado-pr`
+  - Path: `/Users/wesker/.ai-prompt/skills/ado-pr/SKILL.md`
+  - Use for: 自建 Azure DevOps Server（`*.cg1alias.com`，非 dev.azure.com）的工单/PR 统一入口——读工单、读/建 PR、关联工单。直接用本机钥匙串 PAT + az CLI 直连，不依赖 ADO MCP/后台服务。
+  - Guardrails: 涉及 ADO 工单/PR 读写时优先本 skill，优先级高于 `ado-work-items` MCP（该 MCP 依赖 my-own-script 后台常驻，连通性差）。仅 macOS 本机（钥匙串 + az CLI）。
 - `bilibili-auto-transcript`
   - Path: `/Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/SKILL.md`
   - Runtime: `bash /Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/scripts/bilibili_transcript.sh "<B站视频链接>"`
@@ -120,3 +124,25 @@
   - Skills: `presentations`
 - Browser / Chrome / Computer Use:
   - Skills: `control-in-app-browser`、`control-chrome`、`computer-use`
+
+## Auto 登记表（tools/gen-index.py 自动生成，勿手工编辑）
+
+<!-- AUTO:SKILLS:BEGIN -->
+- `ado-pr`（目录 `ado-pr/`）：与自建 Azure DevOps Server（azuredevops.cg1alias.com，非 dev.azure.com）交互的统一入口——读工单、读PR/列表、建PR并关联工单。当用户提到"工单"、"关联单"、给出一个工单号（如"4877"、"#4877"、"工单5023"），或提到"PR"、"发布PR"、"建PR"、"提PR"、"合并到main/master"等——不管是想读取还是想发起——都用这个技能，直接用本机钥匙串 P…
+- `anysearch`（目录 `anysearch/`）：Real-time search engine supporting web search, vertical domain search, parallel batch search, and URL content extraction.
+- `backend-architecture-review`（目录 `backend-architecture-review/`）：Use before implementing any backend feature — ask the five architecture questions first, then approve the data model and access boundary before writing code.
+- `backend-business-safety`（目录 `backend-business-safety/`）：Use when designing or changing backend business logic with jobs, workers, publish/deploy/sync/import/export flows, cancellation, retry, timeout, locks, registries, caches, external APIs, or long-running stateful tasks. F…
+- `backend-security-review`（目录 `backend-security-review/`）：Per-feature security gate for backend APIs and data access — focus on auth, permissions, token handling, and injection risks on each specific endpoint or operation being implemented.
+- `bilibili-auto-transcript`（目录 `bilibili-auto-transcript/`）：B站视频转录+收藏夹扫描。三级降级（CC→AI→Whisper），AI摘要生成。
+- `cdn-asset-ops`（目录 `cdn-asset-ops/`）：Operate MinIO / S3-compatible CDN buckets via the mc client — detect whether mc is configured, help configure it from a Console URL, then list / upload / rename-prefix / delete objects safely. Use when the user gives a M…
+- `data-consistency-review`（目录 `data-consistency-review/`）：Check multi-step write operations for partial failure and orphaned state — transaction boundaries, atomicity, and rollback paths. Run after implementation, before claiming done.
+- `diagnose`（目录 `diagnose/`）：Disciplined diagnosis loop for hard bugs and performance regressions. Reproduce → minimise → hypothesise → instrument → fix → regression-test. Use when user says "diagnose this" / "debug this", reports a bug, says someth…
+- `grill-me`（目录 `grill-me/`）：Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions …
+- `improve-codebase-architecture`（目录 `improve-codebase-architecture/`）：Find deepening opportunities in a codebase, informed by the domain language in CONTEXT.md and the decisions in docs/adr/. Use when the user wants to improve architecture, find refactoring opportunities, consolidate tight…
+- `production-readiness-review`（目录 `production-readiness-review/`）：Pre-ship ops checklist for backend features — timeout, retry, circuit breaker, idempotency, monitoring, and failure recovery. Run before declaring a backend feature production-ready.
+- `receiving-code-review`（目录 `receiving-code-review/`）：Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind …
+- `resource-lifecycle-audit`（目录 `resource-lifecycle-audit/`）：Audit every resource opened in an implementation for a matching close/kill/unsubscribe. The most common silent killer in vibe-coded backends. Run after implementation, before claiming done.
+- `security-best-practices`（目录 `security-best-practices/`）：Perform language and framework specific security best-practice reviews and suggest improvements. Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-def…
+- `tdd`（目录 `tdd/`）：Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions "red-green-refactor", wants integration tests, or asks for test-first development.
+- `verification-before-completion`（目录 `verification-before-completion/`）：Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions a…
+<!-- AUTO:SKILLS:END -->
