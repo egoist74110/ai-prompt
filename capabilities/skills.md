@@ -15,8 +15,8 @@
 - `bilibili-auto-transcript`
   - Path: `/Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/SKILL.md`
   - Runtime: `bash /Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/scripts/bilibili_transcript.sh "<B站视频链接>"`
-  - Use for: B站/Bilibili 视频链接转录、收藏夹扫描、新视频自动处理；三级降级为 CC 字幕 → AI 字幕 → Whisper。
-  - Guardrails: 脚本输出 TXT 后必须读取全文并替换“AI待处理”摘要占位符，再向用户报告完成；默认只输出转录文件，索引交给 knowledge-rag 或用户明确要求的 RAG 脚本。
+  - Use for: B站/Bilibili 视频链接转录、收藏夹扫描、批量转录、新视频自动处理；三级降级为 CC 字幕 → AI 字幕 → Whisper，并支持可选 AI 摘要、SQLite 记录和 CSV 报告。
+  - Guardrails: 设置 OPENAI_API_KEY 时脚本可自动生成摘要；未设置时 TXT 保留摘要占位符，需在向用户报告"完成摘要"前读取全文并补全。默认只输出转录/数据库记录，索引交给 knowledge-rag 或用户明确要求的 RAG 流程。
   - Source: https://clawhub.ai/54lynnn/bilibili-auto-transcript / https://github.com/54Lynnn/bilibili-auto-transcript
 
 ## Runtime System Skills（运行时自带，本仓库不提供）

@@ -31,9 +31,9 @@ AI Agent（加载 skill）
 - 状态维护：维护一个 `processed_xxx.txt` 文件，每行一个唯一 ID
 
 ### 2. 定时触发器 (Cronjob/Scheduler)
-- Hermes 内置 cronjob：
+- OpenClaw 内置 cronjob：
   - `no_agent=False`（默认）：script stdout 注入 prompt，agent 按 prompt 处理
-  - `script=bilibili_scanner.py`（相对路径解析到 `~/.hermes/scripts/`）
+  - `script=bilibili_scanner.py`（相对路径解析到 `~/.openclaw/workspace/skills/bilibili-auto-transcript/scripts/`）
   - `skills=[...]`：加载相关 skill 提供上下文
   - 无增量时 agent 只回复一句"无新内容"，不打扰用户
 - 外部定时器：
