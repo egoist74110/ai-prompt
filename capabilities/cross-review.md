@@ -14,14 +14,14 @@
 
 豁免（自检通过即交付）：trivial 修复、纯配置、一行改动、无外部副作用的单文件局部逻辑。
 
-## 配对规则（只看运行时，不看模型名）
+## 配对规则（固定单审查，就开一个；实现方跳过自己，按 Claude → codex → agy 顺序取下一个；只看运行时，不看模型名）
 
-| 实现方 | 审查方（选一；关键改动选二） |
+| 实现方 | 审查方（就一个） |
 |---|---|
-| Claude Code | codex 或 agy |
-| Codex | Claude Code 或 agy |
-| agy（Antigravity） | Claude Code 或 codex |
-| DSH / 本地模型 | 上面三者任其一 |
+| Claude Code | codex |
+| Codex | Claude Code |
+| agy（Antigravity） | Claude Code |
+| DSH / 本地模型 | Claude Code |
 
 ## 怎么派（headless 调用，在目标仓库目录里执行）
 
@@ -45,7 +45,7 @@
 
 - 按 `receiving-code-review` skill 执行：逐条核实（读原文 / 跑验证），不盲目同意，不表演性认同；不同意要给出证据说明。
 - blocker / major 必须修复并复验；minor 可解释后保留（记进交付汇报）。
-- 两个审查方结论冲突 → 高模按证据裁决（回读原文 / 跑验证），最终由用户拍板。
+- 审查结论是参考输入，最终由实现方高模 + 用户拍板。
 
 ## Guardrails
 
