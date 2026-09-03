@@ -14,14 +14,20 @@
 
 豁免（自检通过即交付）：trivial 修复、纯配置、一行改动、无外部副作用的单文件局部逻辑。
 
-## 配对规则（固定单审查，就开一个；实现方跳过自己，按 Claude → codex → agy 顺序取下一个；只看运行时，不看模型名）
+## 配对规则（优先级，单审查就开一个；只看运行时，不看模型名）
 
-| 实现方 | 审查方（就一个） |
+优先级顺序：**Claude > codex > agy**。
+
+规则：审查方 = 这个优先级序列里、**第一个不等于实现方**的运行时。实现方不在序列里（如 DSH / 本地模型）时，直接取序列最高 = Claude。
+
+推导出来：
+
+| 实现方 | 审查方 |
 |---|---|
-| Claude Code | codex |
-| Codex | Claude Code |
-| agy（Antigravity） | Claude Code |
-| DSH / 本地模型 | Claude Code |
+| Claude Code | codex（跳过自己，取下一个） |
+| Codex | Claude Code（最高） |
+| agy（Antigravity） | Claude Code（最高） |
+| DSH / 本地模型（不在序列） | Claude Code（最高） |
 
 ## 怎么派（headless 调用，在目标仓库目录里执行）
 
