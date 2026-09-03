@@ -1,25 +1,49 @@
 #!/bin/bash
-# 中央提示词仓库 pre-commit（正典在 tools/hooks/pre-commit，用 tools/install-hooks.sh 装到 .git/hooks/）
-# 1) 重新生成 capabilities/skills.md 的 Auto 登记表 + 跑索引一致性校验（不通过则拦下提交）
-# 2) 同步 ~/.codex/skills 的 symlink（新增/删除 skill 自动对 codex 生效）
+# 中央提示词仓库 pre-commit（正典在 tools/hooks/pre-commit，用 tools/install-hooks.sh 安装）
+# 1) 重建 capabilities/skills.md 的 Auto 登记表 + 索引一致性校验
+# 2) 校验暂存快照与索引匹配（防止把幽灵条目/漏登记提交进去）
+# 3) 同步 ~/.codex/skills 的 symlink——失败即阻断（Skill Contract：没同步完不算完成）
+#
+# 边界说明：hook 是便利机制，不是不可绕过的完整性边界。`--no-verify` 和"没装 hook"
+# 都能绕过它。最终门禁是 tools/doctor.sh（只读体检，可在 CI 或手工跑）。
 set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 1
 
+# --- 1. 索引 ---
 python3 "$ROOT/tools/gen-index.py" || {
-  echo "pre-commit: 索引生成/校验失败，提交已中止。修好上面的问题，或用 --no-verify 明确绕过（不推荐）。" >&2
+  echo "pre-commit: 索引生成/校验失败，提交已中止。修好上面的问题再提交。" >&2
   exit 1
 }
 
-# 同步失败不拦提交，但必须可见——静默吞掉会让 Skill Contract 的"任何运行时都用得上最新版"变成空头承诺
-if ! sync_out=$(bash "$ROOT/tools/sync-codex-skills.sh" 2>&1); then
-  echo "pre-commit: ⚠️  codex skills 同步失败，~/.codex/skills 可能已过期：" >&2
-  echo "$sync_out" | sed 's/^/    /' >&2
-  echo "    提交继续，但请手动跑 tools/sync-codex-skills.sh 修好。" >&2
-elif ! grep -q "已是最新" <<<"$sync_out"; then
-  echo "$sync_out" | sed 's/^/pre-commit: /'
+# --- 2. 工作树 vs 暂存快照 ---
+# gen-index 扫的是工作树；若工作树里的 skill 没被 git add，索引条目会进 commit 而
+# skill 本体不会 → 提交出一个幽灵条目。反向（暂存了删除但工作树还在）则是漏登记。
+worktree_skills=$(ls -d skills/*/SKILL.md 2>/dev/null | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)
+staged_skills=$(git ls-files --cached -- 'skills/*/SKILL.md' | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)
+if [ "$worktree_skills" != "$staged_skills" ]; then
+  echo "pre-commit: 工作树与暂存区的 skill 集合不一致，索引会和这次 commit 对不上，已中止。" >&2
+  echo "  只在工作树、未暂存（提交后会变成幽灵条目）：" >&2
+  comm -23 <(echo "$worktree_skills") <(echo "$staged_skills") | sed 's/^/    /' >&2
+  echo "  只在暂存区、工作树已无（提交后会漏登记）：" >&2
+  comm -13 <(echo "$worktree_skills") <(echo "$staged_skills") | sed 's/^/    /' >&2
+  echo "  → 把对应的 skills/<name>/ 一并 git add（或 git rm），让两边一致再提交。" >&2
+  exit 1
 fi
 
-# 索引有变化就带上本次提交
+# --- 3. codex symlink 同步 ---
+# 脚本在 ~/.codex/skills 不存在时会自己 exit 0（"跳过"），所以非 0 就是真失败。
+# 显式把中央目录指向"正在提交的这个仓库"，不要让脚本从 $HOME 推——
+# 仓库 clone 到别的路径时，从 $HOME 推会指向不存在的目录并阻断每一次提交。
+if ! sync_out=$(AI_PROMPT_HOME="$ROOT" bash "$ROOT/tools/sync-codex-skills.sh" 2>&1); then
+  echo "pre-commit: codex skills 同步失败，提交已中止（Skill Contract：没同步完不算完成）：" >&2
+  echo "$sync_out" | sed 's/^/    /' >&2
+  echo "    修好后重试，或用 --no-verify 明确绕过（此时 ~/.codex/skills 会过期）。" >&2
+  exit 1
+fi
+grep -q "已是最新" <<<"$sync_out" || echo "$sync_out" | sed 's/^/pre-commit: /'
+
+# --- 4. 索引有变化就带上本次提交（注意：会纳入整个 skills.md，含你手工改的部分）---
 if ! git diff --quiet -- capabilities/skills.md 2>/dev/null; then
   git add capabilities/skills.md
   echo "pre-commit: capabilities/skills.md 已自动更新并纳入本次提交"

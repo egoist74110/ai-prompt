@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """扫描 skills/*/SKILL.md 的 frontmatter，重建 capabilities/skills.md 的自动登记表。
 
-用法：python3 tools/gen-index.py   （在 ~/.ai-prompt 仓库里运行，任意 cwd）
+用法：python3 tools/gen-index.py            （重建索引并落盘）
+      python3 tools/gen-index.py --check    （只比对+校验，不改任何文件；doctor.sh 用这个）
+      两种模式都在 ~/.ai-prompt 仓库里运行，任意 cwd
 pre-commit hook 会自动调用；手工加/删 skill 后也可手动跑一次。
 
 设计：自动登记表是「安全网」——保证 skills/ 下每个 skill 都出现在索引里
@@ -52,23 +54,57 @@ PLUGIN_WHITELIST = {
 }
 # 只在这些手写段里查幽灵条目（Runtime Plugin Skills 段之前的部分）
 HANDWRITTEN_END = "## Runtime Plugin Skills"
-BULLET = re.compile(r"^- `([A-Za-z0-9][A-Za-z0-9._-]*)`\s*$", re.MULTILINE)
+# 顶层条目名：允许 `name` 后面跟说明文字，不再要求整行只有反引号名
+BULLET = re.compile(r"^- +`([A-Za-z0-9][A-Za-z0-9._-]*)`", re.MULTILINE)
+# 结构锚点：带缩进的 "- Path:" 行，是一条 skill 登记的可靠标志
+PATH_LINE = re.compile(r"^\s+- +Path:", re.MULTILINE)
+BACKTICKED = re.compile(r"`([^`]+)`")
 
 
-def check_index_consistency(dirs):
+def _handwritten_head(text):
+    """手写段区域：Runtime Plugin Skills 段和 Auto 登记表之前的部分。"""
+    return text.split(HANDWRITTEN_END, 1)[0].split(BEGIN, 1)[0]
+
+
+def collect_registered_names(head):
+    """返回 [(name, 行号)]，两条互补路径都收：
+
+    1. 顶层 `- \`name\`` 条目（宽松匹配，允许后面跟说明）。
+    2. 从每个缩进的 "- Path:" 行往回找最近的顶层 "- " 条目，取其第一个反引号名。
+       这条是**结构锚点**，不依赖名字行的具体写法——加粗、链接、破折号说明都能抓到，
+       补上纯正则匹配漏掉的格式变体。
+    """
+    found = {}
+    for m in BULLET.finditer(head):
+        found.setdefault(m.group(1), head[: m.start()].count("\n") + 1)
+
+    lines = head.splitlines()
+    for i, line in enumerate(lines):
+        if not PATH_LINE.match(line):
+            continue
+        for j in range(i - 1, -1, -1):
+            if lines[j].startswith("- "):
+                bt = BACKTICKED.search(lines[j])
+                if bt:
+                    found.setdefault(bt.group(1), j + 1)
+                break
+            if lines[j].startswith("#"):
+                break
+    return sorted(found.items(), key=lambda kv: kv[1])
+
+
+def check_index_consistency(dirs, text=None):
     """返回问题列表：手写段引用了不存在的 skill。"""
     problems = []
-    if not os.path.isfile(INDEX):
-        return problems
-    with open(INDEX, encoding="utf-8") as f:
-        text = f.read()
-    head = text.split(HANDWRITTEN_END, 1)[0]
-    head = head.split(BEGIN, 1)[0]
-    for m in BULLET.finditer(head):
-        name = m.group(1)
+    if text is None:
+        if not os.path.isfile(INDEX):
+            return problems
+        with open(INDEX, encoding="utf-8") as f:
+            text = f.read()
+    head = _handwritten_head(text)
+    for name, line_no in collect_registered_names(head):
         if name in dirs or name in PLUGIN_WHITELIST:
             continue
-        line_no = head[: m.start()].count("\n") + 1
         problems.append(
             f"capabilities/skills.md:{line_no}: 手写段登记了 `{name}`，"
             f"但 skills/{name}/ 不存在（幽灵条目）。"
@@ -78,6 +114,7 @@ def check_index_consistency(dirs):
 
 
 def main():
+    check_only = "--check" in sys.argv[1:]
     entries = []
     problems = []
     dirs = set()
@@ -118,11 +155,26 @@ def main():
     else:
         text = "# Skills Index\n\n" + section
 
-    with open(INDEX, "w", encoding="utf-8") as f:
-        f.write(text)
-    print(f"gen-index: {len(entries)} 个 skill 已登记到 capabilities/skills.md")
+    problems += check_index_consistency(dirs, text)
 
-    problems += check_index_consistency(dirs)
+    if check_only:
+        # 体检模式：只比对不落盘，doctor.sh 用这个，保证"只读"名副其实
+        current = ""
+        if os.path.isfile(INDEX):
+            with open(INDEX, encoding="utf-8") as f:
+                current = f.read()
+        if current != text:
+            problems.append(
+                "capabilities/skills.md: Auto 登记表与 skills/ 不同步 "
+                "→ 跑 `python3 tools/gen-index.py` 重新生成并 commit。"
+            )
+        if not problems:
+            print(f"gen-index --check: {len(entries)} 个 skill，索引一致")
+    else:
+        with open(INDEX, "w", encoding="utf-8") as f:
+            f.write(text)
+        print(f"gen-index: {len(entries)} 个 skill 已登记到 capabilities/skills.md")
+
     if problems:
         print("\ngen-index: 索引一致性校验未通过：", file=sys.stderr)
         for p in problems:

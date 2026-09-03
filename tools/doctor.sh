@@ -1,5 +1,5 @@
 #!/bin/bash
-# 中央提示词系统体检（只读，不改任何东西）。
+# 中央提示词系统体检（**严格只读**：索引校验走 gen-index.py --check，不落盘）。
 # 覆盖那些"文档说是这样、现实可能不是这样"的点：四个运行时入口、两组 symlink、
 # 索引一致性、hook 是否装了、search.md 声明的后端是否真的在。
 # 改完环境（换机、重装运行时、动了 skills 目录）跑一次。
@@ -49,18 +49,18 @@ else
   warn "~/.codex/skills 不存在，跳过 codex 检查"
 fi
 
-echo "== 4. 索引一致性 =="
-if out=$(cd "$ROOT" && python3 tools/gen-index.py 2>&1); then
+echo "== 4. 索引一致性（--check：只比对，不写文件） =="
+if out=$(cd "$ROOT" && python3 tools/gen-index.py --check 2>&1); then
   ok "$(echo "$out" | head -1)"
-  (cd "$ROOT" && git diff --quiet -- capabilities/skills.md 2>/dev/null) \
-    || warn "Auto 登记表与 skills/ 不同步，已重新生成——记得 commit"
 else
   bad "索引校验未通过："; echo "$out" | sed 's/^/      /'
 fi
 
 echo "== 5. pre-commit hook =="
-if [ -x "$ROOT/.git/hooks/pre-commit" ]; then
-  cmp -s "$ROOT/tools/hooks/pre-commit" "$ROOT/.git/hooks/pre-commit" \
+HOOKDIR="$(cd "$ROOT" && git rev-parse --git-path hooks 2>/dev/null)"
+case "$HOOKDIR" in /*) ;; *) HOOKDIR="$ROOT/$HOOKDIR" ;; esac
+if [ -x "$HOOKDIR/pre-commit" ]; then
+  cmp -s "$ROOT/tools/hooks/pre-commit" "$HOOKDIR/pre-commit" \
     && ok "hook 已装且与 tools/hooks/pre-commit 一致" \
     || warn "hook 已装但与仓库里的正典不一致 → 跑 tools/install-hooks.sh"
 else

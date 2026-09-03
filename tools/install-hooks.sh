@@ -5,7 +5,8 @@
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 SRC="$ROOT/tools/hooks"
-DST="$ROOT/.git/hooks"
+DST="$(git rev-parse --git-path hooks)"   # 兼容 linked worktree / .git 为文件的布局
+mkdir -p "$DST"
 
 for h in "$SRC"/*; do
   [ -f "$h" ] || continue
