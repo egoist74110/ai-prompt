@@ -2,11 +2,16 @@
 
 规则：不要全量读取所有 skill。只有用户点名 skill，或任务明显匹配 description 时，才读取对应 `SKILL.md`。
 
+本文件有两部分，**同一个 skill 会出现两次，以手写段为准**：
+- 上面的**手写分类段**（Custom / Engineering / Ops …）——带 Path、Runtime、Guardrails，是权威描述。
+- 末尾的 **Auto 登记表**——`tools/gen-index.py` 从 `skills/*/SKILL.md` 的 frontmatter 自动生成，只是"别漏掉"的安全网。两边描述不一致时信手写段。
+
 ## Custom
 - `ui-ux-pro-max`
-  - Path: local custom UI skill path, if present on this machine.
+  - Path: `/Users/wesker/.ai-prompt/skills/ui-ux-pro-max/SKILL.md`
+  - Runtime: `python3 /Users/wesker/.ai-prompt/skills/ui-ux-pro-max/scripts/search.py <query>`（BM25 检索 `data/*.csv`：67 风格 / 96 配色 / 57 字体搭配 / 99 UX 规则 / 25 图表 / 13 技术栈）
   - Use for: 唯一 UI/UX skill；用于页面/组件/交互/视觉的设计、实现、评审、优化、配色、排版、无障碍、移动端适配。
-  - Guardrails: 不再并行使用其它前端设计 skill；需要前端视觉时优先它，避免 UI skill 之间互相覆盖。
+  - Guardrails: 不再并行使用其它前端设计 skill；需要前端视觉时优先它，避免 UI skill 之间互相覆盖。`/Users/wesker/CG_Vue_uigen/.claude/skills/ui-ux-pro-max` 是同一 skill 的**项目级旧副本**（该项目 git 里已跟踪），中央这份才是正典；两边不一致时以中央为准，改动只改中央。
 - `anysearch`
   - Path: `/Users/wesker/.ai-prompt/skills/anysearch/SKILL.md`
   - Runtime: `node /Users/wesker/.ai-prompt/skills/anysearch/scripts/anysearch_cli.js`
@@ -20,30 +25,14 @@
   - Path: `/Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/SKILL.md`
   - Runtime: `bash /Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/scripts/bilibili_transcript.sh "<B站视频链接>"`
   - Use for: B站/Bilibili 视频链接转录、收藏夹扫描、批量转录、新视频自动处理；三级降级为 CC 字幕 → AI 字幕 → Whisper，并支持可选 AI 摘要、SQLite 记录和 CSV 报告。
-  - Guardrails: 设置 OPENAI_API_KEY 时脚本可自动生成摘要；未设置时 TXT 保留摘要占位符，需在向用户报告"完成摘要"前读取全文并补全。默认只输出转录/数据库记录，索引交给 knowledge-rag 或用户明确要求的 RAG 流程。
+  - Guardrails: 设置 OPENAI_API_KEY 时脚本可自动生成摘要；未设置时 TXT 保留摘要占位符，需在向用户报告"完成摘要"前读取全文并补全。默认只输出转录/数据库记录，索引交给用户明确要求的 RAG 流程（SKILL.md 里提到的 `knowledge-rag` **本机未安装**，中央和各运行时都没有，别去找它）。
   - Source: https://clawhub.ai/54lynnn/bilibili-auto-transcript / https://github.com/54Lynnn/bilibili-auto-transcript
 
-## Runtime System Skills（运行时自带，本仓库不提供）
+## Runtime System Skills（运行时自带，本仓库不登记具体名字）
 
-以下 `.system` skill 由运行时自身提供，不在本仓库内。`<runtime-skills>` 表示**当前运行时自己的** skill 目录（各运行时不同）。只有该运行时实际装了对应 skill 时才读取；不要因为索引里出现就假设已安装。
+各运行时自带的 `.system` skill（skill 创建/安装、插件创建、官方文档、图像生成等）由**运行时自己暴露**，名字和数量随版本变化（例：codex 侧叫 `openai-docs`，不叫 `official-docs`；Claude 侧 `~/.claude/skills` 已整目录 symlink 到中央，压根没有 `.system` 目录）。本索引**不维护这份清单**，避免必然过期。
 
-- `skill-creator`
-  - Path: `<runtime-skills>/.system/skill-creator/SKILL.md`
-  - Use for: 当用户觉得某个重复流程有必要封装成可复用 skill 时，创建或更新本地 skill；也可把稳定工作流、操作手册、提示词套路沉淀成 skill。
-  - Guardrails: 只有明确要创建/更新 skill，或用户指出某流程值得复用时才读；不要为了普通任务临时造 skill。
-- `skill-installer`
-  - Path: `<runtime-skills>/.system/skill-installer/SKILL.md`
-  - Use for: 列出可安装 skill、安装精选 skill 或从 GitHub repo 安装 skill。
-  - Guardrails: 先判断是否真的需要安装；优先用已有能力和索引，避免“看到推荐就全装”。
-- `plugin-creator`
-  - Path: `<runtime-skills>/.system/plugin-creator/SKILL.md`
-  - Use for: 创建或更新运行时插件，而不是普通 skill。
-- `official-docs`
-  - Path: `<runtime-skills>/.system/official-docs/SKILL.md`
-  - Use for: 对应产品/API 的最新官方文档、模型选择、迁移和提示升级。
-- `imagegen`
-  - Path: `<runtime-skills>/.system/imagegen/SKILL.md`
-  - Use for: 需要 AI 生成或编辑位图视觉资产的任务。
+用法：看当前会话实际暴露了什么就用什么；没暴露就当没有，不要按猜测的路径去读 `<runtime-skills>/.system/...`，也不要为此主动安装。
 
 ## Engineering Skills（本仓库自带，部署在 `/Users/wesker/.ai-prompt/skills`）
 
@@ -144,5 +133,6 @@
 - `resource-lifecycle-audit`（目录 `resource-lifecycle-audit/`）：Audit every resource opened in an implementation for a matching close/kill/unsubscribe. The most common silent killer in vibe-coded backends. Run after implementation, before claiming done.
 - `security-best-practices`（目录 `security-best-practices/`）：Perform language and framework specific security best-practice reviews and suggest improvements. Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-def…
 - `tdd`（目录 `tdd/`）：Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions "red-green-refactor", wants integration tests, or asks for test-first development.
+- `ui-ux-pro-max`（目录 `ui-ux-pro-max/`）：UI/UX design intelligence. 67 styles, 96 palettes, 57 font pairings, 25 charts, 13 stacks (React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui). Actions: plan, build, create, design, implemen…
 - `verification-before-completion`（目录 `verification-before-completion/`）：Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions a…
 <!-- AUTO:SKILLS:END -->

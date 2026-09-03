@@ -13,8 +13,9 @@
 实用判断信号：
 
 - 会话工具列表里有原生搜索工具 → 有。
-- 会话里没有原生搜索工具 → 走本地五路（本机永远可用，不赌"应该有原生搜索"）。
-- 本地模型（自托管权重，如 Ollama / 本地部署）→ 一定没有，直接五路。
+- **工具列表可能是延迟加载的**：有的运行时（如 Claude Code）把 `WebSearch` / `WebFetch` 放在"按需检索才出现"的延迟工具里，默认列表看不到 ≠ 没有。云端 API 运行时先按 API 能力判断、必要时先检索一次工具，**不要仅凭初始列表为空就断定没有原生搜索**然后白绕一圈本地路。
+- 确认没有原生搜索工具 → 走本地路（本机永远可用，不赌"应该有原生搜索"）。
+- 本地模型（自托管权重，如 Ollama / 本地部署）→ 一定没有，直接走本地路。
 
 ## 1. 搜索纪律（所有路径都必须遵守，含原生搜索）
 
@@ -33,9 +34,9 @@ For software versions, releases, APIs, libraries, frameworks, and developer tool
 3. If the first search returns weak or unrelated results, retry with quoted entity names and `site:` filters for official domains.
 4. Do not answer from unrelated search results.
 
-## 2. 本地五路（仅无原生联网能力时使用）
+## 2. 本地搜索路径（仅无原生联网能力时使用）
 
-当前网页搜索能力共 5 条路 + 1 条兜底。
+**4 条可用路 + 1 条已禁用（仅作记录，别当成"还没试的一路"）+ bash 兜底。** 其余文件里沿用的"本地五路"说法指的就是本节。
 
 ### 2.1 wigolo — 免费，第一轮通用首选
 
@@ -81,7 +82,11 @@ key 在 `~/.config/brave/.env`（`BRAVE_API_KEY`，免费申请：https://brave.
 
 原生支持 `site:example.com`、`"exact phrase"`、`-negation` 查询语法。**用途**：Tavily 免费额度耗尽/限流时的替代，或需要 `site:` 式精确搜索时。
 
-### 2.5 DSH 内置 `web_search` — 禁用（仅 DSH）
+### 2.4b duckduckgo MCP — 已配但非首选
+
+`~/.gemini/config/mcp_config.json` 里配了 `duckduckgo`（`npx -y duckduckgo-websearch`），部分运行时会话会暴露 `mcp__duckduckgo__search` / `mcp__duckduckgo__fetch_content`。**当作 wigolo 的同级免费路**：已暴露且 wigolo 不可用时可以直接用，结果校验纪律（第 1 节第 4 条）完全照用。不专门为它新增配置。
+
+### 2.5 DSH 内置 `web_search` — 禁用（仅 DSH，不计入可用路数）
 
 DSH 的内置 `web_search` 背后是 DeepSeek 搜索 API，本机没有 `DEEPSEEK_API_KEY`，调用必失败（报错 "no API key for DEEPSEEK_API_KEY"）。策略明确不用。（注意：这是 **DSH 的**内置工具问题；云模型运行时的原生搜索不受此限，见第 0 节。）
 
@@ -94,4 +99,4 @@ cd /Users/wesker/.wigolo-mcp && node node_modules/wigolo/dist/index.js search "q
 gh search repos "query"                                # GitHub
 ```
 
-**一句话总结**：先自查有没有原生联网（第 0 节）——有 → 用原生；没有 → repo/版本类直接 `gh api`，其余第一轮 wigolo search；结果判弱（离题 / SEO 博客占满 / `lexical_alignment`=0）→ 第二轮用 Tavily 或 Brave 跑 `site:` + 引号精确查询；MCP 挂 → bash 兜底；DSH 内置 `web_search` 永远不用；**任何时候都不要直接回答"我没有联网能力"**。
+**一句话总结**：先自查有没有原生联网（第 0 节，注意延迟加载工具）——有 → 用原生；没有 → repo/版本类直接 `gh api`，其余第一轮 wigolo search（或已暴露的 duckduckgo）；结果判弱（离题 / SEO 博客占满 / `lexical_alignment`=0）→ 第二轮用 Tavily 或 Brave 跑 `site:` + 引号精确查询；MCP 挂 → bash 兜底；DSH 内置 `web_search` 永远不用；**任何时候都不要直接回答"我没有联网能力"**。

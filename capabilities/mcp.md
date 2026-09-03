@@ -53,7 +53,8 @@
   - **优先级低于 `ado-pr` skill**（见 `capabilities/skills.md`）：涉及 `*.cg1alias.com` 的工单/PR 读写优先 `ado-pr`（钥匙串 PAT + az CLI 直连，连通性更稳），不要因为这个 MCP"已暴露在会话里"就默认走它。仅当 skill 不可用（无钥匙串/az CLI 的环境）或用户明确要 MCP 时才用。
   - 推荐命令：`/Users/wesker/my-own-script/.venv/bin/python /Users/wesker/my-own-script/app_ado/mcp_ado_work_items_server.py`
 - `serena`: 代码语义/符号导航。入口不明确、调用链长、跨文件关系复杂时，辅助定位候选文件/类/函数/引用/诊断。
-  - 推荐命令：`/Users/wesker/.local/bin/serena start-mcp-server --context=<runtime> --project-from-cwd --enable-web-dashboard=false --log-level=WARNING`（env PATH 需含 `/Users/wesker/.local/bin`）。
+  - 推荐命令：`/Users/wesker/.local/bin/serena start-mcp-server --context=claude-code --project-from-cwd --enable-web-dashboard=false --log-level=WARNING`（env PATH 需含 `/Users/wesker/.local/bin`）。
+  - **`--context` 是 serena 自己的固定枚举值，不是"填当前运行时的名字"**：填 `agy` / `dsh` 这种非法值会直接启动失败。本机 agy 的配置里用的也是 `--context=claude-code`；不确定合法取值时跑 `serena start-mcp-server --help` 看，别猜。
   - Typical tools: `initial_instructions`、`activate_project`、`get_symbols_overview`、`find_symbol`、`find_referencing_symbols`、`find_declaration`、`get_diagnostics_for_file`。
   - Guardrails: 不替代源码阅读和测试；只提供候选入口和关系线索，关键事实必须回到源码/命令输出/验证结果核对。用户已给出精确文件/模块，或任务很小直接读文件更快时，不必使用。语言服务不可用时退回文本搜索 + 读文件 + 现有工程 skills。
 - `node_repl`: Node 持久 REPL，辅助浏览器/脚本自动化（Codex 的由 ChatGPT.app 自动注入，无需手动配置）。

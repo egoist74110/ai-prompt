@@ -27,9 +27,13 @@ for d in "$CENTRAL"/*/; do
 done
 
 # 中央已删除的 skill：悬空 symlink 清理
-for l in "$TARGET"/*/; do
-  [ -L "${l%/}" ] || continue
-  [ -e "$l" ] || { echo "removed dangling: $(basename "$l")"; rm "${l%/}"; }
+# 注意：这里必须用 "$TARGET"/* 而不是 "$TARGET"/*/ ——带斜杠的 glob 要求路径能解析成目录，
+# 悬空 symlink 解析失败因此永远匹配不到（实测），旧写法是死代码。
+shopt -s nullglob 2>/dev/null || true
+for l in "$TARGET"/*; do
+  [ -L "$l" ] || continue        # 只动 symlink，真实目录（如 codex 自管的内容）不碰
+  [ -e "$l" ] && continue        # 能解析 = 没悬空
+  echo "removed dangling: $(basename "$l")"; rm "$l"; changed=1
 done
 
 [ "$changed" = "1" ] && echo "sync-codex-skills: 完成" || echo "sync-codex-skills: 已是最新"

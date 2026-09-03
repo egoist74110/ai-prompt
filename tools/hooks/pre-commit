@@ -1,0 +1,27 @@
+#!/bin/bash
+# 中央提示词仓库 pre-commit（正典在 tools/hooks/pre-commit，用 tools/install-hooks.sh 装到 .git/hooks/）
+# 1) 重新生成 capabilities/skills.md 的 Auto 登记表 + 跑索引一致性校验（不通过则拦下提交）
+# 2) 同步 ~/.codex/skills 的 symlink（新增/删除 skill 自动对 codex 生效）
+set -uo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+
+python3 "$ROOT/tools/gen-index.py" || {
+  echo "pre-commit: 索引生成/校验失败，提交已中止。修好上面的问题，或用 --no-verify 明确绕过（不推荐）。" >&2
+  exit 1
+}
+
+# 同步失败不拦提交，但必须可见——静默吞掉会让 Skill Contract 的"任何运行时都用得上最新版"变成空头承诺
+if ! sync_out=$(bash "$ROOT/tools/sync-codex-skills.sh" 2>&1); then
+  echo "pre-commit: ⚠️  codex skills 同步失败，~/.codex/skills 可能已过期：" >&2
+  echo "$sync_out" | sed 's/^/    /' >&2
+  echo "    提交继续，但请手动跑 tools/sync-codex-skills.sh 修好。" >&2
+elif ! grep -q "已是最新" <<<"$sync_out"; then
+  echo "$sync_out" | sed 's/^/pre-commit: /'
+fi
+
+# 索引有变化就带上本次提交
+if ! git diff --quiet -- capabilities/skills.md 2>/dev/null; then
+  git add capabilities/skills.md
+  echo "pre-commit: capabilities/skills.md 已自动更新并纳入本次提交"
+fi
+exit 0

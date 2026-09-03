@@ -26,7 +26,7 @@ description: 与自建 Azure DevOps Server（azuredevops.cg1alias.com，非 dev.
 
 ## 认证：从本机钥匙串取 PAT（不要在别处翻找）
 
-PAT 由 `my-own-script` 项目统一管理，存在 macOS 系统钥匙串里，规则见记忆 [[ado-pat-keychain-storage]]：
+PAT 由 `my-own-script` 项目统一管理，存在 macOS 系统钥匙串里，规则如下（自包含，不依赖任何运行时的记忆系统）：
 
 - keyring service 固定 `my-own-script`。
 - account 名是 `azuredevops_pat:{library.id}`，**library.id 是 uuid 形式的 id（如 `lib:1a4fdcde-...`），不是显示名（如 `cg1alias`）**。

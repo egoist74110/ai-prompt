@@ -15,7 +15,7 @@
 
 ## Capability Loading
 
-- 不要全量读取 `/Users/wesker/.ai-prompt/skills`、`/Users/wesker/.ai-prompt/mcp`、`<runtime-skills>` 或所有外部 `SKILL.md`。
+- 不要全量读取 `/Users/wesker/.ai-prompt/skills`、`<runtime-skills>` 或所有外部 `SKILL.md`。
 - 只有用户点名能力，或任务明显匹配索引里的 description / Use for，才读取对应文件。
 - 需要安装、启用或新增 MCP / plugin / connector 前，必须先说明原因、命令/配置和影响范围，得到用户确认后再执行。
 
@@ -27,7 +27,11 @@
 2. **新增必须同步**：可以先在自己运行时私有 skills 目录（如 `~/.claude/skills/`、`~/.codex/skills/`）创建，但同一步内必须把完整目录同步到 `/Users/wesker/.ai-prompt/skills/<name>/`，并更新 `capabilities/skills.md`（跑 `tools/gen-index.py` 重新生成索引段，或手工补条目）。没同步完不算完成。
 3. **更新改正典**：中央已有同名 skill → 直接改中央文件，不要在私有目录分叉；已有旧私有副本 → 更新中央后删掉私有副本。
 4. **索引不许过期**：任何新增/删除/改名 skill 都必须伴随 `capabilities/skills.md` 变更；中央仓库（git）里改完记得 commit。
-5. 若你的运行时私有 skills 目录已 symlink 到中央库（本机 Claude/Codex 默认如此），"写私有目录"物理上就是"写中央库"，第 2 条自动满足，只需更新索引。
+5. **symlink 布局不同，同步义务也不同**（本机现状，别一概而论）：
+   - **Claude**：`~/.claude/skills` 是**整目录** symlink → 中央库。在里面新建目录物理上就是写中央库，第 2 条自动满足，只需更新索引 + commit。
+   - **Codex**：`~/.codex/skills/` 下是**逐个 skill 的 symlink**（`.system` 由 codex 自管，不进中央）。在这个目录里直接 `mkdir` 出来的是**真实目录，中央完全无感知**——必须把目录移进 `/Users/wesker/.ai-prompt/skills/<name>/`，再跑 `tools/sync-codex-skills.sh` 建链接。中央 commit 时 pre-commit 会自动跑一次同步。
+   - **其它运行时**（agy / DSH 等）：没有 symlink，一律按第 2 条手工同步。
+6. **只信实测，不信推断**：不确定当前运行时是哪种布局时，先 `ls -la <runtime-skills>` 看一眼是 symlink 还是真实目录，再决定要不要手工同步。跑 `tools/doctor.sh` 可一次性体检四个入口、两组 symlink 和索引一致性。
 
 ## Native Entrypoints
 
