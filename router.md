@@ -10,6 +10,7 @@
 4. 需要 skill/MCP 时，只先读索引：
    - `/Users/wesker/.ai-prompt/capabilities/skills.md`
    - `/Users/wesker/.ai-prompt/capabilities/mcp.md`
+   - 交付前做交叉审查时读 `/Users/wesker/.ai-prompt/capabilities/cross-review.md`（触发条件见 `models/high.md` 的 Cross-Review Gate）
 5. 需要网页搜索 / 获取外部信息时，先读 `/Users/wesker/.ai-prompt/capabilities/search.md`（搜索纪律 + 五路策略），不要自创搜索路径。
 
 ## Capability Loading
