@@ -10,8 +10,12 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT" || exit 1
 
+# 优先 python3，Windows 常只有 python（无 python3 别名）时退回它。
+PY=python3
+command -v python3 >/dev/null 2>&1 || PY=python
+
 # --- 1. 索引 ---
-python3 "$ROOT/tools/gen-index.py" || {
+"$PY" "$ROOT/tools/gen-index.py" || {
   echo "pre-commit: 索引生成/校验失败，提交已中止。修好上面的问题再提交。" >&2
   exit 1
 }

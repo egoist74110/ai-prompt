@@ -10,11 +10,21 @@ ok()   { printf "  \033[32m✓\033[0m %s\n" "$1"; }
 bad()  { printf "  \033[31m✗\033[0m %s\n" "$1"; fail=1; }
 warn() { printf "  \033[33m!\033[0m %s\n" "$1"; }
 
+# 优先 python3，Windows 常只有 python（无 python3 别名）时退回它。
+PY=python3
+command -v python3 >/dev/null 2>&1 || PY=python
+
 echo "== 1. 运行时入口（应为指向 router.md 的薄指针） =="
+# installer.py 用 os.path 写原生路径：Windows 上是反斜杠（C:\Users\...\router.md），
+# 功能上没问题（运行时读得懂），但会被下面的 grep 按正斜杠匹配漏掉——两种写法都认。
+router_posix="$ROOT/router.md"
+router_win=""
+command -v cygpath >/dev/null 2>&1 && router_win="$(cygpath -w "$router_posix" 2>/dev/null)"
 for f in "$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md" "$HOME/.gemini/GEMINI.md" "$HOME/.dsh/AGENTS.md"; do
   if [ ! -f "$f" ]; then bad "$f 不存在"
-  elif grep -q "$ROOT/router.md" "$f"; then ok "$f → router.md"
-  else bad "$f 存在但没指向 $ROOT/router.md"; fi
+  elif grep -qF "$router_posix" "$f" || { [ -n "$router_win" ] && grep -qF "$router_win" "$f"; }; then
+    ok "$f → router.md"
+  else bad "$f 存在但没指向 $router_posix"; fi
 done
 
 echo "== 2. router 引用的文件都在 =="
@@ -24,7 +34,11 @@ for f in common.md models/high.md models/scout.md \
 done
 
 echo "== 3. skills symlink 部署 =="
-if [ -L "$HOME/.claude/skills" ] && [ "$(readlink "$HOME/.claude/skills")" = "$ROOT/skills" ]; then
+# Windows 上 NTFS junction 对 MSYS 的 -L / readlink 而言就是 symlink，判断逻辑不用分叉；
+# 只是 junction 目标可能带斜杠尾巴（视创建方式而定），两种都认。
+claude_link_target="$(readlink "$HOME/.claude/skills" 2>/dev/null)"
+if [ -L "$HOME/.claude/skills" ] \
+   && { [ "$claude_link_target" = "$ROOT/skills" ] || [ "$claude_link_target" = "$ROOT/skills/" ]; }; then
   ok "~/.claude/skills 整目录 symlink → 中央"
 else
   bad "~/.claude/skills 不是指向 $ROOT/skills 的 symlink（Claude 会看不到中央 skill）"
@@ -50,7 +64,7 @@ else
 fi
 
 echo "== 4. 索引一致性（--check：只比对，不写文件） =="
-if out=$(cd "$ROOT" && python3 tools/gen-index.py --check 2>&1); then
+if out=$(cd "$ROOT" && "$PY" tools/gen-index.py --check 2>&1); then
   ok "$(echo "$out" | head -1)"
 else
   bad "索引校验未通过："; echo "$out" | sed 's/^/      /'

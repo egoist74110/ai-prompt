@@ -67,7 +67,7 @@ def _handwritten_head(text):
 
 
 def collect_registered_names(head):
-    """返回 [(name, 行号)]，两条互补路径都收：
+    r"""返回 [(name, 行号)]，两条互补路径都收：
 
     1. 顶层 `- \`name\`` 条目（宽松匹配，允许后面跟说明）。
     2. 从每个缩进的 "- Path:" 行往回找最近的顶层 "- " 条目，取其第一个反引号名。
