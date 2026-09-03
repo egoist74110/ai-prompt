@@ -71,14 +71,21 @@ else
 fi
 
 echo "== 5. pre-commit hook =="
-HOOKDIR="$(cd "$ROOT" && git rev-parse --git-path hooks 2>/dev/null)"
-case "$HOOKDIR" in /*) ;; *) HOOKDIR="$ROOT/$HOOKDIR" ;; esac
-if [ -x "$HOOKDIR/pre-commit" ]; then
-  cmp -s "$ROOT/tools/hooks/pre-commit" "$HOOKDIR/pre-commit" \
-    && ok "hook 已装且与 tools/hooks/pre-commit 一致" \
-    || warn "hook 已装但与仓库里的正典不一致 → 跑 tools/install-hooks.sh"
+if [ ! -d "$ROOT/.git" ]; then
+  # 镜像模式（apply_to_global 的非 git-checkout 分支，Windows 等非日常编辑机常见）：
+  # ~/.ai-prompt 本来就不是 git 工作副本，装不了也不需要 hook；真正的编辑闭环
+  # 发生在中央仓库自己的 clone 里，跟这台机器无关。
+  warn "$ROOT 不是 git 工作副本（镜像模式部署），跳过 pre-commit 检查"
 else
-  bad "pre-commit hook 未安装 → 跑 tools/install-hooks.sh（否则索引/同步闭环失效）"
+  HOOKDIR="$(cd "$ROOT" && git rev-parse --git-path hooks 2>/dev/null)"
+  case "$HOOKDIR" in /*) ;; *) HOOKDIR="$ROOT/$HOOKDIR" ;; esac
+  if [ -x "$HOOKDIR/pre-commit" ]; then
+    cmp -s "$ROOT/tools/hooks/pre-commit" "$HOOKDIR/pre-commit" \
+      && ok "hook 已装且与 tools/hooks/pre-commit 一致" \
+      || warn "hook 已装但与仓库里的正典不一致 → 跑 tools/install-hooks.sh"
+  else
+    bad "pre-commit hook 未安装 → 跑 tools/install-hooks.sh（否则索引/同步闭环失效）"
+  fi
 fi
 
 echo "== 6. search.md 声明的后端 =="
