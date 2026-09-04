@@ -45,14 +45,16 @@ def _merge_missing(target: dict[str, Any], defaults: dict[str, Any]) -> bool:
 def seed_templates(runtime: dict[str, Any], force: bool = False) -> bool:
     """Seed/migrate starter specs without overwriting local edits.
 
-    On the first seed, pre-registry entries from older schema versions receive only the missing
-    declarative fields from matching starter templates. Entries explicitly marked source=user are
-    never template-merged. force=True allows newly added starter entries/fields to be merged later.
+    Older local schemas receive only missing declarative fields from matching templates. Entries
+    explicitly marked source=user are never template-merged. A newer template schema version also
+    triggers this non-destructive merge automatically.
     """
     catalog = load_template_catalog()
+    catalog_version = int(catalog.get("version", 1) or 1)
     meta = runtime.setdefault("runtime_registry", {})
     already_seeded = bool(meta.get("templates_seeded"))
-    if already_seeded and not force:
+    seeded_version = int(meta.get("template_version", 0) or 0)
+    if already_seeded and seeded_version >= catalog_version and not force:
         return False
 
     changed = False
@@ -69,7 +71,6 @@ def seed_templates(runtime: dict[str, Any], force: bool = False) -> bool:
         existing = entries[name]
         if not isinstance(existing, dict):
             continue
-        # Old discovered entries had no source marker. Treat them as template-derived for migration.
         if existing.get("source") == "user":
             continue
         changed |= _merge_missing(existing, spec)
@@ -92,7 +93,7 @@ def seed_templates(runtime: dict[str, Any], force: bool = False) -> bool:
 
     new_meta = {
         "templates_seeded": True,
-        "template_version": catalog.get("version", 1),
+        "template_version": catalog_version,
         "template_source": "config/runtime-templates.json",
     }
     if any(meta.get(k) != v for k, v in new_meta.items()):
