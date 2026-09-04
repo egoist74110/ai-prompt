@@ -23,6 +23,8 @@ def main() -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("init")
     sub.add_parser("migrate")
+    detect = sub.add_parser("detect")
+    detect.add_argument("--refresh", action="store_true")
 
     show = sub.add_parser("show")
     show.add_argument("kind", choices=FILES)
@@ -45,11 +47,18 @@ def main() -> int:
 
     if args.cmd == "init":
         migrate_local_files()
+        from bootstrap import discover
+        discover(refresh=False)
         print(str(LOCAL))
         return 0
     if args.cmd == "migrate":
         migrate_local_files()
         print("local schema migrated")
+        return 0
+    if args.cmd == "detect":
+        from bootstrap import discover
+        discover(refresh=args.refresh)
+        print("machine facts refreshed" if args.refresh else "machine facts discovered")
         return 0
 
     data = read_kind(args.kind)
