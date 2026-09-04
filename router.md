@@ -43,17 +43,17 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
 
 详细规范见 `config/README.md`。
 
-## Local Search Contract
+## Local Search Contract（搜索唯一入口）
 
-`capabilities/search.md` 是**本地 / 自托管模型专用能力文件**，不是所有模型的公共搜索提示词。
+任何搜索/外部信息调用前，先判断**自己是不是本地模型**（全部免费，哪层有答案就停）：
 
-- 当前 API/provider 是 cloud，且平台自身提供搜索能力 → **直接用平台搜索，不读取 `capabilities/search.md`**。
-- 当前 API/provider 是 `local` / `self-hosted`，或明确没有原生联网能力 → 才读取 `capabilities/search.md`，使用用户本机配置的搜索后端。
-- hosting 不确定 → 做一次最小 discovery，缓存到 `.local/runtime.json.search.contexts`；判定为 cloud 后立即停止，不再加载本地搜索 Prompt。
-- 本地模型看到 runtime 暴露的云端 `web_search` / browser 不代表可用；是否可用以本地 search context + backend 配置 + state 为准。
-- 本地搜索后端的 blocked/cooldown/degraded 状态由 `.local/state.json` 持久化；跑通过的 locator、roles、priority 写 `.local/runtime.json`。
+1. 读 `.local/runtime.json.search.contexts`：有已验证的 `hosting` → 以它为准。
+2. 缓存缺失/失效：只读本地来源（环境变量、运行时配置、进程环境），按 endpoint 判定——局域网/私有 IP = self-hosted，云厂商域名 + API key = cloud。
+3. 仍判不出：直接问用户。**禁止猜**——工具列表里出现 search 工具、或"我觉得我是 cloud"的直觉都不算依据；判不出来就不准发起任何外部搜索调用。
+4. 判出立即回写 `search.contexts`，后续会话不重复 discovery。
 
-这样云端模型完全不需要为本地搜索策略浪费上下文 token。
+- 判为**本地 / self-hosted** → 读 `capabilities/search.md`，按其规则执行。
+- 判为**cloud** → 直接忽略 `capabilities/search.md` 及一切本地搜索规则，用平台自带搜索。
 
 ## Regression / Cleanup Contract
 
@@ -77,10 +77,7 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
    - `capabilities/skills.md`
    - `capabilities/mcp.md`
    - 交付前做交叉审查时读 `capabilities/cross-review.md`（触发条件见 `models/high.md`）
-5. 需要网页搜索/外部信息时：
-   - cloud + 平台自带搜索 → 直接搜索，**不要读 `capabilities/search.md`**；
-   - local/self-hosted → 读 `capabilities/search.md`；
-   - unknown → 先判 hosting，只有判为 local/self-hosted 才读。
+5. 需要网页搜索/外部信息时：先按 Local Search Contract 自判——判为本地 → 读 `capabilities/search.md`；判为 cloud → 忽略该文件，直接用平台搜索。
 6. 实现任务产生文件/进程/端口/配置副作用时，**最终交付前读 `capabilities/cleanup.md`**；纯只读问答不需要加载。
 
 ## Capability Loading

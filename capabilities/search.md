@@ -8,13 +8,15 @@
 
 ## 0. 入口判定
 
-只有满足以下任一条件才继续：
+判定方法固定为 `router.md` Local Search Contract 的 **Step 0 自判**：先查 `search.contexts` 缓存 → 缓存缺失才做最小 discovery（只读本地来源，按 endpoint 判：局域网/私有 IP = self-hosted，云厂商域名 + API key = cloud）→ 仍判不出就**问用户，禁止猜**。判出后结果回写 `search.contexts`。
+
+只有判定结果满足以下任一条件才继续：
 
 - 当前 provider/model 已确认 `hosting=local` 或 `hosting=self-hosted`；
 - endpoint 已确认是本机/自托管服务；
 - `.local/runtime.json.search.contexts.<id>.lane=local-managed`。
 
-hosting 未知时只做一次最小 discovery，确认后缓存。判定为 cloud 就停止读本文件。
+判定为 cloud 就停止读本文件，用平台搜索；判不出来就回去完成 Step 0，不要猜。
 
 **本地模型看到 runtime 暴露了 `web_search` / browser / provider-native search，不代表该工具可用，也不代表它属于本地搜索路径。**
 
@@ -29,6 +31,8 @@ hosting 未知时只做一次最小 discovery，确认后缓存。判定为 clou
 5. 优先当前 context 的 `preferred_backends`。
 6. 只有缓存缺失/失效才 discovery；跑通后立即缓存。
 
+状态持久化：后端 blocked/cooldown/degraded 写 `.local/state.json.search.backends`；验证过的 locator、roles、priority 写 `.local/runtime.json.search.backends`。
+
 可用：
 
 ```text
@@ -41,6 +45,17 @@ python tools/search_state.py plan --context <context-id> --role fetch
 ```
 
 backend 没声明 `roles` 时可作为 generic fallback，避免旧配置失效。
+
+## 1.5 成本阶梯（外部调用花的是用户的钱，最便宜优先）
+
+选任何后端之前先过这个阶梯，逐级升级：
+
+1. **L0 直答**：已有知识 + 已抓取上下文能回答 → 不做任何外部调用。
+2. **L1 免费直取**：目标是结构化数据（天气/价格/版本/release/汇率等）或已知 URL → 直接 curl / web_fetch / 免费公开 API，不走任何搜索后端。
+3. **L2 免费搜索**：确实需要搜索 → 免费 local-managed 后端（按本机配置优先级），一次只查一个事实。
+4. **L3 付费最后手段**：付费后端仅当免费层**已试过**且结果空/垃圾/过时，且事实对用户重要。小问题默认不升级付费；确要用时先一句话说明免费层为什么失败。
+
+同一小问题不重复付费调用。免费层失败又用不了付费层时，用已有信息回答并说明不确定，不硬搜。
 
 ## 2. 按任务类型选后端
 
@@ -67,7 +82,7 @@ gh search code "query"
 
 ### 技术 / 版本 / 日期 / 价格 / 强时效
 
-优先或第二轮切 `accurate` 后端。Tavily 类属于这一类；若本机策略已把它设为 preferred，可以直接用，不必为了省一次请求先跑明显较差的聚合器。
+优先或第二轮切 `accurate` 后端。Tavily 类属于这一类；**但"强时效"不等于可以直接用付费后端**——按 §1.5 成本阶梯，它仍是最后手段：先跑一轮免费后端，结果空/垃圾/过时再升级；本机配置把它标为 preferred 也不例外。
 
 ### `site:` / 精确短语 / freshness
 
@@ -241,6 +256,8 @@ MCP 或包装层挂了：
 
 ```text
 本地模型需要外部信息
+↓
+成本阶梯（§1.5）：能直答就直答；能免费直取就直取
 ↓
 读 context + backend cache + circuit breaker
 ↓
