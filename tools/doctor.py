@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -47,7 +48,19 @@ def norm(value: str | Path) -> str:
 
 def is_junction(path: Path) -> bool:
     fn = getattr(path, "is_junction", None)
-    return bool(fn and fn())
+    if fn is not None:
+        try:
+            return bool(fn())
+        except OSError:
+            return False
+    if os.name != "nt":
+        return False
+    try:
+        attrs = path.lstat().st_file_attributes
+        reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+        return bool(attrs & reparse) and path.is_dir() and not path.is_symlink()
+    except (AttributeError, OSError):
+        return False
 
 
 def is_linkish(path: Path) -> bool:
@@ -56,7 +69,7 @@ def is_linkish(path: Path) -> bool:
 
 def points_to(path: Path, target: Path) -> bool:
     try:
-        if path.is_symlink() or is_junction(path):
+        if is_linkish(path):
             return norm(path.resolve()) == norm(target.resolve())
     except OSError:
         pass
