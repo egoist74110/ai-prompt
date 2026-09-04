@@ -50,7 +50,29 @@ python tools/runtime_state.py runtime add <runtime-id> \
 - 高级模型处理完整问题时，再读 `models/high.md`。
 - 被要求做侦查、上下文收集、机械执行时，只读 `models/scout.md`，不要再读 `models/high.md`。
 - 需要工具能力时，只读 `capabilities/skills.md`、`capabilities/mcp.md`。
-- 需要网页搜索/外部信息时读 `capabilities/search.md`；交付前做交叉审查时读 `capabilities/cross-review.md`。
+- 网页搜索按当前 API/provider 分流：
+  - cloud + 平台自带搜索 → 直接使用平台搜索，**不读取 `capabilities/search.md`**；
+  - local/self-hosted → 才读取 `capabilities/search.md`，使用本机已配置搜索后端。
+- 交付前做交叉审查时读 `capabilities/cross-review.md`。
+
+## Local Search
+
+`capabilities/search.md` 是本地/自托管模型专用的联网策略，不是云端模型的公共搜索 Prompt。
+
+核心流程：
+
+```text
+本地模型需要外部信息
+→ 读本地 search context/backend/state
+→ 按任务 role 选 repo/general/accurate/precise/fetch 后端
+→ 第一轮搜索
+→ 检查实体对齐、来源质量、时效性、SEO/退化信号
+→ 结果弱：自动改写查询 + 切第二后端
+→ 确定性失败 blocked；临时失败 cooldown；弱质量 degraded
+→ 跑通过的本机 locator/roles/priority 以后直接复用
+```
+
+云端模型不需要为这套本地搜索策略占用上下文 token。
 
 ## Rule
 
@@ -79,6 +101,7 @@ macOS/Linux 只有 `python3` 时使用 `python3`；Windows 可直接使用原生
 - `tools/runtime_state.py` — 初始化、迁移、runtime 注册、读取和更新机器本地 runtime/state。
 - `tools/runtime_registry.py` — 数据驱动 runtime registry 核心。
 - `tools/bootstrap.py` — 遍历 registry 做本机 discovery。
+- `tools/search_state.py` — 本地搜索 context、backend role 计划、熔断状态管理。
 - `tools/doctor.py` — 跨平台只读体检；`tools/doctor.sh` 只是 Bash 兼容入口。
 - `tools/sync_skills.py --runtime <runtime-id>` — 同步指定 registry runtime。
 - `tools/sync_skills.py --all --auto-only` — 同步所有声明自动同步的 registry runtime。
