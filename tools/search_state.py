@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Persistent search lane + backend circuit-breaker state.
+"""Persistent search backend policy/circuit-breaker state.
 
+The main consumer is the local/self-hosted search policy in capabilities/search.md.
 Configuration lives in .local/runtime.json; health/failure state lives in .local/state.json.
-Search lanes are mutually exclusive by default:
-- cloud-native: platform/provider-native search
-- local-managed: user-managed CLI/MCP/API search backends
 No secret values are stored here.
 """
 from __future__ import annotations
@@ -56,6 +54,29 @@ def infer_backend_lane(cfg: dict[str, Any]) -> str:
     if kind in {"native", "runtime-native", "session-native"}:
         return "cloud-native"
     return "local-managed"
+
+
+def backend_roles(cfg: dict[str, Any]) -> list[str]:
+    raw = cfg.get("roles", [])
+    if not isinstance(raw, list):
+        return []
+    return [str(x) for x in raw if isinstance(x, str)]
+
+
+def role_rank(roles: list[str], requested_role: str | None) -> int | None:
+    """Return lower-is-better rank; None means backend is not eligible for the requested role.
+
+    Old backend configs with no roles remain generic fallbacks for backward compatibility.
+    """
+    if not requested_role:
+        return 0
+    if requested_role in roles:
+        return 0
+    if not roles:
+        return 1
+    if "fallback" in roles:
+        return 2
+    return None
 
 
 def backend_state(state: dict[str, Any], backend: str) -> dict[str, Any]:
@@ -187,7 +208,10 @@ def is_blocked(entry: dict[str, Any]) -> tuple[bool, str | None]:
 
 
 def planned_backends(
-    runtime: dict[str, Any], state: dict[str, Any], context_id: str
+    runtime: dict[str, Any],
+    state: dict[str, Any],
+    context_id: str,
+    requested_role: str | None = None,
 ) -> list[dict[str, Any]]:
     search_cfg = runtime.get("search", {})
     configured = search_cfg.get("backends", {}) if isinstance(search_cfg, dict) else {}
@@ -199,7 +223,6 @@ def planned_backends(
     hosting = str(context.get("hosting", "unknown"))
     lane = context.get("lane") or derive_lane(hosting)
     if lane not in LANES:
-        # Unknown hosting is not a third search lane. Resolve/cache context first.
         return []
 
     allow_cross = bool(context.get("allow_cross_lane_fallback", False))
@@ -222,6 +245,11 @@ def planned_backends(
         if not lane_match and not allow_cross:
             continue
 
+        roles = backend_roles(cfg)
+        current_role_rank = role_rank(roles, requested_role)
+        if current_role_rank is None:
+            continue
+
         priority = int(cfg.get("priority", 0) or 0)
         degraded = isinstance(health, dict) and health.get("status") == "degraded"
         rows.append(
@@ -230,6 +258,9 @@ def planned_backends(
                 "lane": backend_lane,
                 "context_lane": lane,
                 "cross_lane": not lane_match,
+                "roles": roles,
+                "requested_role": requested_role,
+                "role_rank": current_role_rank,
                 "kind": cfg.get("kind"),
                 "priority": priority,
                 "preferred": name in preferred_rank,
@@ -242,6 +273,7 @@ def planned_backends(
     rows.sort(
         key=lambda row: (
             1 if row["cross_lane"] else 0,
+            row["role_rank"],
             0 if row["preferred"] else 1,
             preferred_rank.get(row["backend"], 10**6),
             1 if row["degraded"] else 0,
@@ -263,8 +295,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    plan = sub.add_parser("plan", help="list eligible backends for one already-resolved search lane")
+    plan = sub.add_parser("plan", help="list eligible backends for one resolved search context")
     plan.add_argument("--context", required=True)
+    plan.add_argument("--role", help="optional task role: repo/general/accurate/precise/fetch/code/research/... ")
 
     success = sub.add_parser("success")
     success.add_argument("backend")
@@ -307,7 +340,7 @@ def main() -> int:
         contexts = search_cfg.get("contexts", {}) if isinstance(search_cfg, dict) else {}
         if args.context not in contexts:
             parser.error(f"search context is not registered: {args.context}")
-        rows = planned_backends(runtime, state, args.context)
+        rows = planned_backends(runtime, state, args.context, requested_role=args.role)
         context_data = contexts.get(args.context, {})
         hosting = context_data.get("hosting") if isinstance(context_data, dict) else None
         lane = context_data.get("lane") if isinstance(context_data, dict) else None
