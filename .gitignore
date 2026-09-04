@@ -1,5 +1,6 @@
 .env
 runtime.conf
+.local/
 .DS_Store
 __pycache__/
 *.pyc
