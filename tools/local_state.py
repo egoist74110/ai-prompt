@@ -44,6 +44,7 @@ def default_runtime() -> dict[str, Any]:
         "credentials": {},
         "services": {},
         "runtimes": {},
+        "skills": {},
         "search": {"backends": {}},
     }
 
