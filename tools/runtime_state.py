@@ -28,6 +28,10 @@ def _json_list(value: str, parser: argparse.ArgumentParser, label: str) -> list[
     return parsed
 
 
+def _optional_json_list(value: str | None, parser: argparse.ArgumentParser, label: str) -> list[str] | None:
+    return None if value is None else _json_list(value, parser, label)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -60,15 +64,20 @@ def main() -> int:
     seed = runtime_sub.add_parser("seed", help="merge missing starter templates without overwriting local entries")
     seed.add_argument("--refresh-templates", action="store_true")
 
-    add = runtime_sub.add_parser("add", help="add/update any runtime, e.g. qwen-code or a private CLI")
+    add = runtime_sub.add_parser("add", help="add or patch any local AI runtime")
     add.add_argument("name")
     add.add_argument("--display-name")
-    add.add_argument("--commands-json", default="[]", help='JSON array, e.g. ["qwen","qwen-code"]')
-    add.add_argument("--entries-json", default="[]", help="JSON array of possible entry files")
-    add.add_argument("--skills-json", default="[]", help="JSON array of possible skills directories")
-    add.add_argument("--capabilities-json", default='["agent"]', help="JSON array such as [\"agent\",\"review\",\"skills\"]")
+    add.add_argument("--commands-json", help='JSON array, e.g. ["my-cli","alternate-cli"]')
+    add.add_argument("--entries-json", help="JSON array of possible entry files")
+    add.add_argument("--skills-json", help="JSON array of possible skills directories")
+    add.add_argument("--capabilities-json", help='JSON array such as ["agent","review","skills"]')
     add.add_argument("--skills-sync-mode", choices=["per-skill-link", "central-dir-link", "none"])
-    add.add_argument("--auto-sync-skills", action="store_true")
+    add.add_argument(
+        "--auto-sync-skills",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="enable/disable automatic skill sync for this runtime",
+    )
     add.add_argument("--review-args-json", help="JSON array prepended before the review prompt")
     add.add_argument("--review-priority", type=int)
     add.add_argument("--no-detect", action="store_true")
@@ -130,20 +139,17 @@ def main() -> int:
             print("runtime templates merged" if changed else "runtime templates already seeded")
             return 0
         if args.runtime_cmd == "add":
-            review_args = None
-            if args.review_args_json is not None:
-                review_args = _json_list(args.review_args_json, parser, "--review-args-json")
             register_runtime(
                 runtime,
                 args.name,
                 display_name=args.display_name,
-                command_candidates=_json_list(args.commands_json, parser, "--commands-json"),
-                entry_candidates=_json_list(args.entries_json, parser, "--entries-json"),
-                skills_candidates=_json_list(args.skills_json, parser, "--skills-json"),
-                capabilities=_json_list(args.capabilities_json, parser, "--capabilities-json"),
+                command_candidates=_optional_json_list(args.commands_json, parser, "--commands-json"),
+                entry_candidates=_optional_json_list(args.entries_json, parser, "--entries-json"),
+                skills_candidates=_optional_json_list(args.skills_json, parser, "--skills-json"),
+                capabilities=_optional_json_list(args.capabilities_json, parser, "--capabilities-json"),
                 skills_sync_mode=args.skills_sync_mode,
                 auto_sync_skills=args.auto_sync_skills,
-                review_args=review_args,
+                review_args=_optional_json_list(args.review_args_json, parser, "--review-args-json"),
                 review_priority=args.review_priority,
             )
             write_kind("runtime", runtime)
