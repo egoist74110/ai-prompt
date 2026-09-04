@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-"""Reject machine-specific absolute identities from central tracked text.
-
-This is intentionally narrower than a generic path linter: generic `$HOME`, `<skill_dir>`, localhost,
-service URLs and explicit legacy-discovery code are allowed. What is forbidden is baking a concrete
-user/home/WSL identity into portable central rules.
-"""
+"""Reject machine identities and runtime-name hardcoding from portable core code."""
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -30,6 +26,17 @@ FORBIDDEN_LITERALS = {
     "C:\\Users\\wesker\\": "old Windows-user path",
 }
 
+# These consumers must remain completely data-driven. Runtime ids may exist in starter template data,
+# but must never return as string constants in runtime orchestration code.
+RUNTIME_CONSUMERS = [
+    ROOT / "tools" / "bootstrap.py",
+    ROOT / "tools" / "doctor.py",
+    ROOT / "tools" / "sync_skills.py",
+    ROOT / "tools" / "runtime_state.py",
+    ROOT / "tools" / "runtime_registry.py",
+]
+RUNTIME_TEMPLATE = ROOT / "config" / "runtime-templates.json"
+
 
 def iter_files():
     for path in ROOT.rglob("*"):
@@ -42,8 +49,32 @@ def iter_files():
         yield path
 
 
+def starter_runtime_ids() -> list[str]:
+    try:
+        data = json.loads(RUNTIME_TEMPLATE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    runtimes = data.get("runtimes", {}) if isinstance(data, dict) else {}
+    return sorted(runtimes) if isinstance(runtimes, dict) else []
+
+
+def check_runtime_name_hardcoding(problems: list[tuple[Path, int, str, str]]) -> None:
+    runtime_ids = starter_runtime_ids()
+    for path in RUNTIME_CONSUMERS:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        rel = path.relative_to(ROOT)
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for runtime_id in runtime_ids:
+                # Match a runtime id used as a Python/shell string literal. Incidental prose substrings do not count.
+                pattern = re.compile(rf"(['\"]){re.escape(runtime_id)}\1", re.I)
+                if pattern.search(line):
+                    problems.append((rel, lineno, "hardcoded starter runtime id in core consumer", runtime_id))
+
+
 def main() -> int:
-    problems = []
+    problems: list[tuple[Path, int, str, str]] = []
     for path in iter_files():
         try:
             text = path.read_text(encoding="utf-8")
@@ -59,17 +90,19 @@ def main() -> int:
                 if literal in line:
                     problems.append((rel, lineno, label, literal))
 
+    check_runtime_name_hardcoding(problems)
+
     if problems:
         print("portability check failed:", file=sys.stderr)
         for rel, lineno, label, value in problems:
             print(f"  {rel}:{lineno}: {label}: {value}", file=sys.stderr)
         print(
-            "把机器事实移到 .local/runtime.json/.local/state.json；中央只保留变量、相对路径或 discovery 规则。",
+            "机器事实放 .local；runtime 名字只允许作为 registry/template 数据，不得写回核心消费者分支。",
             file=sys.stderr,
         )
         return 1
 
-    print("portability check: no concrete machine identity paths")
+    print("portability check: machine identities and runtime consumers are data-driven")
     return 0
 
 
