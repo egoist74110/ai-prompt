@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "support_commands": [
+    "git",
+    "node",
+    "npm",
+    "npx",
+    "python",
+    "python3",
+    "bash",
+    "pwsh",
+    "powershell",
+    "gh",
+    "az",
+    "mc",
+    "curl",
+    "ffmpeg",
+    "yt-dlp",
+    "nvidia-smi"
+  ],
+  "runtimes": {
+    "claude": {
+      "display_name": "Claude Code",
+      "command_candidates": ["claude"],
+      "entry_candidates": ["~/.claude/CLAUDE.md"],
+      "skills_candidates": ["~/.claude/skills"],
+      "capabilities": ["agent", "review", "skills"],
+      "skills_sync_mode": "central-dir-link",
+      "auto_sync_skills": false,
+      "review": {
+        "args": ["-p"],
+        "priority": 100
+      }
+    },
+    "codex": {
+      "display_name": "Codex",
+      "command_candidates": ["codex"],
+      "entry_candidates": ["~/.codex/AGENTS.md"],
+      "skills_candidates": ["~/.codex/skills"],
+      "capabilities": ["agent", "review", "skills"],
+      "skills_sync_mode": "per-skill-link",
+      "auto_sync_skills": true,
+      "review": {
+        "args": ["exec"],
+        "priority": 90
+      }
+    },
+    "gemini": {
+      "display_name": "Gemini CLI",
+      "command_candidates": ["gemini"],
+      "entry_candidates": ["~/.gemini/GEMINI.md"],
+      "skills_candidates": ["~/.gemini/skills"],
+      "capabilities": ["agent", "skills"],
+      "skills_sync_mode": "per-skill-link",
+      "auto_sync_skills": false
+    },
+    "dsh": {
+      "display_name": "DSH",
+      "command_candidates": ["dsh"],
+      "entry_candidates": ["~/.dsh/AGENTS.md"],
+      "skills_candidates": ["~/.dsh/skills"],
+      "capabilities": ["agent"],
+      "auto_sync_skills": false
+    },
+    "agy": {
+      "display_name": "Antigravity CLI",
+      "command_candidates": ["agy"],
+      "entry_candidates": [],
+      "skills_candidates": [],
+      "capabilities": ["agent", "review"],
+      "auto_sync_skills": false,
+      "review": {
+        "args": ["-p"],
+        "priority": 80
+      }
+    }
+  }
+}
