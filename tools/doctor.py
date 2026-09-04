@@ -183,6 +183,7 @@ def main() -> int:
         "capabilities/mcp.md",
         "capabilities/search.md",
         "capabilities/cross-review.md",
+        "capabilities/cleanup.md",
         "config/README.md",
         "config/runtime-templates.json",
         "tools/local_state.py",
