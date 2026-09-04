@@ -105,7 +105,10 @@ def _unset(data: dict[str, Any], key: str) -> bool:
         if not isinstance(cur, dict) or part not in cur:
             return False
         cur = cur[part]
-    return isinstance(cur, dict) and cur.pop(parts[-1], None) is not None
+    if not isinstance(cur, dict) or parts[-1] not in cur:
+        return False
+    del cur[parts[-1]]
+    return True
 
 
 def main() -> int:
