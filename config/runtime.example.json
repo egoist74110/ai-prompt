@@ -6,7 +6,10 @@
     "is_wsl": false,
     "wsl_distro": null
   },
-  "paths": {},
+  "paths": {
+    "home": "<resolved home>",
+    "python": "<resolved python executable>"
+  },
   "credentials": {
     "example": {
       "type": "file|keychain|env|command",
@@ -17,5 +20,31 @@
       "command": null
     }
   },
-  "services": {}
+  "runtimes": {
+    "codex": {
+      "entry_path": null,
+      "skills_path": null,
+      "skills_layout": null,
+      "link_kind": null,
+      "executable": null,
+      "review_args": []
+    },
+    "claude": {
+      "entry_path": null,
+      "skills_path": null,
+      "executable": null,
+      "review_args": []
+    }
+  },
+  "services": {},
+  "search": {
+    "backends": {
+      "example": {
+        "kind": "mcp|cli|command|native",
+        "command": null,
+        "config_path": null,
+        "credential": null
+      }
+    }
+  }
 }
