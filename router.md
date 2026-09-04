@@ -32,13 +32,14 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
 
 需要 Skill / MCP / Search / 外部 API / headless runtime / 本地工具时统一按以下顺序：
 
-1. 当前会话已经暴露的工具、当前命令实际输出、当前环境变量等**实时事实**。
+1. 当前会话**实际执行产生的事实**：成功/失败的工具调用结果、当前命令输出、当前环境变量。
 2. `.local/runtime.json` / `.local/state.json` 中本机已经验证过的配置与经验。
-3. 只有前两层无法解决，或缓存已失效时，才做 discovery / 探测。
-4. discovery 成功后：
+3. 当前会话“暴露了某个工具”只表示**候选入口存在**，不等于该工具在当前 provider/订阅/credential 下可用；它不能覆盖本地已经验证的 `blocked` / `cooldown` / `unsupported` 状态。
+4. 只有前两层无法解决，或缓存已满足失效/重试条件时，才做 discovery / 探测。
+5. discovery 成功后：
    - executable/path/transport/endpoint/config location/credential locator → 写 `runtime.json`；
    - strategy/verified/result/failure/retry condition → 写 `state.json`。
-5. 后续直接复用；缓存实际执行失败时，以当前输出为准刷新缓存，而不是在中央文档追加“某机器例外”。
+6. 后续直接复用；缓存实际执行失败时，以当前输出为准刷新缓存，而不是在中央文档追加“某机器例外”。
 
 详细规范见 `config/README.md`。
 
@@ -51,13 +52,13 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
    - `capabilities/skills.md`
    - `capabilities/mcp.md`
    - 交付前做交叉审查时读 `capabilities/cross-review.md`（触发条件见 `models/high.md`）
-5. 需要网页搜索/外部信息时，先读 `capabilities/search.md`。
+5. 需要网页搜索/外部信息时，先读 `capabilities/search.md`；搜索资格必须服从 execution context + persistent circuit breaker，不能只看 tool list。
 
 ## Capability Loading
 
 - 不要全量读取 `skills/`、`<runtime-skills>` 或所有外部 `SKILL.md`。
 - 只有用户点名能力，或任务明显匹配索引里的 description / Use for，才读取对应文件。
-- 当前会话已有原生/插件工具且适合任务时，优先实时工具事实，不因为中央存在同名 Skill/MCP 就重复启动另一套。
+- 当前会话已有原生/插件工具且适合任务时，可以作为候选；但若本地 state 已验证该能力 blocked/cooldown/unsupported，应直接跳过，除非已满足其重试条件。
 - 需要安装、启用、新增 MCP/plugin/connector，或扩大权限前，必须先说明原因、命令/配置和影响范围，取得用户确认。
 - 第一次在本机跑通某能力后，把**机器相关 locator 写 runtime、验证经验写 state**；只有跨机器成立的规则才回写中央 `SKILL.md` / capabilities 文档。
 
