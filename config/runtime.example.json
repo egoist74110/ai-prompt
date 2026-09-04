@@ -36,6 +36,16 @@
       "review_args": []
     }
   },
+  "skills": {
+    "example": {
+      "launcher": null,
+      "state_dir": null,
+      "output_dir": null,
+      "db_path": null,
+      "browser_type": null,
+      "other_non_secret_machine_config": null
+    }
+  },
   "services": {},
   "search": {
     "backends": {
