@@ -28,7 +28,9 @@
         "reason_code": "auth|config|permission|unsupported|missing-credential|subscription|transient|timeout|network|server|rate-limit|quota|quality|null",
         "reason": null,
         "retry": "when-config-changes|after-cooldown|next-query-or-other-backend|null",
-        "retry_at": null
+        "retry_at": null,
+        "suppression_status": "not-needed|pending|verified|unsupported|null",
+        "suppressed_at": null
       }
     }
   },
