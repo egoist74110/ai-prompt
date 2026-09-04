@@ -10,40 +10,39 @@
 
 - 当前 OS / shell / 是否处于 WSL
 - home、WSL distro、Python/CLI 可执行文件路径
-- **动态 runtime registry**：任意 AI CLI / Agent 的 command、entry、skills、capabilities、review invocation
-- 某个凭据应该从 keychain / 文件 / 环境变量中的哪里读取
-- 某个服务应该从 Windows 宿主、WSL、macOS 哪一侧发请求
-- 搜索/MCP/headless review 后端的命令或配置 locator
-- **搜索执行上下文**：当前 runtime/provider/model 是 cloud、local/self-hosted 还是 unknown，以及是否允许 runtime-native search
+- 动态 runtime registry：任意 AI CLI / Agent 的 command、entry、skills、capabilities、review invocation
+- credential locator（去哪里取，不保存 secret）
+- 某个服务从 Windows/WSL/macOS 哪一侧执行
+- Search/MCP/headless 后端的命令或配置 locator
+- Search context：runtime/provider/model 的 hosting、lane、endpoint、preferred backends
+- 已废弃 runtime-native tool 的**物理禁用 locator/strategy**
 
-**禁止保存 token、密码、cookie、私钥正文。** 只允许保存 credential locator，例如 `{"type":"file","path":"..."}`、`{"type":"keychain","service":"..."}` 或环境变量名。
+**禁止保存 token、密码、cookie、私钥正文。** 只允许保存 locator，例如文件路径、keychain service/account、环境变量名或读取命令。
 
 ### `.local/state.json`
 
-保存“这台机器上已经实测跑通过什么”的经验缓存，例如：
+保存“这台机器已经实测过什么”的经验缓存，例如：
 
-- skill 已验证的 strategy
-- MCP 是否已配置、transport、最近一次验证时间
-- 搜索后端是否健康、为什么失败、是否 blocked/cooldown/degraded、何时才值得重试
-- 某个 registry runtime 的 headless 审查是否可用
-- 某个服务在 WSL/Windows/macOS 哪一侧可达
-- API 返回编码 / 字段差异等与当前环境相关的实测结果
+- Skill 已验证 strategy
+- MCP transport / configured / last verified
+- 搜索后端 healthy/degraded/cooldown/blocked、失败原因、重试条件
+- runtime-native 搜索工具的 suppression 是否 pending/verified/unsupported
+- headless review 是否跑通
+- 网络/API/编码/字段等环境实测事实
 
-它不是永久真理。当前会话**新的实际执行结果**可以更新缓存；但“工具被暴露”本身不算成功事实，不能覆盖已经验证的失败状态。
+它不是永久真理。**新的实际执行结果**可以刷新缓存；“tool 被暴露”本身不算成功事实，不能覆盖已经验证的 blocked 状态。
 
 ## Runtime Registry：模板不是名单
 
-`config/runtime-templates.json` 只是**首次初始化模板**。它可以放一些常见 runtime 的候选命令/入口，但中央 Python 代码不得出现“只支持某几个产品”的分支。
+`config/runtime-templates.json` 只是首次初始化 starter data，不是永久支持名单。中央 Python 不允许按产品名分支。
 
-初始化时：
+初始化：
 
-1. 把尚未存在的 starter template seed 到 `.local/runtime.json.runtimes`。
-2. 对 registry 中每个启用条目统一探测 `command_candidates`、`entry_candidates`、`skills_candidates`。
-3. seed 完成后，本地 registry 是权威；用户删除、禁用或修改条目，后续普通 detect 不会被模板重新覆盖。
+1. seed 尚未存在的 starter entry；
+2. 对 registry 中每个启用条目统一探测 `command_candidates`、`entry_candidates`、`skills_candidates`；
+3. seed 后本地 registry 是权威；用户修改/禁用/自定义的值不被普通 detect 覆盖。
 
-因此 Qwen Code、opencode、私有 Agent、自研 CLI 等都不需要修改中央代码，只需注册本地条目。
-
-### 注册任意 runtime
+新增任意 runtime：
 
 ```text
 python tools/runtime_state.py runtime add <runtime-id> \
@@ -57,9 +56,7 @@ python tools/runtime_state.py runtime add <runtime-id> \
   --review-priority 70
 ```
 
-所有字段都是可选的；只需要填该工具实际支持的部分。注册后默认立即做一次 detect。
-
-常用管理命令：
+常用命令：
 
 ```text
 python tools/runtime_state.py runtime list
@@ -70,37 +67,54 @@ python tools/runtime_state.py runtime remove <runtime-id>
 python tools/runtime_state.py runtime seed --refresh-templates
 ```
 
-`runtime seed --refresh-templates` 只补缺失的模板声明字段，不覆盖已有本地解析值或 `source=user` 的自定义 runtime。
+`seed --refresh-templates` 只补缺失声明字段，不覆盖本地解析值或 `source=user` 的自定义 runtime。
 
-## Search Context / Circuit Breaker
+## Search Context / Circuit Breaker / Tool Suppression
 
-搜索需要区分“当前模型/provider 在哪里运行”和“某个搜索入口是否健康”。
+搜索状态分三层，不能混在一起：
 
-稳定的执行上下文写入：
+### 1. Execution context
+
+写：
 
 ```text
 .local/runtime.json -> search.contexts.<context-id>
 ```
 
-例如保存 runtime/provider/model、`hosting=cloud|local|self-hosted|unknown`、非敏感 endpoint、`native_search_policy`、preferred backends。
+保存 runtime/provider/model、`hosting=cloud|local|self-hosted|unknown`、`lane`、非敏感 endpoint、preferred backends。
 
-搜索后端配置写：
+用：
+
+```text
+python tools/search_state.py context-set <context-id> \
+  --runtime <runtime-id> \
+  --provider <provider-id> \
+  --model <model> \
+  --hosting self-hosted \
+  --endpoint http://127.0.0.1:<port> \
+  --preferred-backends-json '["<backend-id>"]'
+```
+
+`hosting=self-hosted|local` 会导出 `lane=local-managed`；`hosting=cloud` 导出 `lane=cloud-native`。不要再使用旧的 `--native-search-policy` 参数。
+
+### 2. Search backend config + logical circuit breaker
+
+配置写：
 
 ```text
 .local/runtime.json -> search.backends.<backend-id>
 ```
 
-后端健康/失败状态写：
+健康/失败写：
 
 ```text
 .local/state.json -> search.backends.<backend-id>
 ```
 
-统一使用 `tools/search_state.py`：
+常用：
 
 ```text
-python tools/search_state.py context-set <context-id> --hosting self-hosted --native-search-policy deny
-python tools/search_state.py plan --context <context-id>
+python tools/search_state.py plan --context <context-id> --role general
 python tools/search_state.py fail <backend-id> --class missing-credential --reason "missing key"
 python tools/search_state.py fail <backend-id> --class timeout --reason "timeout" --retry-after-minutes 15
 python tools/search_state.py success <backend-id>
@@ -109,45 +123,89 @@ python tools/search_state.py reset <backend-id>
 
 失败分类：
 
-- `auth/config/permission/unsupported/missing-credential/subscription` → `blocked`，只在配置变化后重试。
-- `transient/timeout/network/server/rate-limit/quota` → `cooldown`，到期后才允许再次尝试。
+- `auth/config/permission/unsupported/missing-credential/subscription` → `blocked`，仅配置变化后重试。
+- `transient/timeout/network/server/rate-limit/quota` → `cooldown`。
 - `quality` → `degraded`，降低优先级但不永久禁用。
-- 成功 → `healthy`，清除熔断。
+- 成功 → `healthy`。
 
-本地/self-hosted context 默认不能因为 runtime 暴露了一个需要云端订阅/key 的 `web_search` 就直接调用；详见 `capabilities/search.md`。
+### 3. Runtime-native tool physical suppression
+
+这是逻辑熔断之外的第三层。
+
+某些 runtime 会稳定注册 `web_search` 一类工具：即使 provider/key 缺失，tool schema 和 system guidance 仍会出现在每个新会话，只在真正执行时才失败。此时：
+
+```text
+state.status=blocked
+```
+
+**并不足以阻止下一会话再次被工具提示诱导。**
+
+对于确定性硬失败，并且 runtime 支持可逆的 tool disable/unregister/filter：
+
+1. 先把 backend 标 `blocked`；
+2. discovery 当前 runtime 最小作用域的禁用方式；
+3. 只关闭失败的 search tool，不顺手关闭其它 web/fetch/browser 能力；
+4. 把本机 locator/strategy 写 `runtime.json`；
+5. reload/restart/new session；
+6. 验证 tool schema 中已不存在；
+7. state 记录 `suppression_status=verified`。
+
+建议结构：
+
+```text
+.local/runtime.json
+  search.contexts.<context-id>.native_tools.<tool-id>
+    backend
+    policy=disabled
+    suppression.strategy
+    suppression.config_locator
+    suppression.scope
+    suppression.verified_absent
+    suppression.requires_restart
+
+.local/state.json
+  search.backends.<backend-id>
+    status=blocked
+    reason_code=<hard failure>
+    suppression_status=pending|verified|unsupported
+```
+
+具体产品配置路径、profile 名、插件 id 属于**本机 discovery 结果**，不得变成中央代码常量。完整规则见 `capabilities/search-runtime-suppression.md`。
+
+不要对 timeout/429/5xx 等瞬时错误做物理 suppression；只 cooldown。
 
 ## 优先级
 
-处理 skill / MCP / 搜索 / 外部 API / headless runtime 时统一遵循：
+处理 Skill / MCP / Search / 外部 API / headless runtime 时：
 
-1. **当前会话实际结果**：真正成功/失败的工具调用、当前命令输出、当前环境变量。
-2. **本地 runtime/state**：`.local/runtime.json`、`.local/state.json` 中已验证的信息。
-3. **Discovery**：只有前两层无法解决或缓存失效时才探测。
-4. **中央文档**：只保存可移植规则、候选策略和服务固有事实，不保存单机事实。
+1. 当前会话**实际执行结果**；
+2. 本地 `runtime/state` 已验证事实；
+3. 缓存缺失或失效才 discovery；
+4. 中央文档只给可移植规则/候选策略。
 
-注意：**工具被暴露不是“实际成功结果”**。已有 blocked/cooldown 状态时，不能因为 tool list 里仍然有该工具就重新试探。
+**工具暴露不是实际成功。** 已有 blocked/cooldown 时，不能因为 tool list 仍有入口就再次试探；确定性 hard-blocked runtime-native search 还应按上节做物理下架。
 
-Discovery 一旦成功，必须把可复用的非敏感结果写回 `.local/`，避免下一次重复绕路和浪费 token。失败也必须写明可失效条件，不能只留在当前对话里。
+Discovery 成功后必须写回非敏感结果。失败也要缓存 failure class + retry condition，不能只留在对话里。
 
 ## 路径规则
 
-仓库内路径全部以 `router.md` 所在目录为根（`AI_PROMPT_ROOT`）。中央文档禁止写具体用户 home 的绝对路径。
+仓库内部全部以 `router.md` 所在目录为 `AI_PROMPT_ROOT`，使用相对路径。
 
-外部绝对路径允许存在于 `.local/runtime.json`，因为它本来就是机器本地配置。运行时临时生成的目标项目绝对路径也可以出现在本次命令/提示词中，但不能回写中央文档。
+中央文档禁止写具体用户 home、WSL distro、token 文件绝对路径等机器事实。外部绝对路径可以存在 `.local/runtime.json`，因为它本来就是单机配置。
 
 ## 代码结构
 
-- `config/runtime-templates.json`：仅首次初始化用的 starter data，不是永久 runtime 名单。
-- `tools/local_state.py`：本地配置/状态的唯一读写库。
-- `tools/runtime_registry.py`：runtime seed / register / discovery 的通用数据层，不认识具体产品名。
-- `tools/runtime_state.py`：给人/Agent 使用的通用 runtime/state CLI。
-- `tools/search_state.py`：搜索执行上下文、后端排序和持久熔断状态。
-- `tools/bootstrap.py`：遍历本地 registry 做机器发现。
-- `tools/sync_skills.py`：按 registry 声明的 `skills_sync_mode` 跨平台同步。
-- `tools/doctor.py`：遍历 registry 做跨平台只读体检。
-- `tools/*.sh`：只保留兼容入口或 Git hook 场景，不再承载主要跨平台逻辑。
+- `config/runtime-templates.json`：starter data，不是 runtime 白名单。
+- `tools/local_state.py`：本地配置/状态读写库。
+- `tools/runtime_registry.py`：runtime seed/register/discovery 数据层。
+- `tools/runtime_state.py`：runtime/state CLI。
+- `tools/search_state.py`：search context、backend 排序和 circuit breaker。
+- `tools/bootstrap.py`：遍历 registry 做机器发现。
+- `tools/sync_skills.py`：按 registry 声明同步 Skill。
+- `tools/doctor.py`：跨平台体检。
+- `tools/*.sh`：只做兼容入口，不承载主要跨平台逻辑。
 
-## 初始化、迁移与读写
+## 初始化、迁移与通用读写
 
 ```text
 python tools/runtime_state.py init
@@ -160,11 +218,11 @@ python tools/runtime_state.py set state skills.ado-pr.strategy '"windows-rest"'
 python tools/runtime_state.py unset state skills.ado-pr
 ```
 
-macOS/Linux 只有 `python3` 时把 `python` 换成 `python3`。Windows 可直接使用 `py`/`python` 调同一脚本。
+macOS/Linux 只有 `python3` 时用 `python3`；Windows 用 `py`/`python` 均可。
 
-`init` 会创建缺失文件、seed starter runtime templates 并做首次 discovery；`migrate` 只补 schema/首次模板缺失，不覆盖已有机器配置和缓存。`set` 的值按 JSON 解析，例如字符串必须带 JSON 引号，布尔值直接写 `true/false`。
+`init` 创建缺失文件、seed starter templates 并做首次 discovery；`migrate` 只补 schema/模板缺失，不覆盖现有机器配置。`set` 的值按 JSON 解析。
 
-示例结构见：
+示例：
 
 - `config/runtime.example.json`
 - `config/state.example.json`
