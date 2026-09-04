@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "environment": {
+    "os": "windows|macos|linux",
+    "shell": "powershell|zsh|bash",
+    "is_wsl": false,
+    "wsl_distro": null
+  },
+  "paths": {},
+  "credentials": {
+    "example": {
+      "type": "file|keychain|env|command",
+      "path": null,
+      "service": null,
+      "account": null,
+      "env": null,
+      "command": null
+    }
+  },
+  "services": {}
+}
