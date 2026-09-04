@@ -1,59 +1,55 @@
 #!/usr/bin/env python3
-"""
-B站收藏夹快速扫描脚本 - 只扫描，不转录
-输出新视频列表供 AI Agent 处理（生成摘要、通知等）
-自动分页，确保收藏夹中所有视频都被扫描。
-
-输出 JSON 格式，便于程序解析。
-
-注意：请在技能虚拟环境中运行（.venv/bin/python3）。
-"""
+"""B站收藏夹快速扫描：只扫描，不转录；输出 JSON。"""
+from __future__ import annotations
 
 import json
 import os
 import sys
 
+SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 try:
     from dotenv import load_dotenv
-    SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     load_dotenv(os.path.join(SKILL_DIR, ".env"))
 except Exception:
     pass
 
 import requests
+from runtime_config import favorite_media_id, state_dir
 
-FAV_MEDIA_ID = os.environ.get("FAV_MEDIA_ID", "")  # 从 .env 或环境变量读取，必须配置
-STATE_DIR = os.path.expanduser("~/.openclaw/workspace/.auto-transcript-state")
-PROCESSED_FILE = os.path.join(STATE_DIR, "processed_videos.txt")
+FAV_MEDIA_ID = favorite_media_id()
+STATE_DIR = state_dir()
+PROCESSED_FILE = STATE_DIR / "processed_videos.txt"
 API_BASE = "https://api.bilibili.com/x/v3/fav/resource/list"
 
 
 def fetch_all_medias():
-    """分页获取收藏夹中的所有视频"""
+    """分页获取收藏夹中的所有视频。"""
     all_medias = []
     pn = 1
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
 
     while True:
         url = f"{API_BASE}?media_id={FAV_MEDIA_ID}&ps=20&pn={pn}"
         try:
             resp = requests.get(url, headers=headers, timeout=30)
             data = resp.json()
-        except requests.exceptions.RequestException as e:
-            print(json.dumps({"error": f"网络请求失败 - {e}"}))
-            sys.exit(1)
-        except ValueError as e:
-            print(json.dumps({"error": f"API响应解析失败 - {e}"}))
-            sys.exit(1)
+        except requests.exceptions.RequestException as exc:
+            print(json.dumps({"error": f"网络请求失败 - {exc}"}, ensure_ascii=False))
+            return None
+        except ValueError as exc:
+            print(json.dumps({"error": f"API响应解析失败 - {exc}"}, ensure_ascii=False))
+            return None
 
         if data.get("code") != 0:
-            print(json.dumps({"error": f"B站API返回错误 - {data.get('message', '未知')}"}))
-            sys.exit(1)
+            print(json.dumps({"error": f"B站API返回错误 - {data.get('message', '未知')}"}, ensure_ascii=False))
+            return None
 
-        medias = data["data"].get("medias", [])
+        medias = data.get("data", {}).get("medias", [])
         all_medias.extend(medias)
-
-        if not data["data"].get("has_more"):
+        if not data.get("data", {}).get("has_more"):
             break
         pn += 1
 
@@ -62,46 +58,43 @@ def fetch_all_medias():
 
 def main():
     if not FAV_MEDIA_ID:
-        print(json.dumps({"error": "请先设置收藏夹ID！编辑 .env 文件，设置 FAV_MEDIA_ID"}))
+        print(json.dumps({
+            "error": (
+                "未配置收藏夹ID。可设置 FAV_MEDIA_ID，或把非敏感 ID 缓存到 "
+                ".local/runtime.json 的 skills.bilibili-auto-transcript.favorite_media_id"
+            )
+        }, ensure_ascii=False))
         return 1
 
-    os.makedirs(STATE_DIR, exist_ok=True)
-
-    # 分页获取收藏夹所有视频
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
     medias = fetch_all_medias()
+    if medias is None:
+        return 1
 
-    # 加载已处理记录
     processed = set()
-    if os.path.exists(PROCESSED_FILE):
-        with open(PROCESSED_FILE) as f:
-            processed = set(line.strip() for line in f if line.strip())
+    if PROCESSED_FILE.exists():
+        with PROCESSED_FILE.open(encoding="utf-8") as fh:
+            processed = {line.strip() for line in fh if line.strip()}
 
-    # 找出新视频
     new_videos = []
-    for m in medias:
-        bvid = m.get("bvid", "") or m.get("bv_id", "")
-        if not bvid:
+    for media in medias:
+        bvid = media.get("bvid", "") or media.get("bv_id", "")
+        if not bvid or bvid in processed:
             continue
-        if bvid not in processed:
-            new_videos.append({
-                "bvid": bvid,
-                "title": m.get("title", ""),
-                "duration": m.get("duration", 0),
-                "upper": m.get("upper", {}).get("name", ""),
-                "pubtime": m.get("pubtime", 0),
-            })
+        new_videos.append({
+            "bvid": bvid,
+            "title": media.get("title", ""),
+            "duration": media.get("duration", 0),
+            "upper": media.get("upper", {}).get("name", ""),
+            "pubtime": media.get("pubtime", 0),
+        })
 
     output = {
         "collection_total": len(medias),
         "processed": len(processed),
         "new_videos": new_videos,
+        "status": f"new_videos:{len(new_videos)}" if new_videos else "all_caught_up",
     }
-
-    if not new_videos:
-        output["status"] = "all_caught_up"
-    else:
-        output["status"] = f"new_videos:{len(new_videos)}"
-
     print(json.dumps(output, ensure_ascii=False))
     return 0
 
