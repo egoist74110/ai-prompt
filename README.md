@@ -32,6 +32,7 @@
 - 不要在中央文档里保存用户名、home、WSL distro、token 文件绝对路径、某台机器的 VPN/网络拓扑等单机事实。
 - Token/密码/cookie/私钥正文不得写入 `.local/`；只能缓存 credential locator。
 - Skill/MCP 首次成功 discovery 后，应把可复用的机器事实写入 `.local/`，避免后续重复绕路。
+- `skills/<name>/SKILL.md` frontmatter 是 skill 元数据唯一 source of truth；`capabilities/skills.md` 只是可重建的发现索引。
 
 ## 本地初始化
 
@@ -46,7 +47,7 @@ macOS 只有 `python3` 时使用 `python3`。
 ## 维护
 
 - `tools/runtime_state.py` — 初始化、读取和更新机器本地 runtime/state。
-- `tools/doctor.sh` — 现有部署体检；后续应逐步只依赖相对 root 和本地 runtime，而不是硬编码机器路径。
+- `tools/doctor.sh` — 体检当前部署 root、已存在运行时入口、skills 布局、索引和 hook；不再把某台机器的外部脚本路径当硬性标准。
 - `tools/install-hooks.sh` — 安装仓库 pre-commit hook。
-- `tools/gen-index.py` — 重建 `capabilities/skills.md` Auto 登记表，并校验索引。
+- `tools/gen-index.py` — 从 `skills/*/SKILL.md` frontmatter 生成 `capabilities/skills.md`；`--check` 校验漏项、幽灵项、name/目录名和机器绝对路径。
 - `tools/sync-codex-skills.sh` — 同步中央 skills 到当前 Codex skills 布局；具体布局应以当前机器实测/runtime 为准。
