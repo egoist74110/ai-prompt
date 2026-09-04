@@ -1,8 +1,9 @@
 #!/bin/bash
 # 中央提示词仓库 pre-commit（正典在 tools/hooks/pre-commit，用 tools/install-hooks.sh 安装）
 # 1) 重建 capabilities/skills.md 自动索引 + 一致性校验
-# 2) 校验工作树与暂存快照的 skill 集合一致
-# 3) 用 Python 同步当前机器的 Codex skills 布局；真实路径/布局由 local runtime 决定
+# 2) 禁止具体用户 home / 固定 WSL distro 等机器身份回流中央
+# 3) 校验工作树与暂存快照的 skill 集合一致
+# 4) 用 Python 同步当前机器的 Codex skills 布局；真实路径/布局由 local runtime 决定
 #
 # hook 是便利机制，不是不可绕过的完整性边界。最终体检入口是 tools/doctor.py。
 set -uo pipefail
@@ -22,7 +23,13 @@ command -v "$PY" >/dev/null 2>&1 || {
   exit 1
 }
 
-# --- 2. 工作树 vs 暂存快照 ---
+# --- 2. portable central rules ---
+"$PY" "$ROOT/tools/check_portability.py" || {
+  echo "pre-commit: 检测到机器身份/绝对 home 回流中央，提交已中止。" >&2
+  exit 1
+}
+
+# --- 3. 工作树 vs 暂存快照 ---
 worktree_skills=$(ls -d skills/*/SKILL.md 2>/dev/null | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)
 staged_skills=$(git ls-files --cached -- 'skills/*/SKILL.md' | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)
 if [ "$worktree_skills" != "$staged_skills" ]; then
@@ -35,9 +42,7 @@ if [ "$worktree_skills" != "$staged_skills" ]; then
   exit 1
 fi
 
-# --- 3. runtime skills 同步 ---
-# sync_skills.py 自己从脚本位置确定中央 root；目标目录优先读 .local/runtime.json，
-# 没记录才用运行时默认位置。目标运行时未安装时会安全跳过。
+# --- 4. runtime skills 同步 ---
 if ! sync_out=$("$PY" "$ROOT/tools/sync_skills.py" --runtime codex 2>&1); then
   echo "pre-commit: codex skills 同步失败，提交已中止：" >&2
   echo "$sync_out" | sed 's/^/    /' >&2
@@ -46,7 +51,7 @@ if ! sync_out=$("$PY" "$ROOT/tools/sync_skills.py" --runtime codex 2>&1); then
 fi
 grep -q "已是最新" <<<"$sync_out" || grep -q "skip" <<<"$sync_out" || echo "$sync_out" | sed 's/^/pre-commit: /'
 
-# --- 4. 索引变化纳入提交 ---
+# --- 5. 索引变化纳入提交 ---
 if ! git diff --quiet -- capabilities/skills.md 2>/dev/null; then
   git add capabilities/skills.md
   echo "pre-commit: capabilities/skills.md 已自动更新并纳入本次提交"
