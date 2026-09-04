@@ -11,7 +11,8 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+SELF = Path(__file__).resolve()
+ROOT = SELF.parents[1]
 TEXT_SUFFIXES = {".md", ".txt", ".py", ".sh", ".ps1", ".json", ".toml", ".yaml", ".yml"}
 IGNORE_DIRS = {".git", ".local", "__pycache__", ".venv", "node_modules"}
 
@@ -22,8 +23,7 @@ PATTERNS = [
     ("fixed WSL distro UNC", re.compile(r"\\\\wsl(?:\.localhost|\$)\\(?![<{%$])[^\\\s`'\"]+\\", re.I)),
 ]
 
-# Old concrete machine identities that caused this refactor. Keep them explicit so regressions are
-# caught even if they appear in a path shape the generic regex misses.
+# Historical concrete identities are kept only inside this guard file; iter_files() excludes SELF.
 FORBIDDEN_LITERALS = {
     "PCMClawUbuntu": "fixed WSL distro name",
     "/Users/wesker/": "old canonical-user path",
@@ -33,6 +33,8 @@ FORBIDDEN_LITERALS = {
 
 def iter_files():
     for path in ROOT.rglob("*"):
+        if path.resolve() == SELF:
+            continue
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
             continue
         if any(part in IGNORE_DIRS for part in path.relative_to(ROOT).parts):
