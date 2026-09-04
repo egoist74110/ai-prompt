@@ -43,6 +43,26 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
 
 详细规范见 `config/README.md`。
 
+## Search Lane Contract
+
+需要联网搜索时，**必须先选 Search Lane，再选工具**；禁止把云端搜索和本机搜索混成一个候选池。
+
+```text
+hosting=cloud
+→ lane=cloud-native
+→ 默认只用当前云端平台/Provider 自带搜索
+
+hosting=local|self-hosted
+→ lane=local-managed
+→ 默认只用用户本机配置并验证的搜索后端
+```
+
+- `unknown` 不是第三条路线；先做最小 discovery，确认 hosting/lane 并缓存到 `.local/runtime.json.search.contexts`，之后再搜索。
+- 默认禁止跨 Lane fallback；只有用户明确要求或 context 明确设置 `allow_cross_lane_fallback=true` 才允许。
+- 本地/self-hosted 模型即使会话暴露了云端 `web_search`，也不能据此调用；Cloud 模型也不应因为本机恰好配置了搜索 CLI/MCP 就绕去 local-managed lane。
+- backend 的 blocked/cooldown/degraded 状态继续由 `.local/state.json` 持久化控制。
+- 具体规则见 `capabilities/search.md`；可用 `tools/search_state.py` 维护 context/lane 和熔断。
+
 ## Read Order
 
 1. 先读 `common.md`。
@@ -52,7 +72,7 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
    - `capabilities/skills.md`
    - `capabilities/mcp.md`
    - 交付前做交叉审查时读 `capabilities/cross-review.md`（触发条件见 `models/high.md`）
-5. 需要网页搜索/外部信息时，先读 `capabilities/search.md`；搜索资格必须服从 execution context + persistent circuit breaker，不能只看 tool list。
+5. 需要网页搜索/外部信息时，先读 `capabilities/search.md`；先确定 Search Lane，再使用该 Lane 内的搜索能力。
 
 ## Capability Loading
 
