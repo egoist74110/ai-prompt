@@ -60,9 +60,22 @@
   },
   "services": {},
   "search": {
+    "contexts": {
+      "<runtime-provider-or-model-context>": {
+        "runtime": "<runtime-id>",
+        "provider": "<provider-id>",
+        "model": "<model name/pattern>",
+        "hosting": "cloud|local|self-hosted|unknown",
+        "endpoint": "<non-secret endpoint if useful>",
+        "native_search_policy": "allow|deny|auto",
+        "preferred_backends": ["<backend-id>"]
+      }
+    },
     "backends": {
-      "example": {
-        "kind": "mcp|cli|command|native",
+      "<backend-id>": {
+        "enabled": true,
+        "kind": "mcp|cli|command|native|runtime-native|session-native",
+        "priority": 100,
         "command": null,
         "config_path": null,
         "credential": null
