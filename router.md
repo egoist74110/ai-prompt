@@ -30,7 +30,7 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
 
 ### 本地事实优先级
 
-需要 Skill / MCP / Search / 外部 API / headless runtime / 本地工具时统一按以下顺序：
+需要 Skill / MCP / 外部 API / headless runtime / 本地工具时统一按以下顺序：
 
 1. 当前会话**实际执行产生的事实**：成功/失败的工具调用结果、当前命令输出、当前环境变量。
 2. `.local/runtime.json` / `.local/state.json` 中本机已经验证过的配置与经验。
@@ -43,25 +43,17 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
 
 详细规范见 `config/README.md`。
 
-## Search Lane Contract
+## Local Search Contract
 
-需要联网搜索时，**必须先选 Search Lane，再选工具**；禁止把云端搜索和本机搜索混成一个候选池。
+`capabilities/search.md` 是**本地 / 自托管模型专用能力文件**，不是所有模型的公共搜索提示词。
 
-```text
-hosting=cloud
-→ lane=cloud-native
-→ 默认只用当前云端平台/Provider 自带搜索
+- 当前 API/provider 是 cloud，且平台自身提供搜索能力 → **直接用平台搜索，不读取 `capabilities/search.md`**。
+- 当前 API/provider 是 `local` / `self-hosted`，或明确没有原生联网能力 → 才读取 `capabilities/search.md`，使用用户本机配置的搜索后端。
+- hosting 不确定 → 做一次最小 discovery，缓存到 `.local/runtime.json.search.contexts`；判定为 cloud 后立即停止，不再加载本地搜索 Prompt。
+- 本地模型看到 runtime 暴露的云端 `web_search` / browser 不代表可用；是否可用以本地 search context + backend 配置 + state 为准。
+- 本地搜索后端的 blocked/cooldown/degraded 状态由 `.local/state.json` 持久化；跑通过的 locator、roles、priority 写 `.local/runtime.json`。
 
-hosting=local|self-hosted
-→ lane=local-managed
-→ 默认只用用户本机配置并验证的搜索后端
-```
-
-- `unknown` 不是第三条路线；先做最小 discovery，确认 hosting/lane 并缓存到 `.local/runtime.json.search.contexts`，之后再搜索。
-- 默认禁止跨 Lane fallback；只有用户明确要求或 context 明确设置 `allow_cross_lane_fallback=true` 才允许。
-- 本地/self-hosted 模型即使会话暴露了云端 `web_search`，也不能据此调用；Cloud 模型也不应因为本机恰好配置了搜索 CLI/MCP 就绕去 local-managed lane。
-- backend 的 blocked/cooldown/degraded 状态继续由 `.local/state.json` 持久化控制。
-- 具体规则见 `capabilities/search.md`；可用 `tools/search_state.py` 维护 context/lane 和熔断。
+这样云端模型完全不需要为本地搜索策略浪费上下文 token。
 
 ## Read Order
 
@@ -72,13 +64,17 @@ hosting=local|self-hosted
    - `capabilities/skills.md`
    - `capabilities/mcp.md`
    - 交付前做交叉审查时读 `capabilities/cross-review.md`（触发条件见 `models/high.md`）
-5. 需要网页搜索/外部信息时，先读 `capabilities/search.md`；先确定 Search Lane，再使用该 Lane 内的搜索能力。
+5. 需要网页搜索/外部信息时：
+   - cloud + 平台自带搜索 → 直接搜索，**不要读 `capabilities/search.md`**；
+   - local/self-hosted → 读 `capabilities/search.md`；
+   - unknown → 先判 hosting，只有判为 local/self-hosted 才读。
 
 ## Capability Loading
 
 - 不要全量读取 `skills/`、`<runtime-skills>` 或所有外部 `SKILL.md`。
 - 只有用户点名能力，或任务明显匹配索引里的 description / Use for，才读取对应文件。
 - 当前会话已有原生/插件工具且适合任务时，可以作为候选；但若本地 state 已验证该能力 blocked/cooldown/unsupported，应直接跳过，除非已满足其重试条件。
+- **搜索是特殊分流能力**：云端模型不加载本地搜索 Prompt；本地模型才加载 `capabilities/search.md`。
 - 需要安装、启用、新增 MCP/plugin/connector，或扩大权限前，必须先说明原因、命令/配置和影响范围，取得用户确认。
 - 第一次在本机跑通某能力后，把**机器相关 locator 写 runtime、验证经验写 state**；只有跨机器成立的规则才回写中央 `SKILL.md` / capabilities 文档。
 
