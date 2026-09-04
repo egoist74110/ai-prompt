@@ -8,11 +8,12 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import stat
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
-from local_state import ROOT, migrate_local_files, read_kind, set_value, write_kind
+from local_state import ROOT, migrate_local_files, read_kind, write_kind
 
 
 def is_windows() -> bool:
@@ -21,7 +22,19 @@ def is_windows() -> bool:
 
 def is_junction(path: Path) -> bool:
     fn = getattr(path, "is_junction", None)
-    return bool(fn and fn())
+    if fn is not None:
+        try:
+            return bool(fn())
+        except OSError:
+            return False
+    if not is_windows():
+        return False
+    try:
+        attrs = path.lstat().st_file_attributes
+        reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+        return bool(attrs & reparse) and path.is_dir() and not path.is_symlink()
+    except (AttributeError, OSError):
+        return False
 
 
 def is_linkish(path: Path) -> bool:
@@ -52,24 +65,22 @@ def link_target(path: Path) -> Path | None:
 def create_dir_link(target: Path, link: Path) -> str:
     if is_windows():
         # Directory junction avoids Windows symlink privilege / Developer Mode requirements.
-        subprocess.run(
-            ["cmd.exe", "/d", "/c", "mklink", "/J", str(link), str(target)],
-            check=True,
+        command = f'mklink /J "{link}" "{target}"'
+        proc = subprocess.run(
+            ["cmd.exe", "/d", "/s", "/c", command],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             text=True,
         )
+        if proc.returncode != 0:
+            raise RuntimeError(f"mklink /J failed for {link}: {proc.stderr.strip()}")
         return "junction"
     link.symlink_to(target, target_is_directory=True)
     return "symlink"
 
 
 def resolve_target(runtime: dict, runtime_name: str) -> Path:
-    configured = (
-        runtime.get("runtimes", {})
-        .get(runtime_name, {})
-        .get("skills_path")
-    )
+    configured = runtime.get("runtimes", {}).get(runtime_name, {}).get("skills_path")
     if configured:
         return Path(configured).expanduser()
     if runtime_name == "codex":
@@ -134,17 +145,19 @@ def sync(runtime_name: str) -> int:
             print(f"removed dangling: {dest.name}")
             changed = True
 
-    runtime.setdefault("runtimes", {}).setdefault(runtime_name, {}).update(
+    runtime_entry = runtime.setdefault("runtimes", {}).setdefault(runtime_name, {})
+    runtime_entry.update(
         {
             "skills_path": str(target),
             "skills_layout": "per-skill-link",
-            "link_kind": link_kind or runtime.get("runtimes", {}).get(runtime_name, {}).get("link_kind"),
+            "link_kind": link_kind or runtime_entry.get("link_kind"),
         }
     )
     state.setdefault("skills_sync", {})[runtime_name] = {
         "verified": True,
         "central": str(central),
         "target": str(target),
+        "last_verified": datetime.now(timezone.utc).isoformat(),
     }
     write_kind("runtime", runtime)
     write_kind("state", state)
