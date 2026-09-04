@@ -1,0 +1,2 @@
+# 统一行尾：仓库内一律存 LF，检出时不转 CRLF，消除 Windows/WSL 双端 status 噪音
+* text=auto eol=lf
