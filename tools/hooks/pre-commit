@@ -3,7 +3,7 @@
 # 1) 重建 capabilities/skills.md 自动索引 + 一致性校验
 # 2) 禁止具体用户 home / 固定 WSL distro 等机器身份回流中央
 # 3) 校验工作树与暂存快照的 skill 集合一致
-# 4) 用 Python 同步当前机器的 Codex skills 布局；真实路径/布局由 local runtime 决定
+# 4) 按本地 runtime registry 同步声明 auto_sync_skills=true 的运行时
 #
 # hook 是便利机制，不是不可绕过的完整性边界。最终体检入口是 tools/doctor.py。
 set -uo pipefail
@@ -42,14 +42,14 @@ if [ "$worktree_skills" != "$staged_skills" ]; then
   exit 1
 fi
 
-# --- 4. runtime skills 同步 ---
-if ! sync_out=$("$PY" "$ROOT/tools/sync_skills.py" --runtime codex 2>&1); then
-  echo "pre-commit: codex skills 同步失败，提交已中止：" >&2
+# --- 4. runtime skills 同步（完全由 registry 数据决定，不认识任何 runtime 名字）---
+if ! sync_out=$("$PY" "$ROOT/tools/sync_skills.py" --all --auto-only 2>&1); then
+  echo "pre-commit: runtime skills 同步失败，提交已中止：" >&2
   echo "$sync_out" | sed 's/^/    /' >&2
-  echo "    修好后重试；--no-verify 会明确绕过本地同步，但不会改变中央仓库内容。" >&2
+  echo "    修好对应 registry 配置后重试；--no-verify 会明确绕过本地同步。" >&2
   exit 1
 fi
-grep -q "已是最新" <<<"$sync_out" || grep -q "skip" <<<"$sync_out" || echo "$sync_out" | sed 's/^/pre-commit: /'
+[ -z "$sync_out" ] || echo "$sync_out" | sed 's/^/pre-commit: /'
 
 # --- 5. 索引变化纳入提交 ---
 if ! git diff --quiet -- capabilities/skills.md 2>/dev/null; then
