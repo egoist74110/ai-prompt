@@ -160,14 +160,22 @@ def main() -> int:
         if args.runtime_cmd == "remove":
             if args.name not in entries:
                 return 2
-            del entries[args.name]
-            write_kind("runtime", runtime)
-            print(f"runtime removed: {args.name}")
+            if entries[args.name].get("source") == "template":
+                entries[args.name]["enabled"] = False
+                entries[args.name]["template_suppressed"] = True
+                write_kind("runtime", runtime)
+                print(f"starter runtime suppressed: {args.name}")
+            else:
+                del entries[args.name]
+                write_kind("runtime", runtime)
+                print(f"runtime removed: {args.name}")
             return 0
         if args.runtime_cmd in {"enable", "disable"}:
             if args.name not in entries:
                 return 2
             entries[args.name]["enabled"] = args.runtime_cmd == "enable"
+            if args.runtime_cmd == "enable":
+                entries[args.name].pop("template_suppressed", None)
             write_kind("runtime", runtime)
             print(f"runtime {args.runtime_cmd}d: {args.name}")
             return 0
