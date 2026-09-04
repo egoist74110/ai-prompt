@@ -1,139 +1,31 @@
 # Skills Index
 
-规则：不要全量读取所有 skill。只有用户点名 skill，或任务明显匹配 description 时，才读取对应 `SKILL.md`。
+本文件只负责 **skill 发现**。`skills/<name>/SKILL.md` frontmatter 才是唯一元数据源；仓库内路径全部相对 `router.md` 所在目录解析，本索引禁止保存机器绝对路径。
 
-本文件有两部分，**同一个 skill 会出现两次，以手写段为准**：
-- 上面的**手写分类段**（Custom / Engineering / Ops …）——带 Path、Runtime、Guardrails，是权威描述。
-- 末尾的 **Auto 登记表**——`tools/gen-index.py` 从 `skills/*/SKILL.md` 的 frontmatter 自动生成，只是"别漏掉"的安全网。两边描述不一致时信手写段。
+规则：只有用户点名 skill，或任务明显匹配 description 时，才读取对应 `SKILL.md`；不要全量读取。
 
-## Custom
-- `ui-ux-pro-max`
-  - Path: `/Users/wesker/.ai-prompt/skills/ui-ux-pro-max/SKILL.md`
-  - Runtime: `python3 /Users/wesker/.ai-prompt/skills/ui-ux-pro-max/scripts/search.py <query>`（BM25 检索 `data/*.csv`：67 风格 / 96 配色 / 57 字体搭配 / 99 UX 规则 / 25 图表 / 13 技术栈）
-  - Use for: 唯一 UI/UX skill；用于页面/组件/交互/视觉的设计、实现、评审、优化、配色、排版、无障碍、移动端适配。
-  - Guardrails: 不再并行使用其它前端设计 skill；需要前端视觉时优先它，避免 UI skill 之间互相覆盖。`/Users/wesker/CG_Vue_uigen/.claude/skills/ui-ux-pro-max` 是同一 skill 的**项目级旧副本**（该项目 git 里已跟踪），中央这份才是正典；两边不一致时以中央为准，改动只改中央。
-- `anysearch`
-  - Path: `/Users/wesker/.ai-prompt/skills/anysearch/SKILL.md`
-  - Runtime: `node /Users/wesker/.ai-prompt/skills/anysearch/scripts/anysearch_cli.js`
-  - Use for: 实时外部搜索、批量搜索、垂直领域检索、URL 正文抽取。
-  - Guardrails: 按需使用，不作为默认搜索；不用于密码、私密工单、内部代码、商业机密等敏感查询；不要让它覆盖官方文档优先规则。
-- `ado-pr`
-  - Path: `/Users/wesker/.ai-prompt/skills/ado-pr/SKILL.md`
-  - Use for: 自建 Azure DevOps Server（`*.cg1alias.com`，非 dev.azure.com）的工单/PR 统一入口——读工单、读/建 PR、关联工单。不依赖 ADO MCP/后台服务；按当前是 macOS 还是 Windows 走 SKILL.md 里对应分支取 PAT 直连（macOS 钥匙串+az CLI，Windows REST 直连）。
-  - Guardrails: 涉及 ADO 工单/PR 读写时优先本 skill，优先级高于 `ado-work-items` MCP（该 MCP 依赖 my-own-script 后台常驻，连通性差）。目前只有 macOS 和 Windows 两条分支是实测验证过的，其它环境没验证过，别照抄假设。
-- `bilibili-auto-transcript`
-  - Path: `/Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/SKILL.md`
-  - Runtime: `bash /Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/scripts/bilibili_transcript.sh "<B站视频链接>"`
-  - Use for: B站/Bilibili 视频链接转录、收藏夹扫描、批量转录、新视频自动处理；三级降级为 CC 字幕 → AI 字幕 → Whisper，并支持可选 AI 摘要、SQLite 记录和 CSV 报告。
-  - Guardrails: 设置 OPENAI_API_KEY 时脚本可自动生成摘要；未设置时 TXT 保留摘要占位符，需在向用户报告"完成摘要"前读取全文并补全。默认只输出转录/数据库记录，索引交给用户明确要求的 RAG 流程（SKILL.md 里提到的 `knowledge-rag` **本机未安装**，中央和各运行时都没有，别去找它）。
-  - Source: https://clawhub.ai/54lynnn/bilibili-auto-transcript / https://github.com/54Lynnn/bilibili-auto-transcript
+## Skills
 
-## Runtime System Skills（运行时自带，本仓库不登记具体名字）
+- `ado-pr` — `skills/ado-pr/SKILL.md` — 自建 Azure DevOps Server（`*.cg1alias.com`，非 dev.azure.com）的工单/PR 统一入口。优先复用本机已验证的 strategy；首次或缓存失效时才探测认证来源、执行侧和 API 路径。
+- `anysearch` — `skills/anysearch/SKILL.md` — 实时外部搜索、批量搜索、垂直领域检索和 URL 正文抽取。
+- `backend-architecture-review` — `skills/backend-architecture-review/SKILL.md` — 后端新功能实现前的架构检查：数据产生、流向、访问边界、并发冲突和失败清理。
+- `backend-business-safety` — `skills/backend-business-safety/SKILL.md` — 后端长生命周期业务流程的状态机、不变量、幂等、并发与清理检查。
+- `backend-security-review` — `skills/backend-security-review/SKILL.md` — 后端 endpoint / 数据操作交付前的鉴权、越权、注入和敏感数据检查。
+- `bilibili-auto-transcript` — `skills/bilibili-auto-transcript/SKILL.md` — B 站视频转录和收藏夹扫描，支持 CC → AI 字幕 → Whisper 降级及可选摘要。
+- `cdn-asset-ops` — `skills/cdn-asset-ops/SKILL.md` — MinIO / S3 兼容 CDN 的配置探测、上传、列举、重命名和安全删除。
+- `data-consistency-review` — `skills/data-consistency-review/SKILL.md` — 多步写操作的事务边界、部分失败、孤儿状态和并发一致性检查。
+- `diagnose` — `skills/diagnose/SKILL.md` — 复现 → 最小化 → 假设 → 插桩 → 修复 → 回归测试的系统化排障流程。
+- `grill-me` — `skills/grill-me/SKILL.md` — 对仍模糊的需求、计划或设计逐分支追问，直到形成共享理解。
+- `improve-codebase-architecture` — `skills/improve-codebase-architecture/SKILL.md` — 架构隐患排查、重构机会分析、提升可测试性和可维护性。
+- `playwright` — `skills/playwright/SKILL.md` — 通过 Playwright CLI 自动化真实浏览器进行导航、表单、快照、截图、数据提取和 UI 流调试。
+- `production-readiness-review` — `skills/production-readiness-review/SKILL.md` — 后端上线前的 timeout、retry、幂等、监控和故障恢复检查。
+- `receiving-code-review` — `skills/receiving-code-review/SKILL.md` — 收到 review 反馈后先核对技术事实，再逐项处理和验证，避免盲从。
+- `resource-lifecycle-audit` — `skills/resource-lifecycle-audit/SKILL.md` — 审查 subprocess、DB、Redis、WebSocket、Timer、文件句柄、监听器等资源是否完整释放。
+- `security-best-practices` — `skills/security-best-practices/SKILL.md` — Python / JavaScript / TypeScript / Go 等语言和框架的安全最佳实践审查。
+- `tdd` — `skills/tdd/SKILL.md` — Red-Green-Refactor 测试优先开发，用于新功能、bugfix、重构和行为变更。
+- `ui-ux-pro-max` — `skills/ui-ux-pro-max/SKILL.md` — UI/UX 设计、实现、评审、配色、排版、无障碍和多技术栈视觉指导。
+- `verification-before-completion` — `skills/verification-before-completion/SKILL.md` — 在声称完成、修好、通过、可提交或可交付前要求新鲜验证证据。
 
-各运行时自带的 `.system` skill（skill 创建/安装、插件创建、官方文档、图像生成等）由**运行时自己暴露**，名字和数量随版本变化（例：codex 侧叫 `openai-docs`，不叫 `official-docs`；Claude 侧 `~/.claude/skills` 已整目录 symlink 到中央，压根没有 `.system` 目录）。本索引**不维护这份清单**，避免必然过期。
+## Runtime / Plugin Skills
 
-用法：看当前会话实际暴露了什么就用什么；没暴露就当没有，不要按猜测的路径去读 `<runtime-skills>/.system/...`，也不要为此主动安装。
-
-## Engineering Skills（本仓库自带，部署在 `/Users/wesker/.ai-prompt/skills`）
-
-**后端开发五步工作流**（仅后端任务触发，按顺序执行）：
-实现前 `backend-architecture-review` → 实现 → 实现后 `resource-lifecycle-audit` + `data-consistency-review` → 交付前 `backend-security-review` → 上线前 `production-readiness-review`
-
-- `backend-architecture-review`
-  - Path: `/Users/wesker/.ai-prompt/skills/backend-architecture-review/SKILL.md`
-  - Use for: 后端新功能/endpoint/数据流实现前；先回答「产生什么数据、数据去哪、谁能访问、并发冲突、失败清理」五个问题再动手。
-  - Guardrails: 只在后端新功能实现前触发；纯配置变更、一次性脚本、前端任务不触发。
-- `resource-lifecycle-audit`
-  - Path: `/Users/wesker/.ai-prompt/skills/resource-lifecycle-audit/SKILL.md`
-  - Use for: 后端实现完成后；审查所有 subprocess/DB连接/Redis/WebSocket/Timer/文件句柄/事件监听器是否都有对应的 close/kill/unsubscribe，每条路径都覆盖。
-  - Guardrails: 实现后、声称完成前必须执行；纯函数、无 I/O 的代码不触发。
-- `data-consistency-review`
-  - Path: `/Users/wesker/.ai-prompt/skills/data-consistency-review/SKILL.md`
-  - Use for: 后端实现完成后；检查多步写操作的事务边界、部分失败留下的孤儿数据、read-modify-write 竞争、DB写入与外部副作用的顺序。
-  - Guardrails: 实现后触发；单行读、纯查询、只有一个原子写的操作不触发。
-- `backend-security-review`
-  - Path: `/Users/wesker/.ai-prompt/skills/backend-security-review/SKILL.md`
-  - Use for: 后端 endpoint 或数据操作交付前；检查每个接口的鉴权、越权（IDOR）、注入（SQL/命令/路径穿越/SSRF）和敏感数据日志。
-  - Guardrails: 只做 per-feature 安全门控；全量代码安全报告用 security-best-practices；纯前端、只读配置不触发。
-- `production-readiness-review`
-  - Path: `/Users/wesker/.ai-prompt/skills/production-readiness-review/SKILL.md`
-  - Use for: 后端功能上线或提交 staging 前；检查超时值、重试预算、幂等设计、可观测性、第三方挂了的降级方案。
-  - Guardrails: 上线前触发；本地 dev 工具、一次性迁移脚本、明确不上线的原型不触发。
-- `backend-business-safety`
-  - Path: `/Users/wesker/.ai-prompt/skills/backend-business-safety/SKILL.md`
-  - Use for: 后端业务生命周期安全；涉及 worker/job/发布/同步/导入导出、取消/重试/超时、registry/lock/cache、外部 API、长任务状态时先检查状态机、不变量、清理、幂等和并发。
-  - Guardrails: 不用于简单纯函数、小 UI、静态配置或一次性脚本；只在状态可能跨请求/线程/任务存活时触发。
-- `grill-me`
-  - Path: `/Users/wesker/.ai-prompt/skills/grill-me/SKILL.md`
-  - Use for: 需求、计划或设计仍模糊时的拷问模式；先一问一答澄清决策树，再动手实现。
-  - Guardrails: 只在需求不清、大模块设计、用户明确要求“拷问/追问/grill me”时触发；小修小补不要触发。
-- `tdd`
-  - Path: `/Users/wesker/.ai-prompt/skills/tdd/SKILL.md`
-  - Use for: 新功能、bugfix、重构或行为变更的测试优先开发；强调公共接口、行为测试、垂直切片。
-  - Guardrails: 原型、纯配置、一次性脚本可不触发；没有测试框架时先说明并建议最小验证方案。
-- `diagnose`
-  - Path: `/Users/wesker/.ai-prompt/skills/diagnose/SKILL.md`
-  - Use for: 代码跑不通、逻辑不可用、测试失败、构建失败、性能回退、线上/本地 bug。
-  - Guardrails: 先建立可运行反馈回路，再复现、假设、插桩、修复、回归测试；不要凭直觉打补丁。
-- `improve-codebase-architecture`
-  - Path: `/Users/wesker/.ai-prompt/skills/improve-codebase-architecture/SKILL.md`
-  - Use for: 大模块设计、架构隐患排查、重构机会分析、提升可测试性和可维护性。
-  - Guardrails: 不默认触发；只在用户要求架构/重构/大模块设计，或诊断后发现缺少测试 seam、耦合严重时触发。
-- `verification-before-completion`
-  - Path: `/Users/wesker/.ai-prompt/skills/verification-before-completion/SKILL.md`
-  - Use for: 声称完成、修好、通过、可提交或可交付之前。
-  - Guardrails: 必须有新鲜验证证据；跑不了验证就明确说明原因和剩余风险。
-- `receiving-code-review`
-  - Path: `/Users/wesker/.ai-prompt/skills/receiving-code-review/SKILL.md`
-  - Use for: 收到 review 反馈、PR 评论、或用户点名“帮我提交/合并”且需要先处理外部反馈时。
-  - Guardrails: 不盲从 review；先理解、核对代码现实、评估是否技术正确，再逐项处理和验证。
-- `security-best-practices`
-  - Path: `/Users/wesker/.ai-prompt/skills/security-best-practices/SKILL.md`
-  - Use for: 安全最佳实践、安全审查、安全报告、或需要 secure-by-default 的 Python / JavaScript / TypeScript / Go 代码。
-  - Guardrails: 只处理安全维度；普通代码 review、调试、UI 问题不要触发。
-
-## Ops Skills（本仓库自带）
-
-- `cdn-asset-ops`
-  - Path: `/Users/wesker/.ai-prompt/skills/cdn-asset-ops/SKILL.md`
-  - Preflight: `bash /Users/wesker/.ai-prompt/skills/cdn-asset-ops/scripts/cdn_preflight.sh "<console URL 或 host>"`
-  - Use for: 操控 MinIO / S3 兼容 CDN 的上传、列举、重命名前缀(=拷贝+删除)、删除；用户给 `http://host:port/browser/<bucket>/...` 形式的 Console 链接、或要配置 `mc`、或抱怨 CDN 资源 404 时触发。
-  - Guardrails: 先跑 Preflight 判断配没配好（已配好就复用 alias，别重跑教程）；Console 端口≠S3 API 端口，端口靠探测不靠猜；密钥绝不回显；删除/覆盖一律二段式（cp+核对数量→用户确认→rm），改路径前提醒前端引用会 404。
-
-## Runtime Plugin Skills
-
-以下是可选插件/连接器 skill 的候选路径。使用前先确认当前会话是否已暴露对应工具；未暴露时不要自行安装，必须先向用户说明用途和变更，再等用户确认。
-- GitHub:
-  - Skills: `github`、`gh-fix-ci`、`gh-address-comments`、`yeet`
-- Documents:
-  - Skills: `documents`
-- Spreadsheets:
-  - Skills: `spreadsheets`
-- Presentations:
-  - Skills: `presentations`
-- Browser / Chrome / Computer Use:
-  - Skills: `control-in-app-browser`、`control-chrome`、`computer-use`
-
-## Auto 登记表（tools/gen-index.py 自动生成，勿手工编辑）
-
-<!-- AUTO:SKILLS:BEGIN -->
-- `ado-pr`（目录 `ado-pr/`）：与自建 Azure DevOps Server（azuredevops.cg1alias.com，非 dev.azure.com）交互的统一入口——读工单、读PR/列表、建PR并关联工单。当用户提到"工单"、"关联单"、给出一个工单号（如"4877"、"#4877"、"工单5023"），或提到"PR"、"发布PR"、"建PR"、"提PR"、"合并到main/master"等——不管是想读取还是想发起——都用这个技能，按当前系统是 mac…
-- `anysearch`（目录 `anysearch/`）：Real-time search engine supporting web search, vertical domain search, parallel batch search, and URL content extraction.
-- `backend-architecture-review`（目录 `backend-architecture-review/`）：Use before implementing any backend feature — ask the five architecture questions first, then approve the data model and access boundary before writing code.
-- `backend-business-safety`（目录 `backend-business-safety/`）：Use when designing or changing backend business logic with jobs, workers, publish/deploy/sync/import/export flows, cancellation, retry, timeout, locks, registries, caches, external APIs, or long-running stateful tasks. F…
-- `backend-security-review`（目录 `backend-security-review/`）：Per-feature security gate for backend APIs and data access — focus on auth, permissions, token handling, and injection risks on each specific endpoint or operation being implemented.
-- `bilibili-auto-transcript`（目录 `bilibili-auto-transcript/`）：B站视频转录+收藏夹扫描。三级降级（CC→AI→Whisper），AI摘要生成。
-- `cdn-asset-ops`（目录 `cdn-asset-ops/`）：Operate MinIO / S3-compatible CDN buckets via the mc client — detect whether mc is configured, help configure it from a Console URL, then list / upload / rename-prefix / delete objects safely. Use when the user gives a M…
-- `data-consistency-review`（目录 `data-consistency-review/`）：Check multi-step write operations for partial failure and orphaned state — transaction boundaries, atomicity, and rollback paths. Run after implementation, before claiming done.
-- `diagnose`（目录 `diagnose/`）：Disciplined diagnosis loop for hard bugs and performance regressions. Reproduce → minimise → hypothesise → instrument → fix → regression-test. Use when user says "diagnose this" / "debug this", reports a bug, says someth…
-- `grill-me`（目录 `grill-me/`）：Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions …
-- `improve-codebase-architecture`（目录 `improve-codebase-architecture/`）：Find deepening opportunities in a codebase, informed by the domain language in CONTEXT.md and the decisions in docs/adr/. Use when the user wants to improve architecture, find refactoring opportunities, consolidate tight…
-- `playwright`（目录 `playwright/`）：Use when the task requires automating a real browser from the terminal (navigation, form filling, snapshots, screenshots, data extraction, UI-flow debugging) via `playwright-cli` or the bundled wrapper script.
-- `production-readiness-review`（目录 `production-readiness-review/`）：Pre-ship ops checklist for backend features — timeout, retry, circuit breaker, idempotency, monitoring, and failure recovery. Run before declaring a backend feature production-ready.
-- `receiving-code-review`（目录 `receiving-code-review/`）：Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind …
-- `resource-lifecycle-audit`（目录 `resource-lifecycle-audit/`）：Audit every resource opened in an implementation for a matching close/kill/unsubscribe. The most common silent killer in vibe-coded backends. Run after implementation, before claiming done.
-- `security-best-practices`（目录 `security-best-practices/`）：Perform language and framework specific security best-practice reviews and suggest improvements. Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-def…
-- `tdd`（目录 `tdd/`）：Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions "red-green-refactor", wants integration tests, or asks for test-first development.
-- `ui-ux-pro-max`（目录 `ui-ux-pro-max/`）：UI/UX design intelligence. 67 styles, 96 palettes, 57 font pairings, 25 charts, 13 stacks (React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui). Actions: plan, build, create, design, implemen…
-- `verification-before-completion`（目录 `verification-before-completion/`）：Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions a…
-<!-- AUTO:SKILLS:END -->
+运行时原生或插件提供的 skill/tool 以**当前会话实际暴露**为准，不在本仓库维护固定清单或本机路径。
