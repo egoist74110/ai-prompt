@@ -7,6 +7,7 @@ read secret bodies. It only records executable/path/layout locators that are alr
 from __future__ import annotations
 
 import os
+import platform
 import shutil
 import stat
 from datetime import datetime, timezone
@@ -18,37 +19,34 @@ from local_state import ROOT, migrate_local_files, read_kind, write_kind
 HOME = Path.home()
 
 RUNTIMES = {
-    "claude": {
-        "executable": "claude",
-        "entry": HOME / ".claude" / "CLAUDE.md",
-        "skills": HOME / ".claude" / "skills",
-    },
-    "codex": {
-        "executable": "codex",
-        "entry": HOME / ".codex" / "AGENTS.md",
-        "skills": HOME / ".codex" / "skills",
-    },
-    "gemini": {
-        "executable": "gemini",
-        "entry": HOME / ".gemini" / "GEMINI.md",
-        "skills": HOME / ".gemini" / "skills",
-    },
-    "dsh": {
-        "executable": "dsh",
-        "entry": HOME / ".dsh" / "AGENTS.md",
-        "skills": HOME / ".dsh" / "skills",
-    },
-    "agy": {
-        "executable": "agy",
-        "entry": None,
-        "skills": None,
-    },
+    "claude": {"executable": "claude", "entry": HOME / ".claude" / "CLAUDE.md", "skills": HOME / ".claude" / "skills"},
+    "codex": {"executable": "codex", "entry": HOME / ".codex" / "AGENTS.md", "skills": HOME / ".codex" / "skills"},
+    "gemini": {"executable": "gemini", "entry": HOME / ".gemini" / "GEMINI.md", "skills": HOME / ".gemini" / "skills"},
+    "dsh": {"executable": "dsh", "entry": HOME / ".dsh" / "AGENTS.md", "skills": HOME / ".dsh" / "skills"},
+    "agy": {"executable": "agy", "entry": None, "skills": None},
 }
 
 COMMANDS = (
     "git", "node", "npm", "npx", "python", "python3", "bash", "pwsh", "powershell",
     "gh", "az", "mc", "curl", "ffmpeg", "yt-dlp", "nvidia-smi",
 )
+
+
+def detect_environment() -> dict[str, Any]:
+    system = platform.system().lower()
+    is_wsl = False
+    if system == "linux":
+        try:
+            is_wsl = "microsoft" in Path("/proc/version").read_text(errors="ignore").lower()
+        except OSError:
+            pass
+    shell = os.environ.get("SHELL") or os.environ.get("COMSPEC") or ""
+    return {
+        "os": "macos" if system == "darwin" else system,
+        "shell": Path(shell).name if shell else None,
+        "is_wsl": is_wsl,
+        "wsl_distro": os.environ.get("WSL_DISTRO_NAME") if is_wsl else None,
+    }
 
 
 def is_junction(path: Path) -> bool:
@@ -90,13 +88,13 @@ def detect_skills_layout(path: Path) -> str | None:
 
     managed_links = 0
     real_dirs = 0
+    central_resolved = central.resolve()
     for child in path.iterdir():
         if child.name == ".system":
             continue
         if is_linkish(child):
             try:
-                resolved = child.resolve()
-                if resolved.parent == central.resolve():
+                if child.resolve().parent == central_resolved:
                     managed_links += 1
             except OSError:
                 pass
@@ -116,7 +114,11 @@ def discover(refresh: bool = False) -> dict[str, Any]:
     migrate_local_files()
     runtime = read_kind("runtime")
 
+    # These values describe the process actually doing discovery, so refresh them every run.
+    runtime["environment"] = detect_environment()
     paths = runtime.setdefault("paths", {})
+    paths["home"] = str(HOME)
+
     commands = paths.setdefault("commands", {})
     for name in COMMANDS:
         found = shutil.which(name)
@@ -125,6 +127,12 @@ def discover(refresh: bool = False) -> dict[str, Any]:
                 commands[name] = found
         elif refresh:
             commands.pop(name, None)
+
+    preferred_python = commands.get("python3") or commands.get("python")
+    if preferred_python:
+        paths["python"] = preferred_python
+    elif refresh:
+        paths["python"] = None
 
     runtimes = runtime.setdefault("runtimes", {})
     for name, spec in RUNTIMES.items():
