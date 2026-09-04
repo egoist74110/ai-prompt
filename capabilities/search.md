@@ -1,44 +1,89 @@
 # 网页搜索策略
 
-本文件只保存**跨机器成立的搜索纪律、资格判断、熔断与降级规则**。某台机器实际装了什么、模型/provider 在哪里跑、endpoint、命令、key locator、某个后端当前是否健康，全部属于本地事实，写入 `.local/runtime.json` / `.local/state.json`。
+本文件只保存**跨机器成立的搜索分流、资格判断、熔断与降级规则**。某台机器实际装了什么、模型/provider 在哪里跑、endpoint、命令、key locator、某个后端当前是否健康，全部属于本地事实，写入 `.local/runtime.json` / `.local/state.json`。
 
-## 0. 核心原则：暴露 ≠ 可用
+## 0. 第一原则：搜索先分流，再选工具
 
-**搜索工具出现在当前会话的 tool list 中，只说明“运行时暴露了这个调用入口”，绝不等于它在当前模型/provider/订阅下真的可用。**
+搜索不是一个统一候选池。任何需要联网的任务，**先确定 Search Lane，再执行该 Lane 自己的搜索流程**。
 
-选择搜索后端前，先判断当前执行上下文，再判断后端资格：
+只有两条正常路线：
 
-1. 当前运行时 / provider / model 是 cloud、local/self-hosted 还是 unknown。
-2. `.local/runtime.json.search.contexts.*` 是否已有该上下文的稳定事实。
-3. `.local/state.json.search.backends.*` 是否已把某个后端标为 blocked / cooldown / degraded。
-4. 只有通过资格判断的后端才允许实际调用。
+```text
+Cloud model/provider
+    → lane = cloud-native
+    → 只走当前云端运行时/平台提供的原生搜索能力
 
-禁止为了“看看能不能用”而重复调用一个已经被本地 state 判定为不可用的搜索后端。
+Local / self-hosted model/provider
+    → lane = local-managed
+    → 只走用户在本机配置并验证的搜索后端
+```
 
-## 1. 执行上下文优先于工具暴露
+`unknown` 不是第三条搜索路线。hosting/lane 未知时，必须先做一次最小 discovery，确认后缓存，再开始搜索。
 
-### Cloud 模型 / Provider
+**默认禁止跨 Lane 偷跑。** 云端模型不要因为本机恰好装了 Tavily/Brave/MCP 就绕去本地搜索；本地模型也不要因为 runtime 暴露了一个 `web_search` 就调用云端搜索。
 
-- `hosting=cloud` 时，当前会话真正提供的原生 Web Search / Browser / MCP 可以作为高优先级候选。
-- 但仍需服从本地熔断状态：之前已经验证缺权限、缺订阅、缺 credential 或处于 cooldown 时，直接跳过。
-- 原生搜索失败不代表以后永久不可用；按失败类型进入 blocked 或 cooldown。
+只有用户明确要求，或 `.local/runtime.json.search.contexts.<id>` 明确配置 `allow_cross_lane_fallback=true` 时，才允许跨 Lane fallback。
 
-### Local / Self-hosted 模型
+## 1. 工具暴露 ≠ 工具可用
 
-- `hosting=local` 或 `hosting=self-hosted` 时，**运行时附带的云端搜索入口默认不具备资格**。
-- 尤其是需要运行时自己的云端 API key、订阅、额度或远端 provider 才能工作的 `web_search` / browser tool：即使当前会话把它暴露出来，也**禁止调用试探**。
-- 默认直接走 `.local/runtime.json.search.backends` 中已经配置、且本地 state 判定可用的搜索后端。
-- 只有 `.local/runtime.json.search.contexts.<id>.native_search_policy=allow`，并且该 native backend 已经在本机验证成功，local/self-hosted 模型才允许使用它。
+搜索工具出现在当前会话 tool list 中，只表示“运行时暴露了调用入口”，**不表示这个入口属于当前 Search Lane，也不表示当前 provider/key/订阅下可用**。
 
-一句话：**本地模型不拿“工具出现了”当联网能力；必须有明确的本地配置/验证证据。**
+因此：
 
-### Unknown
+- tool list 只用于发现候选入口；
+- Search Lane 决定候选是否有资格；
+- `.local/state.json` 的 blocked/cooldown 决定候选当前是否允许实际调用；
+- 已验证 blocked 的工具禁止为了“试试看”再次调用。
 
-- 若 hosting 未知，不要按模型品牌或运行时名字猜。
-- 先从当前运行时/provider 配置做最小 discovery：endpoint 是 localhost/本机服务、明确自托管配置，或用户已说明本地模型时，记录为 local/self-hosted；明确云端 provider 时记录为 cloud。
-- 该事实属于本地配置，确认后写入 runtime，后续直接复用。
+## 2. Lane A：Cloud Native Search
 
-示例：
+适用条件：
+
+```text
+hosting = cloud
+lane = cloud-native
+```
+
+执行规则：
+
+1. 优先使用**当前云端会话实际提供**的 Web Search / Browser / Search connector / provider-native search。
+2. 不需要读取本机 PATH、MCP 配置、Tavily/Brave/DDG wrapper，也不要因为本机有这些能力就切过去。
+3. 当前会话原生搜索存在，但本地 state 已记录该 backend `blocked` / 尚在 `cooldown` → 直接跳过，不重复撞失败。
+4. 云端原生搜索实际失败时按 §6 熔断；不要因为 tool list 仍显示它就下一轮继续撞。
+5. 若当前云端会话根本没有搜索能力：默认如实报告该会话缺少云端搜索；只有明确允许 cross-lane fallback 时才进入本地后端。
+
+Cloud lane 的核心是：
+
+> **云端模型使用平台/Provider 自己的云端搜索；本机搜索栈默认与它无关。**
+
+## 3. Lane B：Local Managed Search
+
+适用条件：
+
+```text
+hosting = local | self-hosted
+lane = local-managed
+```
+
+执行规则：
+
+1. **禁止调用 runtime 暴露的云端 `web_search` / browser / provider-native search 试探。**
+2. 即使这些工具出现在当前会话 tool list，也视为另一条 Lane 的工具，默认没有资格。
+3. 直接读取 `.local/runtime.json.search.backends` 中用户已经配置的本地托管搜索后端。
+4. 读取 `.local/state.json.search.backends`，过滤 disabled / blocked / cooldown。
+5. 优先使用当前 context 的 `preferred_backends`；没有 preferred 时按 backend `priority`。
+6. `degraded` 后端可用但降级排序；当前请求优先换健康后端。
+7. 若一个本地搜索后端都没有配置/可用：明确报告“local-managed lane 无可用 backend”，不要回头尝试 cloud-native search。
+
+这里的“本地搜索后端”指**由用户自己管理配置和 credential 的联网入口**，不要求搜索服务本身物理运行在本机。例如用户自行配置的 Tavily CLI/MCP、Brave wrapper、wigolo、DDG MCP、内部搜索服务都属于 `local-managed`。
+
+Local lane 的核心是：
+
+> **本地模型只使用用户自己配置的联网逻辑；运行时附赠的云端搜索入口默认完全忽略。**
+
+## 4. Search Context 必须缓存 Lane
+
+第一次确认 provider/model 执行位置后，写入：
 
 ```json
 {
@@ -49,16 +94,36 @@
         "provider": "<provider-id>",
         "model": "<model>",
         "hosting": "self-hosted",
+        "lane": "local-managed",
         "endpoint": "http://127.0.0.1:<port>",
-        "native_search_policy": "deny",
-        "preferred_backends": ["<configured-local-backend>"]
+        "preferred_backends": ["<configured-backend>"],
+        "allow_cross_lane_fallback": false
       }
     }
   }
 }
 ```
 
-可用工具辅助写入：
+Cloud context 对应：
+
+```json
+{
+  "hosting": "cloud",
+  "lane": "cloud-native",
+  "allow_cross_lane_fallback": false
+}
+```
+
+若 hosting 已知而 lane 缺失：
+
+```text
+cloud               → cloud-native
+local/self-hosted   → local-managed
+```
+
+确认后立即缓存，不要每个会话重新读 provider 配置再判断。
+
+可用 CLI：
 
 ```text
 python tools/search_state.py context-set <context-id> \
@@ -66,50 +131,61 @@ python tools/search_state.py context-set <context-id> \
   --provider <provider-id> \
   --model <model> \
   --hosting self-hosted \
+  --lane local-managed \
   --endpoint <non-secret-endpoint> \
-  --native-search-policy deny \
   --preferred-backends-json '["<backend-id>"]'
 ```
 
-## 2. 搜索后端选择顺序
+## 5. Backend 也声明所属 Lane
 
-不要固定写死某个产品名。后端列表来自 `.local/runtime.json.search.backends`。
+本地配置中的 backend 可以声明：
 
-统一流程：
-
-1. 判定当前 search context。
-2. 跳过 `enabled=false` 的后端。
-3. 跳过 state 中 `status=blocked` 的后端。
-4. 跳过仍在 `status=cooldown` 且 `retry_at` 尚未到期的后端。
-5. local/self-hosted context 下，若 `native_search_policy=deny`，跳过 `kind=native|runtime-native|session-native`。
-6. `preferred_backends` 中的已配置后端优先。
-7. 其余按 runtime 中的 `priority` 排序；`degraded` 后端排在健康/未知后端之后。
-8. 调用成功/失败后立即更新 state。
-
-可直接查看当前已配置且有资格的后端：
-
-```text
-python tools/search_state.py plan --context <context-id>
+```json
+{
+  "search": {
+    "backends": {
+      "my-search": {
+        "enabled": true,
+        "lane": "local-managed",
+        "kind": "mcp",
+        "priority": 100,
+        "credential": {
+          "type": "env|file|keychain|none",
+          "locator": "<locator only>"
+        }
+      }
+    }
+  }
+}
 ```
 
-若没有配置 context，可先省略 `--context`，但不能据此绕过已经存在的 blocked/cooldown 状态。
+允许值：
 
-## 3. 搜索失败必须进入熔断状态
+- `cloud-native`：云端会话/Provider 自带搜索。
+- `local-managed`：用户自己管理的 CLI/MCP/API/wrapper。
+- `both`：只有确实跨两种上下文都验证成功时才使用；不要图省事默认写 `both`。
 
-失败后不能只在当前对话里记一句“这个不好用”。必须把失败写入 `.local/state.json`，让后续会话直接避开。
+旧配置没写 `lane` 时按 `kind` 推断：
+
+```text
+native / runtime-native / session-native → cloud-native
+其它                                → local-managed
+```
+
+## 6. 搜索失败必须持久化熔断
+
+失败后不能只在当前对话里记住，必须更新 `.local/state.json`。
 
 ### A. 确定性失败 → blocked
 
-以下属于配置/能力事实：
+包括：
 
 - missing credential / missing key
-- 401 / 403 或明确 permission denied
+- 401 / 403 / permission denied
 - subscription 未开通
-- provider/运行时明确不支持该搜索能力
-- 配置文件不存在或后端未配置
-- 本地模型调用了只对云端订阅生效的 runtime-native search
-
-写成：
+- provider/runtime 明确不支持
+- 配置文件/后端不存在
+- 调用了错误 Lane 的 backend
 
 ```text
 python tools/search_state.py fail <backend-id> \
@@ -117,7 +193,7 @@ python tools/search_state.py fail <backend-id> \
   --reason "<non-secret reason>"
 ```
 
-状态结果应为：
+结果：
 
 ```json
 {
@@ -126,18 +202,11 @@ python tools/search_state.py fail <backend-id> \
 }
 ```
 
-**后续所有会话直接跳过。** 只有配置/credential locator/订阅发生变化，或用户明确要求 reset/refresh，才允许重新尝试。
+后续直接跳过，直到配置变化或明确 reset/refresh。
 
 ### B. 临时失败 → cooldown
 
-以下不要永久封死：
-
-- timeout / 临时网络错误
-- 5xx
-- 429 / quota / rate limit
-- 服务短时不可达
-
-写成：
+包括 timeout、临时网络错误、5xx、429、quota/rate-limit。
 
 ```text
 python tools/search_state.py fail <backend-id> \
@@ -146,11 +215,9 @@ python tools/search_state.py fail <backend-id> \
   --retry-after-minutes 15
 ```
 
-cooldown 未到期前不再调用，到期后允许一次 half-open 式重试；再次失败继续 cooldown。若服务返回 Retry-After，应优先使用实际 Retry-After。
+cooldown 到期后才允许一次重试。
 
-### C. 结果质量差 → degraded
-
-请求本身成功，但 Top 结果明显无关、SEO 垃圾、信息陈旧或 backend 自报 degraded：
+### C. 搜索成功但质量差 → degraded
 
 ```text
 python tools/search_state.py fail <backend-id> \
@@ -158,107 +225,85 @@ python tools/search_state.py fail <backend-id> \
   --reason "weak/irrelevant results"
 ```
 
-`degraded` 不代表完全不可用，只降低排序并立即换下一个后端。
+`degraded` 不禁用，只降低排序并切同 Lane 的下一后端。
 
-### D. 成功 → 清除熔断
+### D. 成功 → healthy
 
 ```text
 python tools/search_state.py success <backend-id>
 ```
 
-成功后把状态恢复为 `healthy`，清掉 failure_count/retry/reason。
+成功清除历史熔断。
 
-手动清除历史状态：
+## 7. Discovery 只负责确定 Lane 和补本 Lane 缺口
 
-```text
-python tools/search_state.py reset <backend-id>
-```
+### hosting/lane unknown
 
-## 4. 本地后端配置
+只做最小 discovery：
 
-中央不规定必须使用 wigolo、Tavily、Brave、DDG 或其它产品；它们都只是可选后端。真正使用哪些由当前机器 `.local/runtime.json.search.backends` 决定。
+1. 读取当前 provider/runtime 已知配置。
+2. localhost / 127.0.0.1 / 明确自托管 endpoint → `hosting=self-hosted` → `lane=local-managed`。
+3. 明确远程云 Provider → `hosting=cloud` → `lane=cloud-native`。
+4. 缓存 context。
+5. 然后才进入对应 Lane。
 
-示例：
+不要在 hosting unknown 时同时试一次云端搜索、再试一次本地搜索来“猜哪边能跑”。
 
-```json
-{
-  "search": {
-    "backends": {
-      "my-search": {
-        "enabled": true,
-        "kind": "mcp",
-        "priority": 100,
-        "config_path": "<local config locator>",
-        "credential": {
-          "type": "env|file|keychain|none",
-          "locator": "<locator only, never secret>"
-        }
-      }
-    }
-  }
-}
-```
+### local-managed lane 没 backend
 
-第一次配置并验证成功后，同时写：
+可以 discovery 本机已经存在的用户搜索配置：PATH、MCP list、已有 config locator；但只做最小探测。
 
-```text
-python tools/search_state.py success my-search
-```
+发现并验证后写 runtime/state。若确实没有，就报告缺 backend；安装/新增 MCP/API key 属于配置变更，按对应能力规则处理。
 
-之后本地/self-hosted 模型应直接走这个后端，不再尝试已经 blocked 的 runtime-native 搜索。
+### cloud-native lane
 
-## 5. Discovery 规则
+只检查当前云端会话原生能力；不要扫描本机搜索 CLI/MCP。
 
-只有**没有已验证路径**或**缓存明确失效**时才 discovery：
-
-1. 先读 search context，确认 cloud/local/self-hosted。
-2. 再读 runtime 中已配置 backend 和 credential locator。
-3. 再读 state 熔断状态；blocked/cooldown 先排除。
-4. PATH/MCP/config 只做最小探测，不要五路同时盲跑。
-5. 成功立即 `search_state.py success`；失败立即按类型 `fail`。
-6. 发现当前 provider/model 的 hosting/endpoint 是稳定本机事实时，写 `search.contexts`，不要下次重新读配置再猜。
-
-**禁止反复试探已经失败且失败原因没有变化的后端。** 这是节省 token 和避免无意义工具调用的硬规则。
-
-## 6. 搜索质量纪律
+## 8. 搜索质量纪律
 
 1. 一次查询聚焦一个事实。
 2. 技术问题优先官网、官方 GitHub、release、vendor docs。
-3. 第一轮弱结果时自动改用引号、`site:`、repo 名或更精确实体，并切换其它 eligible backend。
-4. “请求成功”和“搜索质量足够”分别判断。
-5. 所有 eligible backend 都失败时，报告实际失败点；不要虚构联网结果。
+3. 第一轮结果弱，优先在**同一 Lane**中换 query / 换 backend。
+4. 不因为搜索质量差就自动跨 Lane。
+5. “请求成功”和“结果可信”分别判断。
+6. 本 Lane 所有路径都失败时，报告实际失败点，不虚构搜索结果。
 
-## 7. 典型行为
+## 9. 典型流程
 
-### 本地模型 + runtime 暴露 `web_search` + 该工具依赖云端 key
-
-```text
-context = self-hosted
-native_search_policy = deny
-→ 不调用 web_search 试探
-→ 读取 preferred/configured local search backend
-→ 直接调用本地后端
-```
-
-### 某 native search 已经报 missing key
+### 云端模型
 
 ```text
-第一次失败
-→ state: blocked / retry when-config-changes
-
-下一次会话
-→ 读取 state
-→ 直接跳过
-→ 使用 configured backend
+hosting=cloud
+→ lane=cloud-native
+→ 用当前平台 Web Search
+→ 不碰本机 Tavily / wigolo / DDG / wrapper
 ```
 
-### 云端搜索短时 5xx
+### 本地模型
 
 ```text
-失败
-→ cooldown
-→ 当前请求切备用后端
-→ cooldown 到期后才允许重新探测
+hosting=self-hosted
+→ lane=local-managed
+→ 忽略 runtime 暴露的 cloud web_search
+→ 读 preferred_backends
+→ 调用户配置好的搜索
 ```
 
-一句话：**先判模型/provider 的执行环境，再判后端资格；搜索失败必须持久化熔断，后续优先走用户已经配置并验证的后端。**
+### 本地模型没有本地搜索 backend
+
+```text
+lane=local-managed
+→ eligible backend = 0
+→ 报告本地搜索尚未配置
+→ 不偷跑 cloud-native web_search
+```
+
+### backend 第一次缺 key
+
+```text
+实际失败
+→ blocked / when-config-changes
+→ 下一会话直接跳过
+```
+
+一句话：**Cloud 走 Cloud，Local 走 Local；先选 Lane，后选工具。默认绝不混用。**
