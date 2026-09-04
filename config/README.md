@@ -14,6 +14,7 @@
 - 某个凭据应该从 keychain / 文件 / 环境变量中的哪里读取
 - 某个服务应该从 Windows 宿主、WSL、macOS 哪一侧发请求
 - 搜索/MCP/headless review 后端的命令或配置 locator
+- **搜索执行上下文**：当前 runtime/provider/model 是 cloud、local/self-hosted 还是 unknown，以及是否允许 runtime-native search
 
 **禁止保存 token、密码、cookie、私钥正文。** 只允许保存 credential locator，例如 `{"type":"file","path":"..."}`、`{"type":"keychain","service":"..."}` 或环境变量名。
 
@@ -23,12 +24,12 @@
 
 - skill 已验证的 strategy
 - MCP 是否已配置、transport、最近一次验证时间
-- 搜索后端是否可用 / 因什么失败 / 何时才值得重试
+- 搜索后端是否健康、为什么失败、是否 blocked/cooldown/degraded、何时才值得重试
 - 某个 registry runtime 的 headless 审查是否可用
 - 某个服务在 WSL/Windows/macOS 哪一侧可达
 - API 返回编码 / 字段差异等与当前环境相关的实测结果
 
-它不是永久真理。当前会话事实永远优先于缓存；缓存路径、命令、权限、连接失败时，应重新 discovery，成功后覆盖旧值。
+它不是永久真理。当前会话**新的实际执行结果**可以更新缓存；但“工具被暴露”本身不算成功事实，不能覆盖已经验证的失败状态。
 
 ## Runtime Registry：模板不是名单
 
@@ -69,18 +70,64 @@ python tools/runtime_state.py runtime remove <runtime-id>
 python tools/runtime_state.py runtime seed --refresh-templates
 ```
 
-`runtime seed --refresh-templates` 只会合并模板里**本地尚不存在**的新条目，不覆盖已有本地配置。
+`runtime seed --refresh-templates` 只补缺失的模板声明字段，不覆盖已有本地解析值或 `source=user` 的自定义 runtime。
+
+## Search Context / Circuit Breaker
+
+搜索需要区分“当前模型/provider 在哪里运行”和“某个搜索入口是否健康”。
+
+稳定的执行上下文写入：
+
+```text
+.local/runtime.json -> search.contexts.<context-id>
+```
+
+例如保存 runtime/provider/model、`hosting=cloud|local|self-hosted|unknown`、非敏感 endpoint、`native_search_policy`、preferred backends。
+
+搜索后端配置写：
+
+```text
+.local/runtime.json -> search.backends.<backend-id>
+```
+
+后端健康/失败状态写：
+
+```text
+.local/state.json -> search.backends.<backend-id>
+```
+
+统一使用 `tools/search_state.py`：
+
+```text
+python tools/search_state.py context-set <context-id> --hosting self-hosted --native-search-policy deny
+python tools/search_state.py plan --context <context-id>
+python tools/search_state.py fail <backend-id> --class missing-credential --reason "missing key"
+python tools/search_state.py fail <backend-id> --class timeout --reason "timeout" --retry-after-minutes 15
+python tools/search_state.py success <backend-id>
+python tools/search_state.py reset <backend-id>
+```
+
+失败分类：
+
+- `auth/config/permission/unsupported/missing-credential/subscription` → `blocked`，只在配置变化后重试。
+- `transient/timeout/network/server/rate-limit/quota` → `cooldown`，到期后才允许再次尝试。
+- `quality` → `degraded`，降低优先级但不永久禁用。
+- 成功 → `healthy`，清除熔断。
+
+本地/self-hosted context 默认不能因为 runtime 暴露了一个需要云端订阅/key 的 `web_search` 就直接调用；详见 `capabilities/search.md`。
 
 ## 优先级
 
 处理 skill / MCP / 搜索 / 外部 API / headless runtime 时统一遵循：
 
-1. **当前会话事实**：已经暴露的工具、当前命令实际输出、当前环境变量。
+1. **当前会话实际结果**：真正成功/失败的工具调用、当前命令输出、当前环境变量。
 2. **本地 runtime/state**：`.local/runtime.json`、`.local/state.json` 中已验证的信息。
 3. **Discovery**：只有前两层无法解决或缓存失效时才探测。
 4. **中央文档**：只保存可移植规则、候选策略和服务固有事实，不保存单机事实。
 
-Discovery 一旦成功，必须把可复用的非敏感结果写回 `.local/`，避免下一次重复绕路和浪费 token。失败也可以缓存，但失败缓存必须写明可失效条件，例如 `retry: when-config-changes`，不能把一次暂时失败当永久禁用。
+注意：**工具被暴露不是“实际成功结果”**。已有 blocked/cooldown 状态时，不能因为 tool list 里仍然有该工具就重新试探。
+
+Discovery 一旦成功，必须把可复用的非敏感结果写回 `.local/`，避免下一次重复绕路和浪费 token。失败也必须写明可失效条件，不能只留在当前对话里。
 
 ## 路径规则
 
@@ -93,7 +140,8 @@ Discovery 一旦成功，必须把可复用的非敏感结果写回 `.local/`，
 - `config/runtime-templates.json`：仅首次初始化用的 starter data，不是永久 runtime 名单。
 - `tools/local_state.py`：本地配置/状态的唯一读写库。
 - `tools/runtime_registry.py`：runtime seed / register / discovery 的通用数据层，不认识具体产品名。
-- `tools/runtime_state.py`：给人/Agent 使用的 CLI。
+- `tools/runtime_state.py`：给人/Agent 使用的通用 runtime/state CLI。
+- `tools/search_state.py`：搜索执行上下文、后端排序和持久熔断状态。
 - `tools/bootstrap.py`：遍历本地 registry 做机器发现。
 - `tools/sync_skills.py`：按 registry 声明的 `skills_sync_mode` 跨平台同步。
 - `tools/doctor.py`：遍历 registry 做跨平台只读体检。
