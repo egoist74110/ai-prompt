@@ -9,6 +9,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL_RUNTIME = ROOT / ".local" / "runtime.json"
 LOCAL_STATE = ROOT / ".local" / "state.json"

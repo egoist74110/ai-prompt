@@ -12,11 +12,15 @@ ROOT = SELF.parents[1]
 TEXT_SUFFIXES = {".md", ".txt", ".py", ".sh", ".ps1", ".json", ".toml", ".yaml", ".yml"}
 IGNORE_DIRS = {".git", ".local", "__pycache__", ".venv", "node_modules"}
 
+# Real usernames are alnum/._- ; this excludes regex-literal snippets like "[^/]+" that
+# other guard/check scripts embed as *examples* of the very paths being forbidden here.
+USERNAME = r"[A-Za-z0-9_.\-]+"
+
 PATTERNS = [
-    ("concrete macOS home", re.compile(r"/Users/(?![<{\$])[^/\s`'\"]+/")),
-    ("concrete Linux home", re.compile(r"/home/(?![<{\$])[^/\s`'\"]+/")),
-    ("concrete Windows user home", re.compile(r"[A-Za-z]:\\Users\\(?![<{%$])[^\\\s`'\"]+\\", re.I)),
-    ("fixed WSL distro UNC", re.compile(r"\\\\wsl(?:\.localhost|\$)\\(?![<{%$])[^\\\s`'\"]+\\", re.I)),
+    ("concrete macOS home", re.compile(r"/Users/(?![<{\$])" + USERNAME + "/")),
+    ("concrete Linux home", re.compile(r"/home/(?![<{\$])" + USERNAME + "/")),
+    ("concrete Windows user home", re.compile(r"[A-Za-z]:\\Users\\(?![<{%$])" + USERNAME + r"\\", re.I)),
+    ("fixed WSL distro UNC", re.compile(r"\\\\wsl(?:\.localhost|\$)\\(?![<{%$])" + USERNAME + r"\\", re.I)),
 ]
 
 # Historical concrete identities are kept only inside this guard file; iter_files() excludes SELF.
