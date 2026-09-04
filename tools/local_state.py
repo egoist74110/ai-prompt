@@ -40,7 +40,10 @@ def default_runtime() -> dict[str, Any]:
         "paths": {
             "home": str(Path.home()),
             "python": shutil.which("python3") or shutil.which("python"),
+            "commands": {},
         },
+        "runtime_registry": {},
+        "probe_commands": [],
         "credentials": {},
         "services": {},
         "runtimes": {},
