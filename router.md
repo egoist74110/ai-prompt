@@ -2,6 +2,14 @@
 
 这是所有 AI Agent / 模型运行时的统一入口。任何运行时只要能读取本文件，就应按这里进入完整工作流。
 
+## OS 分派（先读，再往下）
+
+本仓库的绝对路径按**正典编辑机（macOS）的 home 前缀**书写。读/写任何路径前，先对照当前机器：
+
+- **正典机**（当前用户 home 与仓库里写的前缀一致）：路径原样读。
+- **其它机器**（Windows、其它 macOS、Linux/WSL 等）：把路径里的 home 前缀替换成**当前用户 home** 后再读写（Windows 如 `C:\Users\<名字>`，Linux/WSL 如 `/home/<名字>`，或运行时设定的 home）。
+- 让你读到本文件的入口文件（运行时的 AGENTS.md / CLAUDE.md 等）若已给出本仓库绝对路径，直接以那个路径里的 home 段为准，不要猜。
+
 ## Read Order
 
 1. 先读 `/Users/wesker/.ai-prompt/common.md`。
