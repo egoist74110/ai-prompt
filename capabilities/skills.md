@@ -19,8 +19,8 @@
   - Guardrails: 按需使用，不作为默认搜索；不用于密码、私密工单、内部代码、商业机密等敏感查询；不要让它覆盖官方文档优先规则。
 - `ado-pr`
   - Path: `/Users/wesker/.ai-prompt/skills/ado-pr/SKILL.md`
-  - Use for: 自建 Azure DevOps Server（`*.cg1alias.com`，非 dev.azure.com）的工单/PR 统一入口——读工单、读/建 PR、关联工单。直接用本机钥匙串 PAT + az CLI 直连，不依赖 ADO MCP/后台服务。
-  - Guardrails: 涉及 ADO 工单/PR 读写时优先本 skill，优先级高于 `ado-work-items` MCP（该 MCP 依赖 my-own-script 后台常驻，连通性差）。仅 macOS 本机（钥匙串 + az CLI）。
+  - Use for: 自建 Azure DevOps Server（`*.cg1alias.com`，非 dev.azure.com）的工单/PR 统一入口——读工单、读/建 PR、关联工单。不依赖 ADO MCP/后台服务；按当前是 macOS 还是 Windows 走 SKILL.md 里对应分支取 PAT 直连（macOS 钥匙串+az CLI，Windows REST 直连）。
+  - Guardrails: 涉及 ADO 工单/PR 读写时优先本 skill，优先级高于 `ado-work-items` MCP（该 MCP 依赖 my-own-script 后台常驻，连通性差）。目前只有 macOS 和 Windows 两条分支是实测验证过的，其它环境没验证过，别照抄假设。
 - `bilibili-auto-transcript`
   - Path: `/Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/SKILL.md`
   - Runtime: `bash /Users/wesker/.ai-prompt/skills/bilibili-auto-transcript/scripts/bilibili_transcript.sh "<B站视频链接>"`
@@ -117,7 +117,7 @@
 ## Auto 登记表（tools/gen-index.py 自动生成，勿手工编辑）
 
 <!-- AUTO:SKILLS:BEGIN -->
-- `ado-pr`（目录 `ado-pr/`）：与自建 Azure DevOps Server（azuredevops.cg1alias.com，非 dev.azure.com）交互的统一入口——读工单、读PR/列表、建PR并关联工单。当用户提到"工单"、"关联单"、给出一个工单号（如"4877"、"#4877"、"工单5023"），或提到"PR"、"发布PR"、"建PR"、"提PR"、"合并到main/master"等——不管是想读取还是想发起——都用这个技能，直接用本机钥匙串 P…
+- `ado-pr`（目录 `ado-pr/`）：与自建 Azure DevOps Server（azuredevops.cg1alias.com，非 dev.azure.com）交互的统一入口——读工单、读PR/列表、建PR并关联工单。当用户提到"工单"、"关联单"、给出一个工单号（如"4877"、"#4877"、"工单5023"），或提到"PR"、"发布PR"、"建PR"、"提PR"、"合并到main/master"等——不管是想读取还是想发起——都用这个技能，按当前系统是 mac…
 - `anysearch`（目录 `anysearch/`）：Real-time search engine supporting web search, vertical domain search, parallel batch search, and URL content extraction.
 - `backend-architecture-review`（目录 `backend-architecture-review/`）：Use before implementing any backend feature — ask the five architecture questions first, then approve the data model and access boundary before writing code.
 - `backend-business-safety`（目录 `backend-business-safety/`）：Use when designing or changing backend business logic with jobs, workers, publish/deploy/sync/import/export flows, cancellation, retry, timeout, locks, registries, caches, external APIs, or long-running stateful tasks. F…
