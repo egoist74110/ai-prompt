@@ -53,6 +53,7 @@ python tools/runtime_state.py runtime add <runtime-id> \
 - 网页搜索按当前 API/provider 分流：
   - cloud + 平台自带搜索 → 直接使用平台搜索，**不读取 `capabilities/search.md`**；
   - local/self-hosted → 才读取 `capabilities/search.md`，使用本机已配置搜索后端。
+- 实现任务产生文件/进程/端口/配置副作用时，最终交付前读 `capabilities/cleanup.md`。
 - 交付前做交叉审查时读 `capabilities/cross-review.md`。
 
 ## Local Search
@@ -74,6 +75,29 @@ python tools/runtime_state.py runtime add <runtime-id> \
 
 云端模型不需要为这套本地搜索策略占用上下文 token。
 
+## Regression / Cleanup Gate
+
+`capabilities/cleanup.md` 定义实现任务最后的“回归 + 清场”闭环。
+
+任务不是“功能跑通”就结束，而是：
+
+```text
+实现
+→ 必要回归
+→ 必要交叉审查 / 补修 / 复验
+→ 检查 git diff + untracked
+→ 删除本次临时文件/调试产物
+→ 停止本次启动且不需常驻的 server/watcher/browser/worker/MCP
+→ 恢复本次临时配置/权限
+→ 相关端口恢复到开工 baseline
+→ 清场后再做一次最小 smoke
+→ 交付
+```
+
+开工时先区分用户原有状态与本次 task-owned 资源；清场只处理能确认属于本次任务的东西。**禁止为了干净而误删用户原有 untracked 文件、误杀已有进程，也禁止默认使用 `git clean -fd` / `git reset --hard` / `killall` / `pkill` 这类粗暴手段。**
+
+任务中途失败也要清本次已产生的临时资源；用户明确要求保留的 artifact/服务则保留并在交付中说明。
+
 ## Rule
 
 - 不要每次全量读取 `skills/` 或外部 `SKILL.md`。
@@ -82,6 +106,7 @@ python tools/runtime_state.py runtime add <runtime-id> \
 - Token/密码/cookie/私钥正文不得写入 `.local/`；只能缓存 credential locator。
 - Skill/MCP/search/headless runtime 首次成功 discovery 后，应把可复用的机器事实写入 `.local/`，避免后续重复绕路。
 - 失败也可以缓存，但必须说明何时应重试，不能把临时失败写成中央永久规则。
+- **收尾属于任务本身**：本次临时文件、进程、端口、配置、副作用应在交付前恢复到合理 baseline。
 - `skills/<name>/SKILL.md` frontmatter 是 skill 元数据唯一 source of truth；`capabilities/skills.md` 只是可重建发现索引。
 
 ## 本地初始化
