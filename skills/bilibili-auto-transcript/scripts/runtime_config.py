@@ -7,6 +7,7 @@ Secrets stay in environment/.env; this module only caches non-secret locators/se
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -51,6 +52,9 @@ def discover_and_cache() -> dict[str, Any]:
         "db_path": str(_existing_or(portable_base / "state" / "transcripts.db", legacy_db)),
         "browser_type": "chromium",
     }
+    bash = os.environ.get("BILIBILI_BASH", "").strip() or shutil.which("bash")
+    if bash:
+        defaults["bash"] = bash
 
     for key, value in defaults.items():
         if not entry.get(key):
@@ -100,6 +104,10 @@ def browser_type() -> str:
     return os.environ.get("BILIBILI_BROWSER", "").strip() or str(config().get("browser_type", "chromium"))
 
 
+def bash_executable() -> str | None:
+    return os.environ.get("BILIBILI_BASH", "").strip() or config().get("bash") or shutil.which("bash")
+
+
 def shell_exports() -> dict[str, str]:
     """Values used by the Bash transcript engine without teaching Bash to parse JSON."""
     return {
@@ -118,7 +126,7 @@ def main() -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("show")
     get = sub.add_parser("get")
-    get.add_argument("key", choices=["state_dir", "output_dir", "db_path", "favorite_media_id", "browser_type"])
+    get.add_argument("key", choices=["state_dir", "output_dir", "db_path", "favorite_media_id", "browser_type", "bash"])
     args = parser.parse_args()
 
     if args.cmd == "show":
@@ -133,6 +141,7 @@ def main() -> int:
         "db_path": str(db_path()),
         "favorite_media_id": favorite_media_id(),
         "browser_type": browser_type(),
+        "bash": bash_executable() or "",
     }
     print(values[args.key])
     return 0
