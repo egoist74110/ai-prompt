@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Persistent search backend policy/circuit-breaker state.
+"""Persistent search lane + backend circuit-breaker state.
 
 Configuration lives in .local/runtime.json; health/failure state lives in .local/state.json.
+Search lanes are mutually exclusive by default:
+- cloud-native: platform/provider-native search
+- local-managed: user-managed CLI/MCP/API search backends
 No secret values are stored here.
 """
 from __future__ import annotations
@@ -16,6 +19,8 @@ from local_state import migrate_local_files, read_kind, write_kind
 HARD_FAILURES = {"auth", "config", "permission", "unsupported", "missing-credential", "subscription"}
 TRANSIENT_FAILURES = {"transient", "timeout", "network", "server", "rate-limit", "quota"}
 ALL_FAILURES = sorted(HARD_FAILURES | TRANSIENT_FAILURES | {"quality"})
+LANES = {"cloud-native", "local-managed"}
+BACKEND_LANES = LANES | {"both"}
 
 
 def now() -> datetime:
@@ -33,6 +38,24 @@ def parse_iso(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def derive_lane(hosting: str | None) -> str | None:
+    if hosting == "cloud":
+        return "cloud-native"
+    if hosting in {"local", "self-hosted"}:
+        return "local-managed"
+    return None
+
+
+def infer_backend_lane(cfg: dict[str, Any]) -> str:
+    explicit = cfg.get("lane")
+    if explicit in BACKEND_LANES:
+        return str(explicit)
+    kind = str(cfg.get("kind", ""))
+    if kind in {"native", "runtime-native", "session-native"}:
+        return "cloud-native"
+    return "local-managed"
 
 
 def backend_state(state: dict[str, Any], backend: str) -> dict[str, Any]:
@@ -62,7 +85,9 @@ def mark_failure(
             }
         )
     elif failure_class in TRANSIENT_FAILURES:
-        minutes = retry_after_minutes if retry_after_minutes is not None else (60 if failure_class in {"rate-limit", "quota"} else 15)
+        minutes = retry_after_minutes if retry_after_minutes is not None else (
+            60 if failure_class in {"rate-limit", "quota"} else 15
+        )
         entry.update(
             {
                 "verified": False,
@@ -114,24 +139,38 @@ def set_context(
     provider: str | None,
     model: str | None,
     hosting: str,
+    lane: str | None,
     endpoint: str | None,
-    native_search_policy: str,
     preferred_backends: list[str] | None,
+    allow_cross_lane_fallback: bool | None,
 ) -> dict[str, Any]:
     contexts = runtime.setdefault("search", {}).setdefault("contexts", {})
     entry = contexts.setdefault(context_id, {})
+    resolved_lane = lane or derive_lane(hosting)
+
     for key, value in {
         "runtime": runtime_id,
         "provider": provider,
         "model": model,
         "hosting": hosting,
+        "lane": resolved_lane,
         "endpoint": endpoint,
-        "native_search_policy": native_search_policy,
     }.items():
         if value is not None:
             entry[key] = value
     if preferred_backends is not None:
         entry["preferred_backends"] = preferred_backends
+    if allow_cross_lane_fallback is not None:
+        entry["allow_cross_lane_fallback"] = allow_cross_lane_fallback
+    elif "allow_cross_lane_fallback" not in entry:
+        entry["allow_cross_lane_fallback"] = False
+
+    # Compatibility with older local state: lane is now authoritative.
+    if resolved_lane == "local-managed":
+        entry["native_search_policy"] = "deny"
+    elif resolved_lane == "cloud-native":
+        entry["native_search_policy"] = "allow"
+
     entry["last_updated"] = iso()
     return entry
 
@@ -147,29 +186,40 @@ def is_blocked(entry: dict[str, Any]) -> tuple[bool, str | None]:
     return False, None
 
 
-def planned_backends(runtime: dict[str, Any], state: dict[str, Any], context_id: str | None) -> list[dict[str, Any]]:
+def planned_backends(
+    runtime: dict[str, Any], state: dict[str, Any], context_id: str
+) -> list[dict[str, Any]]:
     search_cfg = runtime.get("search", {})
     configured = search_cfg.get("backends", {}) if isinstance(search_cfg, dict) else {}
     contexts = search_cfg.get("contexts", {}) if isinstance(search_cfg, dict) else {}
-    context = contexts.get(context_id, {}) if context_id else {}
-    preferred = context.get("preferred_backends", []) if isinstance(context, dict) else []
+    context = contexts.get(context_id, {}) if isinstance(contexts, dict) else {}
+    if not isinstance(context, dict):
+        return []
+
+    hosting = str(context.get("hosting", "unknown"))
+    lane = context.get("lane") or derive_lane(hosting)
+    if lane not in LANES:
+        # Unknown hosting is not a third search lane. Resolve/cache context first.
+        return []
+
+    allow_cross = bool(context.get("allow_cross_lane_fallback", False))
+    preferred = context.get("preferred_backends", []) or []
     preferred_rank = {name: idx for idx, name in enumerate(preferred)}
-    hosting = context.get("hosting", "unknown") if isinstance(context, dict) else "unknown"
-    native_policy = context.get("native_search_policy", "auto") if isinstance(context, dict) else "auto"
     state_backends = state.get("search", {}).get("backends", {})
 
     rows: list[dict[str, Any]] = []
     for name, cfg in configured.items():
         if not isinstance(cfg, dict) or cfg.get("enabled", True) is False:
             continue
+
         health = state_backends.get(name, {}) if isinstance(state_backends, dict) else {}
         blocked, block_reason = is_blocked(health if isinstance(health, dict) else {})
         if blocked:
             continue
 
-        kind = str(cfg.get("kind", ""))
-        is_native = kind in {"native", "runtime-native", "session-native"}
-        if hosting in {"local", "self-hosted"} and is_native and native_policy == "deny":
+        backend_lane = infer_backend_lane(cfg)
+        lane_match = backend_lane in {lane, "both"}
+        if not lane_match and not allow_cross:
             continue
 
         priority = int(cfg.get("priority", 0) or 0)
@@ -177,7 +227,10 @@ def planned_backends(runtime: dict[str, Any], state: dict[str, Any], context_id:
         rows.append(
             {
                 "backend": name,
-                "kind": kind or None,
+                "lane": backend_lane,
+                "context_lane": lane,
+                "cross_lane": not lane_match,
+                "kind": cfg.get("kind"),
                 "priority": priority,
                 "preferred": name in preferred_rank,
                 "status": health.get("status", "unknown") if isinstance(health, dict) else "unknown",
@@ -188,6 +241,7 @@ def planned_backends(runtime: dict[str, Any], state: dict[str, Any], context_id:
 
     rows.sort(
         key=lambda row: (
+            1 if row["cross_lane"] else 0,
             0 if row["preferred"] else 1,
             preferred_rank.get(row["backend"], 10**6),
             1 if row["degraded"] else 0,
@@ -209,8 +263,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    plan = sub.add_parser("plan", help="list configured eligible backends in execution order")
-    plan.add_argument("--context")
+    plan = sub.add_parser("plan", help="list eligible backends for one already-resolved search lane")
+    plan.add_argument("--context", required=True)
 
     success = sub.add_parser("success")
     success.add_argument("backend")
@@ -227,15 +281,21 @@ def main() -> int:
     status = sub.add_parser("status")
     status.add_argument("backend", nargs="?")
 
-    context = sub.add_parser("context-set", help="cache local/cloud model-provider facts")
+    context = sub.add_parser("context-set", help="cache model/provider hosting and search lane")
     context.add_argument("context_id")
     context.add_argument("--runtime")
     context.add_argument("--provider")
     context.add_argument("--model")
     context.add_argument("--hosting", choices=["cloud", "local", "self-hosted", "unknown"], required=True)
+    context.add_argument("--lane", choices=sorted(LANES))
     context.add_argument("--endpoint")
-    context.add_argument("--native-search-policy", choices=["allow", "deny", "auto"], default="auto")
     context.add_argument("--preferred-backends-json")
+    context.add_argument(
+        "--allow-cross-lane-fallback",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="explicitly allow/deny falling back to a backend from the other lane",
+    )
 
     args = parser.parse_args()
     migrate_local_files()
@@ -243,7 +303,18 @@ def main() -> int:
     state = read_kind("state")
 
     if args.cmd == "plan":
-        print(json.dumps(planned_backends(runtime, state, args.context), ensure_ascii=False, indent=2))
+        search_cfg = runtime.get("search", {})
+        contexts = search_cfg.get("contexts", {}) if isinstance(search_cfg, dict) else {}
+        if args.context not in contexts:
+            parser.error(f"search context is not registered: {args.context}")
+        rows = planned_backends(runtime, state, args.context)
+        context_data = contexts.get(args.context, {})
+        hosting = context_data.get("hosting") if isinstance(context_data, dict) else None
+        lane = context_data.get("lane") if isinstance(context_data, dict) else None
+        lane = lane or derive_lane(hosting)
+        if lane not in LANES:
+            parser.error("search context has unknown hosting/lane; discover and cache it before searching")
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
         return 0
     if args.cmd == "success":
         result = mark_success(state, args.backend)
@@ -272,6 +343,9 @@ def main() -> int:
                 preferred = json_list(args.preferred_backends_json)
             except (json.JSONDecodeError, ValueError) as exc:
                 parser.error(str(exc))
+        derived = derive_lane(args.hosting)
+        if args.lane and derived and args.lane != derived:
+            parser.error(f"lane {args.lane} conflicts with hosting {args.hosting}; expected {derived}")
         result = set_context(
             runtime,
             args.context_id,
@@ -279,9 +353,10 @@ def main() -> int:
             provider=args.provider,
             model=args.model,
             hosting=args.hosting,
+            lane=args.lane,
             endpoint=args.endpoint,
-            native_search_policy=args.native_search_policy,
             preferred_backends=preferred,
+            allow_cross_lane_fallback=args.allow_cross_lane_fallback,
         )
         write_kind("runtime", runtime)
         print(json.dumps(result, ensure_ascii=False, indent=2))
