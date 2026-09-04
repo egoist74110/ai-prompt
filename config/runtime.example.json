@@ -66,14 +66,16 @@
         "provider": "<provider-id>",
         "model": "<model name/pattern>",
         "hosting": "cloud|local|self-hosted|unknown",
+        "lane": "cloud-native|local-managed",
         "endpoint": "<non-secret endpoint if useful>",
-        "native_search_policy": "allow|deny|auto",
-        "preferred_backends": ["<backend-id>"]
+        "preferred_backends": ["<backend-id>"],
+        "allow_cross_lane_fallback": false
       }
     },
     "backends": {
       "<backend-id>": {
         "enabled": true,
+        "lane": "cloud-native|local-managed|both",
         "kind": "mcp|cli|command|native|runtime-native|session-native",
         "priority": 100,
         "command": null,
