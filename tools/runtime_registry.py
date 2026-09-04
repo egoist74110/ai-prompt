@@ -30,27 +30,55 @@ def load_template_catalog(path: Path = TEMPLATE_FILE) -> dict[str, Any]:
     return data
 
 
-def seed_templates(runtime: dict[str, Any], force: bool = False) -> bool:
-    """Seed starter runtime specs once, without overwriting local edits.
+def _merge_missing(target: dict[str, Any], defaults: dict[str, Any]) -> bool:
+    """Recursively add missing template fields without replacing local values."""
+    changed = False
+    for key, value in defaults.items():
+        if key not in target:
+            target[key] = copy.deepcopy(value)
+            changed = True
+        elif isinstance(value, dict) and isinstance(target[key], dict):
+            changed |= _merge_missing(target[key], value)
+    return changed
 
-    force=True allows newly added starter entries/support probes to be merged later, but still never
-    replaces an existing runtime entry.
+
+def seed_templates(runtime: dict[str, Any], force: bool = False) -> bool:
+    """Seed/migrate starter specs without overwriting local edits.
+
+    On the first seed, pre-registry entries from older schema versions receive only the missing
+    declarative fields from matching starter templates. Entries explicitly marked source=user are
+    never template-merged. force=True allows newly added starter entries/fields to be merged later.
     """
     catalog = load_template_catalog()
     meta = runtime.setdefault("runtime_registry", {})
-    if meta.get("templates_seeded") and not force:
+    already_seeded = bool(meta.get("templates_seeded"))
+    if already_seeded and not force:
         return False
 
     changed = False
     entries = runtime.setdefault("runtimes", {})
     for name, spec in catalog.get("runtimes", {}).items():
-        if name in entries:
+        if name not in entries:
+            item = copy.deepcopy(spec)
+            item.setdefault("enabled", True)
+            item.setdefault("source", "template")
+            entries[name] = item
+            changed = True
             continue
-        item = copy.deepcopy(spec)
-        item.setdefault("enabled", True)
-        item.setdefault("source", "template")
-        entries[name] = item
-        changed = True
+
+        existing = entries[name]
+        if not isinstance(existing, dict):
+            continue
+        # Old discovered entries had no source marker. Treat them as template-derived for migration.
+        if existing.get("source") == "user":
+            continue
+        changed |= _merge_missing(existing, spec)
+        if "source" not in existing:
+            existing["source"] = "template"
+            changed = True
+        if "enabled" not in existing:
+            existing["enabled"] = True
+            changed = True
 
     probes = runtime.setdefault("probe_commands", [])
     if not isinstance(probes, list):
@@ -79,7 +107,6 @@ def _expand_path(value: str) -> Path:
 
 def _resolve_command(candidate: str) -> str | None:
     expanded = os.path.expandvars(os.path.expanduser(candidate))
-    # Explicit path candidates are allowed in the local registry.
     if any(sep in expanded for sep in (os.sep, "/", "\\")):
         path = Path(expanded)
         if path.is_file():
@@ -136,9 +163,13 @@ def detect_runtime(name: str, entry: dict[str, Any], refresh: bool = False) -> b
         return False
 
     executable = entry.get("executable")
-    if executable and _resolve_command(str(executable)):
-        entry["executable"] = _resolve_command(str(executable))
-    else:
+    if executable:
+        resolved_existing = _resolve_command(str(executable))
+        if resolved_existing:
+            entry["executable"] = resolved_existing
+        else:
+            executable = None
+    if not executable:
         resolved = None
         for candidate in entry.get("command_candidates", []) or []:
             resolved = _resolve_command(str(candidate))
@@ -228,6 +259,7 @@ def register_runtime(
     review_priority: int | None = None,
 ) -> dict[str, Any]:
     entries = runtime.setdefault("runtimes", {})
+    is_new = name not in entries
     entry = entries.setdefault(name, {})
     entry["source"] = "user"
     entry["enabled"] = True
@@ -241,6 +273,8 @@ def register_runtime(
         entry["skills_candidates"] = skills_candidates
     if capabilities is not None:
         entry["capabilities"] = capabilities
+    elif is_new:
+        entry["capabilities"] = ["agent"]
     if skills_sync_mode is not None:
         entry["skills_sync_mode"] = skills_sync_mode
     if auto_sync_skills is not None:
