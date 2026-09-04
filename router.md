@@ -5,12 +5,28 @@
 ## Root / Local State（先读，再往下）
 
 - `AI_PROMPT_ROOT` = **本文件 `router.md` 所在目录**。
-- 本仓库内所有相对路径都以 `AI_PROMPT_ROOT` 为基准解析。禁止根据某台机器的 `/Users/...`、`C:\Users\...` 等前缀做字符串替换。
-- `.local/runtime.json` 保存“这台机器怎么做”：OS、外部绝对路径、可执行文件、运行时/Skill/MCP/Search locator、credential locator、执行侧等。
+- 本仓库内所有相对路径都以 `AI_PROMPT_ROOT` 为基准解析。禁止根据某台机器的具体用户目录前缀做字符串替换。
+- `.local/runtime.json` 保存“这台机器怎么做”：OS、外部绝对路径、可执行文件、动态 runtime registry、Skill/MCP/Search locator、credential locator、执行侧等。
 - `.local/state.json` 保存“这台机器已经验证过什么”：Skill strategy、MCP/search/headless 可用性、API/网络行为、最近成功/失败及失效条件等。
 - 两者都不得提交。
 - 若 `.local/` 不存在且当前环境允许执行本仓库脚本，可运行 `python tools/runtime_state.py init`（只有 `python3` 时用 `python3`）。没有 Python 仍可读取中央规则，只是不能自动维护本地缓存。
 - **禁止把 token、密码、cookie、私钥正文写入 local state/runtime**；只能缓存“去哪里取”的 credential locator。
+
+## Runtime Registry Contract
+
+AI 运行时名称本身也是**本地数据**，不是中央代码常量。
+
+- `config/runtime-templates.json` 只是首次初始化 starter template，不是永久支持名单。
+- 真正可用的运行时来自 `.local/runtime.json.runtimes`。
+- bootstrap、doctor、Skill 同步、交叉审查等消费者必须**遍历 registry**，禁止写 `if runtime == <某产品>` 这种产品名分支。
+- runtime entry 可声明：`command_candidates`、`entry_candidates`、`skills_candidates`、`capabilities`、`skills_sync_mode`、`review.args`、`review.priority` 等。
+- 用户可以注册任意新 runtime；新增工具不应要求修改中央 Python：
+
+```text
+python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<command>"]'
+```
+
+完整字段见 `config/README.md`。
 
 ### 本地事实优先级
 
@@ -53,8 +69,8 @@
 2. **新增必须同步**：运行时临时创建的新 Skill，同一步内必须迁回 `AI_PROMPT_ROOT/skills/<name>/`，再生成索引。没同步完不算完成。
 3. **更新改正典**：中央已有同名 Skill → 直接改中央；旧私有副本应移除/改成链接，避免分叉。
 4. **frontmatter 是唯一元数据源**：新增/删除/改名/改 description 后运行 `tools/gen-index.py`；`capabilities/skills.md` 不手工维护机器路径或第二套元数据。
-5. **Skill 内路径相对 Skill 自身解析**：不要依赖 cwd，不要假定 `$CODEX_HOME`、`~/.claude`、某用户名或某运行时私有目录。
-6. **运行时 skills 布局属于机器事实**：可能是整目录 symlink、逐 Skill symlink、junction 或真实目录。优先读 local runtime；没有记录才实测一次并缓存。
+5. **Skill 内路径相对 Skill 自身解析**：不要依赖 cwd，不要假定任何 runtime-specific home、用户名或私有目录。
+6. **运行时 skills 布局属于机器事实**：可能是整目录 symlink、逐 Skill symlink、junction、真实目录或根本不支持 Skill。以 registry 声明 + 当前实测为准。
 7. **只信实测，不信推断**：缓存与当前实际不符时刷新缓存。`tools/doctor.py` 是跨平台正典体检入口；`doctor.sh` 只是兼容包装。
 
 ## Native Entrypoints
@@ -65,4 +81,4 @@
 Read <current-ai-prompt-root>/router.md first, then follow it.
 ```
 
-入口文件可以使用该运行时支持的 `~` / 环境变量 / 当前实际绝对路径，但中央仓库不规定某个用户名或 home。当前入口/skills 路径第一次验证后可缓存到 `.local/runtime.json`。
+入口文件可以使用该运行时支持的 home 变量、环境变量或当前实际绝对路径，但中央仓库不规定某个产品的固定入口。候选入口来自 runtime registry，第一次验证后的实际路径写回 `.local/runtime.json`。
