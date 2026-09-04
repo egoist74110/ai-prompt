@@ -55,6 +55,19 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
 
 这样云端模型完全不需要为本地搜索策略浪费上下文 token。
 
+## Regression / Cleanup Contract
+
+凡是会写文件、改配置、跑测试、启动 server/watcher/browser/MCP/worker、生成构建或调试产物的任务，**清场属于交付的一部分**。
+
+- 开工前建立最小 baseline：至少区分用户原有 dirty files / 进程 / 端口与本次 task-owned 资源。
+- 实现过程中跟踪本次临时文件、临时进程、端口、配置、副作用；不要最后靠猜。
+- 最终交付前，实施方必须读取并执行 `capabilities/cleanup.md`。
+- 顺序：回归 → diff/untracked 检查 → 清本次临时文件 → 停本次临时进程 → 恢复临时配置/权限 → 清场后 smoke → 交付。
+- 失败/中断也要清本次副作用。
+- 只能清 task-owned 资源；用户原有文件/进程/端口不得误删误杀。
+
+功能跑通但留下本次垃圾文件或后台进程，**不算完成**。
+
 ## Read Order
 
 1. 先读 `common.md`。
@@ -68,6 +81,7 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
    - cloud + 平台自带搜索 → 直接搜索，**不要读 `capabilities/search.md`**；
    - local/self-hosted → 读 `capabilities/search.md`；
    - unknown → 先判 hosting，只有判为 local/self-hosted 才读。
+6. 实现任务产生文件/进程/端口/配置副作用时，**最终交付前读 `capabilities/cleanup.md`**；纯只读问答不需要加载。
 
 ## Capability Loading
 
@@ -75,6 +89,7 @@ python tools/runtime_state.py runtime add <runtime-id> --commands-json '["<comma
 - 只有用户点名能力，或任务明显匹配索引里的 description / Use for，才读取对应文件。
 - 当前会话已有原生/插件工具且适合任务时，可以作为候选；但若本地 state 已验证该能力 blocked/cooldown/unsupported，应直接跳过，除非已满足其重试条件。
 - **搜索是特殊分流能力**：云端模型不加载本地搜索 Prompt；本地模型才加载 `capabilities/search.md`。
+- **cleanup 是交付 Gate，不是普通工具能力**：只要本次任务产生副作用，实施方最终回复前必须执行；不因任务“看起来已经跑通”而跳过。
 - 需要安装、启用、新增 MCP/plugin/connector，或扩大权限前，必须先说明原因、命令/配置和影响范围，取得用户确认。
 - 第一次在本机跑通某能力后，把**机器相关 locator 写 runtime、验证经验写 state**；只有跨机器成立的规则才回写中央 `SKILL.md` / capabilities 文档。
 
