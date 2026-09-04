@@ -189,6 +189,7 @@ def main() -> int:
         "tools/runtime_registry.py",
         "tools/bootstrap.py",
         "tools/runtime_state.py",
+        "tools/search_state.py",
         "tools/sync_skills.py",
         "tools/check_portability.py",
     ]
@@ -218,7 +219,25 @@ def main() -> int:
     for name, entry in sorted(enabled_entries):
         check_runtime_skills(name, entry, central, central_names)
 
-    print("== 5. skills 索引 ==")
+    print("== 5. search local policy ==")
+    search_cfg = runtime.get("search", {}) if isinstance(runtime.get("search", {}), dict) else {}
+    contexts = search_cfg.get("contexts", {}) if isinstance(search_cfg, dict) else {}
+    backends = search_cfg.get("backends", {}) if isinstance(search_cfg, dict) else {}
+    ok(f"search contexts: {len(contexts) if isinstance(contexts, dict) else 0}")
+    ok(f"configured search backends: {len(backends) if isinstance(backends, dict) else 0}")
+    if isinstance(contexts, dict):
+        local_contexts = [
+            name for name, entry in contexts.items()
+            if isinstance(entry, dict) and entry.get("hosting") in {"local", "self-hosted"}
+        ]
+        for name in local_contexts:
+            policy = contexts[name].get("native_search_policy", "auto")
+            if policy == "deny":
+                ok(f"search context {name}: local/self-hosted native search denied")
+            else:
+                warn(f"search context {name}: local/self-hosted but native_search_policy={policy}")
+
+    print("== 6. skills 索引 ==")
     proc = run([sys.executable, "tools/gen-index.py", "--check"])
     if proc.returncode == 0:
         ok((proc.stdout.strip().splitlines() or ["gen-index --check 通过"])[0])
@@ -227,7 +246,7 @@ def main() -> int:
         for line in (proc.stdout + proc.stderr).strip().splitlines():
             print(f"      {line}")
 
-    print("== 6. pre-commit hook ==")
+    print("== 7. pre-commit hook ==")
     git = shutil.which("git")
     if not git:
         warn("git 不在 PATH，跳过 hook 检查")
@@ -253,7 +272,7 @@ def main() -> int:
             else:
                 warn("pre-commit hook 未安装；编辑机建议安装")
 
-    print("== 7. 本机 support command probes ==")
+    print("== 8. 本机 support command probes ==")
     cached_commands = runtime.get("paths", {}).get("commands", {})
     for command in runtime.get("probe_commands", []) or []:
         path = cached_commands.get(command) or shutil.which(command)
