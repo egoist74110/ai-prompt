@@ -56,6 +56,7 @@ def default_state() -> dict[str, Any]:
         "services": {},
         "search": {"backends": {}},
         "cross_review": {"runtimes": {}},
+        "skills_sync": {},
     }
 
 
