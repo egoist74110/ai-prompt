@@ -75,8 +75,9 @@
     "backends": {
       "<backend-id>": {
         "enabled": true,
-        "lane": "cloud-native|local-managed|both",
-        "kind": "mcp|cli|command|native|runtime-native|session-native",
+        "lane": "local-managed",
+        "roles": ["general", "fetch", "accurate", "precise", "repo", "code", "research", "fallback"],
+        "kind": "mcp|cli|command",
         "priority": 100,
         "command": null,
         "config_path": null,
