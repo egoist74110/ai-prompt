@@ -1,6 +1,6 @@
 # 交叉审查（Cross-Review：不同高级模型互审代码）
 
-实现方与审查方**不能是同一个运行时**。本文件只保存跨机器成立的流程；某台机器的可执行文件路径、权限配置、trusted workspace、headless 可用性都属于本地 runtime/state，不写死在中央文档。
+实现方与审查方**不能是同一个运行时**。本文件只保存跨机器成立的流程；可用运行时、命令、权限、trusted workspace、headless 能力都属于本地 runtime/state，不写死在中央文档。
 
 ## 先判身份（递归终止条件）
 
@@ -17,39 +17,45 @@
 
 trivial 修复、纯配置、一行改动、无外部副作用的局部逻辑可直接自检交付。
 
-## 审查运行时选择
+## 审查运行时选择：只读 registry，不认固定名字
 
-默认优先级：**Claude > Codex > agy**。
+候选只来自 `.local/runtime.json.runtimes`。中央**不维护 Claude / Codex / Gemini / Qwen Code / 其它 CLI 的固定名单或固定顺序**。
 
-审查方 = 优先级序列中第一个**不等于实现方**、且当前机器已验证可用的运行时。
+筛选规则：
 
-“可用”判断统一走：
+1. `enabled != false`。
+2. `capabilities` 包含 `review`。
+3. runtime id 不等于当前实现方。
+4. 有已解析的 `executable`，或可通过它自己的 `command_candidates` 做最小 discovery。
+5. `review.args` 已配置；如果该 CLI 不需要额外参数，可以是空数组。
+6. 优先使用 `.local/state.json.cross_review.runtimes.<id>.headless_verified == true` 的条目。
+7. 多个都可用时按 registry 中 `review.priority` 从高到低；没填优先级的排在已填值之后。
 
-1. 当前会话/环境实时事实。
-2. `.local/runtime.json` 中已缓存的 executable / invocation / permission locator。
-3. `.local/state.json` 中最近一次 headless 审查是否验证成功。
-4. 没缓存或缓存失效时才 discovery。
-
-若优先运行时当前不可用，顺延下一项；不要为了凑交叉审查临时扩大权限。
+因此新增任何审查工具只需要注册本地数据，不需要修改本文件或 Python 代码。
 
 ## Headless invocation
 
-中央只保存**候选调用形态**，不宣称命令一定在 PATH：
+统一调用模型：
 
 ```text
-Claude Code: claude -p "<审查请求>"
-Codex:       codex exec "<审查请求>"
-agy:         agy -p "<审查请求>"
+<runtime.executable> <runtime.review.args...> "<审查请求>"
 ```
 
-首次成功 discovery 后，把真实 executable / invocation 缓存到 `.local/runtime.json`，例如：
+命令名、参数、路径、模型选择都来自 registry / 当前会话事实。中央不保存某个产品的具体 CLI 示例作为逻辑依赖。
+
+本地 runtime 结构示例：
 
 ```json
 {
   "runtimes": {
-    "codex": {
-      "executable": "<resolved path or command>",
-      "review_args": ["exec"]
+    "<runtime-id>": {
+      "command_candidates": ["<command>"],
+      "executable": "<resolved executable>",
+      "capabilities": ["agent", "review"],
+      "review": {
+        "args": ["<headless-arg>"],
+        "priority": 80
+      }
     }
   }
 }
@@ -61,7 +67,7 @@ agy:         agy -p "<审查请求>"
 {
   "cross_review": {
     "runtimes": {
-      "codex": {
+      "<runtime-id>": {
         "headless_verified": true,
         "last_result": "ok"
       }
@@ -72,13 +78,31 @@ agy:         agy -p "<审查请求>"
 
 缓存不得包含登录 token、cookie、密钥正文。
 
+### 新增审查运行时
+
+使用通用 registry CLI；下面只是字段结构示例，不代表某个固定产品：
+
+```text
+python tools/runtime_state.py runtime add <runtime-id> \
+  --commands-json '["<command>"]' \
+  --capabilities-json '["agent","review"]' \
+  --review-args-json '["<headless-arg>"]' \
+  --review-priority 70
+```
+
+注册后会自动 detect；也可单独运行：
+
+```text
+python tools/runtime_state.py runtime detect <runtime-id> --refresh
+```
+
 ## 权限与 workspace
 
 headless 运行时常见前置条件包括：
 
 - 目标仓库必须在该运行时允许读取的 workspace 范围内。
 - 需要 `git diff`、测试命令等时，可能需要细粒度 command 权限。
-- 某些运行时的 plan 模式或默认 headless 权限可能根本不能读文件。
+- 某些运行时的 plan/headless 权限可能根本不能读文件。
 
 这些都属于**机器配置**：权限文件路径、allowed root、trustedWorkspaces 当前值等写进本地 runtime/state，中央只保留规则。
 
@@ -86,9 +110,9 @@ headless 运行时常见前置条件包括：
 
 审查方无输出 / 调用失败时，不能当成通过：
 
-1. 检查缓存是否过期。
-2. 做最小 discovery：executable、workspace、读文件权限、必要命令权限。
-3. 成功后刷新本地缓存；仍失败则如实报告。
+1. 检查 registry/state 缓存是否过期。
+2. 对该 runtime 做最小 discovery：executable、workspace、读文件权限、必要命令权限。
+3. 成功后刷新本地缓存；仍失败则顺延下一个 registry 候选或如实报告。
 
 ## 审查请求格式
 
@@ -126,7 +150,7 @@ headless 运行时常见前置条件包括：
 ## Guardrails
 
 - 不维护快速过期的模型名/版本列表。
-- 不维护某台机器当前装了哪些运行时、哪些权限已经放开。
-- headless invocation 第一次跑通后缓存，后续直接复用；失败才重新 discovery。
+- 不维护固定运行时名单、固定优先级或固定 CLI invocation。
+- runtime 第一次跑通后缓存，后续直接复用；失败才重新 discovery。
 - 不为了审查方便扩大运行时权限。
 - 审查方不得递归再派审查。
