@@ -1,0 +1,48 @@
+name: portability
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  portable-core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Initialize and discover local runtime
+        run: python tools/runtime_state.py init
+
+      - name: Check central portability rules
+        run: python tools/check_portability.py
+
+      - name: Check skill discovery index
+        run: python tools/gen-index.py --check
+
+      - name: Compile Python sources
+        run: python -m compileall -q tools skills
+
+      - name: Run cross-platform doctor
+        run: python tools/doctor.py
+
+      - name: Validate Bash syntax
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            bash -n "$file"
+          done < <(find tools skills -type f -name '*.sh' -print0)
+
+      - name: Show discovered runtime snapshot
+        if: always()
+        run: python tools/runtime_state.py show runtime
