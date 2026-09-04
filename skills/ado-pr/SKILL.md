@@ -74,6 +74,10 @@ Windows 上没有跟 macOS `security` 钥匙串等价的东西，`az` CLI 目前
   ```
 - **已验证**：work item 单条 GET 时，即便这条工单实际所属的 `System.TeamProject` 和 URL 里填的项目名不一致（比如 URL 填了 `PinBall` 但工单其实属于 `CG` 项目），只要 URL 里带了某个合法项目名，请求依然成功——这个端点按全局 ID 取，项目名只是满足路由格式，不做归属校验；但**列表/查询类端点**（build/release 等）不一定有这个宽松度，不要类推。
 - **没有实测过的部分**：本条目前只验证过"读工单 + 读评论"这两块 REST 直连；PR 列表/详情/建 PR 的 REST 等效、以及"Windows 上装了 az CLI 会怎样"，都没人实测过。真遇到这种情况，现场用同样的 Basic Auth 方式探测 `git/repositories`、`git/pullrequests` 等端点（或者先装 `az` 再走 macOS 分支同款命令），把验证结果补回这里，不要凭 macOS 分支的 `az repos` 语义直接假设 REST URL 形状。
+- **2026-09-04 WSL 侧实测（本机，发行版 PCMClawUbuntu）踩到的坑**：
+  1. 服务器返回的 JSON 是 **UTF-8**（不是 GBK）。用 GB18030/GBK 解码会出替换字符，且 PS 控制台输出还会把部分汉字打成 `?`（难与编码问题区分）。稳妥做法：PowerShell 里用 `HttpWebRequest` 取响应流 `CopyTo` 存原始字节到文件，再用 Python 按 UTF-8 解码读文件，不要指望 PS 控制台直接打印中文 JSON。
+  2. 这台 TFS 2017 的 comments 端点（`4.1-preview`）返回结构是 `{totalCount, fromRevisionCount, count, comments: [...]}`——字段是 **`comments`**，不是新版 API 的 `value`；照新版写法 `Select-Object -ExpandProperty value` 会静默拿空。
+  3. agent 若已经运行在本机 WSL 里（本发行版即 PCMClawUbuntu），token / NOTES 直接读本地路径 `/mnt/.config/azure-devops/` 即可（与 UNC 路径是同一份文件）；REST 请求仍必须从 **Windows 侧** PowerShell 发出（WSL 内 TCP 不通，见上）。
 
 ### 认证成功但某个操作仍 401/403
 
