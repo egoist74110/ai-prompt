@@ -2,54 +2,37 @@
 
 > **LOCAL-ONLY CAPABILITY**：本文件只给 `local` / `self-hosted` 模型/API 使用。
 >
-> 如果当前模型/API 是云端并且平台自身提供联网搜索，**不要读取、不要执行、不要套用本文件剩余内容**。云端模型直接使用平台自己的搜索能力即可。
+> Cloud API/provider 自带搜索时不要读本文件，直接用平台自己的搜索。
 
-本文件保存的是本地模型如何联网搜索的**跨机器策略**：怎么选后端、怎么判断结果垃圾、什么时候重搜、什么时候 fallback、什么时候熔断。
-
-某台机器实际装了哪些后端、命令路径、MCP 配置、credential locator、provider endpoint、健康状态，属于本地事实，只写 `.local/runtime.json` / `.local/state.json`，禁止把绝对路径或 secret 写回这里。
-
----
+本文件只规定跨机器成立的本地搜索策略。某台机器实际装了什么、命令路径、MCP 配置、credential locator、provider endpoint、禁用开关和健康状态，都写 `.local/runtime.json` / `.local/state.json`，不写绝对路径或 secret 到中央仓库。
 
 ## 0. 入口判定
 
-只有满足以下任一条件才继续读：
+只有满足以下任一条件才继续：
 
-- 当前 provider/model 明确 `hosting=local` 或 `hosting=self-hosted`；
-- endpoint 是已确认的本机/自托管服务；
-- `.local/runtime.json.search.contexts.<id>` 已缓存 `lane=local-managed`。
+- 当前 provider/model 已确认 `hosting=local` 或 `hosting=self-hosted`；
+- endpoint 已确认是本机/自托管服务；
+- `.local/runtime.json.search.contexts.<id>.lane=local-managed`。
 
-若 hosting 未知，先做一次最小 discovery，确认并缓存；若结果是 cloud，立即停止读取本文件。
+hosting 未知时只做一次最小 discovery，确认后缓存。判定为 cloud 就停止读本文件。
 
-本地模型即使看到 runtime 暴露了 `web_search` / browser / provider-native search，也不能据此认为自己已经联网。只有用户自己管理、配置并验证的 `local-managed` backend 才是本文件的搜索能力。
+**本地模型看到 runtime 暴露了 `web_search` / browser / provider-native search，不代表该工具可用，也不代表它属于本地搜索路径。**
 
-**禁止直接回答“我没有联网能力”。** 先按下面流程检查本机已配置后端；只有所有 eligible backend 都不可用时，才报告具体失败点。
+## 1. 先读缓存，再搜索
 
----
+固定顺序：
 
-## 1. 搜索前先读本地缓存
+1. 读 `.local/runtime.json.search.contexts.<id>`。
+2. 读 `.local/runtime.json.search.backends`。
+3. 读 `.local/state.json.search.backends`。
+4. 跳过 `enabled=false`、`blocked`、尚在 cooldown、或不属于 `local-managed` 的后端。
+5. 优先当前 context 的 `preferred_backends`。
+6. 只有缓存缺失/失效才 discovery；跑通后立即缓存。
 
-顺序固定：
-
-1. 读取当前 search context：`.local/runtime.json.search.contexts.<id>`。
-2. 读取用户已配置后端：`.local/runtime.json.search.backends`。
-3. 读取健康/熔断状态：`.local/state.json.search.backends`。
-4. 跳过：
-   - `enabled=false`；
-   - `status=blocked`；
-   - `status=cooldown` 且 `retry_at` 未到；
-   - 不属于 `local-managed` lane 的后端。
-5. 优先复用 `preferred_backends`；不要每次重新扫描 MCP、PATH、配置文件和 key。
-6. 没有已配置路径，或缓存明确失效时，才 discovery。
-
-可以用：
+可用：
 
 ```text
 python tools/search_state.py plan --context <context-id>
-```
-
-如果任务类型明确，可进一步按 backend role 过滤：
-
-```text
 python tools/search_state.py plan --context <context-id> --role repo
 python tools/search_state.py plan --context <context-id> --role general
 python tools/search_state.py plan --context <context-id> --role accurate
@@ -57,23 +40,15 @@ python tools/search_state.py plan --context <context-id> --role precise
 python tools/search_state.py plan --context <context-id> --role fetch
 ```
 
-backend 没声明 `roles` 时仍可作为 generic fallback，不要因此把已跑通的旧配置判无效。
+backend 没声明 `roles` 时可作为 generic fallback，避免旧配置失效。
 
----
+## 2. 按任务类型选后端
 
-## 2. 先按任务类型选搜索路径
+不要所有问题都扔给同一个聚合搜索。
 
-不要所有问题都丢给同一个聚合搜索。
+### repo / release / tag / issue / PR / code
 
-### A. 仓库 / release / tag / issue / PR / 代码
-
-**直接走 repo/code 类后端，优先官方 GitHub 数据，不先绕通用搜索引擎。**
-
-典型 role：
-
-```json
-["repo", "code"]
-```
+走 `repo` / `code` 后端，优先官方 GitHub 数据，不先绕通用搜索。
 
 若本机 `gh` 已验证，可直接使用类似：
 
@@ -84,160 +59,105 @@ gh api repos/<owner>/<repo>/tags
 gh search code "query"
 ```
 
-核心原则：能直接查一手仓库数据，就不要拿 SEO 搜索结果猜 release/version。
+能查一手仓库数据就不要拿 SEO 页面猜版本。
 
-### B. 普通网页问题
+### 普通网页
 
-先走 `general` 后端，目标是低成本、覆盖广、快速拿到第一轮候选。
+先走 `general` 后端，目标是低成本、覆盖广、快速拿第一轮候选。wigolo 类聚合器属于这一类，但必须判结果质量。
 
-典型实现可以是用户自己的聚合搜索/MCP。历史上 wigolo 属于这一类：免费、能力多，适合第一轮 `search/fetch/crawl/extract/cache`，但必须做结果质量检查，不能因为请求成功就直接相信结果。
+### 技术 / 版本 / 日期 / 价格 / 强时效
 
-### C. 开发技术 / 版本 / release / 日期 / 价格 / 强时效事实
+优先或第二轮切 `accurate` 后端。Tavily 类属于这一类；若本机策略已把它设为 preferred，可以直接用，不必为了省一次请求先跑明显较差的聚合器。
 
-优先或第二轮切 `accurate` 后端。
+### `site:` / 精确短语 / freshness
 
-典型实现可以是 Tavily 一类质量更高的搜索 API/MCP。对于这类问题，不必为了“省一次请求”强行先用明显质量较差的通用聚合器；如果本机策略把 accurate backend 设为 preferred，可以直接用。
+走 `precise` 后端。Brave 类属于这一类，也适合作为第一轮离题后的二次精确检索。
 
-### D. `site:` / 精确短语 / freshness / 定向检索
+### 已知 URL
 
-走 `precise` 后端。
+不要重新搜索 URL；直接走 `fetch` / `crawl` / `extract` 后端拿正文或结构化数据。
 
-典型实现可以是 Brave 一类支持 `site:`、引号、freshness 的搜索。尤其适合第一轮离题后的第二轮精确检索。
+推荐能力分类：
 
-### E. 已知 URL，需要正文/页面结构
+| 类型 | role | 典型用途 |
+|---|---|---|
+| GitHub API / `gh` | `repo`, `code`, `precise` | repo、release、tag、issue、PR、代码 |
+| wigolo 类 | `general`, `fetch` | 第一轮通用搜索、抓取/crawl/extract |
+| Tavily 类 | `accurate`, `research`, `fetch` | 技术/时效/高准确、第二轮 |
+| Brave 类 | `precise`, `general` | `site:`、引号、freshness、fallback |
+| DDG / 其它 MCP | `general`, `fallback` | 通用备用 |
+| 内部/自建搜索 | 按实际能力 | 用户自己的联网入口 |
 
-不要重新搜索这个 URL；走 `fetch` / `crawl` / `extract` 后端直接抓正文或结构化内容。
+产品名只是能力例子，不是固定安装清单。
 
----
+## 3. 搜索成功 != 结果可用
 
-## 3. 本地搜索最重要的纪律：判结果，不只判调用成功
+本地搜索最常见的问题不是 API 报错，而是成功返回垃圾结果。每轮都检查：
 
-本地搜索“垃圾”的主要问题往往不是 API 报错，而是**成功返回了一堆不能用的结果**。
+1. **实体对齐**：Top 3 标题/摘要是否出现核心实体、项目名或明显同义指代；完全不沾边 → 无效。
+2. **来源质量**：开发技术优先官网、官方 GitHub、release、vendor docs；SEO 聚合博客占满 → 弱。
+3. **主题污染**：无关语言、localhost、随机镜像、不同产品同名页面 → 弱。
+4. **时间对齐**：问最新/版本/今天/价格/发布日期时，没有日期或明显陈旧 → 弱。
+5. **后端退化信号**：`degraded=true` / engine pool degraded 等 → 请求成功也不能算搜索成功。
+6. **相关性评分异常**：lexical/entity alignment 为 0 或极低 → 弱。
 
-每轮结果都必须做以下质量检查：
+历史上 wigolo 裸引擎池出现过引擎 429/0 结果、Top 结果被 SEO 博客占满的情况。遇到这种结果必须换后端，不在垃圾证据上继续推理。
 
-1. **实体对齐**：Top 3 的标题/摘要应出现核心实体、项目名或明显同义指代；完全不沾边 → 本轮无效。
-2. **来源质量**：开发技术问题优先官网、官方 GitHub、release、vendor docs；SEO 聚合博客占满 Top 结果 → 判弱。
-3. **语言/主题污染**：混入无关语言、localhost、随机镜像、完全不同产品同名页面 → 判弱。
-4. **时间对齐**：问“最新/版本/今天/价格/发布日期”时，结果没有日期或明显陈旧 → 判弱。
-5. **后端自报退化**：若 backend 返回类似 `degraded=true` / engine pool degraded 的信号 → 不把“HTTP 成功”当成搜索成功。
-6. **相关性评分异常**：若后端有 lexical/entity alignment 等评分，核心相关性为 0 或极低 → 判弱。
-
-历史 wigolo 的典型弱结果就是：engine pool 退化、部分引擎 429/0 结果、最终 Top 结果被 SEO 博客占满。遇到这种情况必须换后端，而不是让模型在垃圾结果上继续推理。
-
-弱结果写成 `degraded`，不是永久封死：
+弱结果：
 
 ```text
 python tools/search_state.py fail <backend-id> \
   --class quality \
-  --reason "top results are irrelevant / SEO-heavy / degraded"
+  --reason "top results irrelevant / SEO-heavy / degraded"
 ```
 
----
+它应进入 `degraded`，不是永久封死。
 
-## 4. 两轮搜索策略
+## 4. 两轮搜索
 
-### 第一轮：窄问题、正常查询
+### 第一轮
 
 - 一次只查一个事实。
 - 不写开放式长句。
-- 技术问题尽量带精确产品/项目名。
-- repo/release 问题优先 repo backend。
+- 技术问题带精确产品/项目名。
+- repo/release 优先 repo backend。
 
-错误示例：
+不要：
 
 ```text
 TypeScript 7 native Go port release status performance roadmap
 ```
 
-更好的拆法：
+改成拆查：
 
 ```text
 TypeScript 7 release
 microsoft typescript-go releases
-site:typescriptlang.org "TypeScript 7"
 ```
 
-### 第二轮：第一轮弱/离题时自动改写
+### 第二轮
 
-不要拿弱结果硬答，自动执行：
+第一轮弱/离题时，不硬答，自动：
 
-1. 给核心实体加引号；
+1. 核心实体加引号；
 2. 加 `site:` 官方域名；
 3. 加 repo owner/name；
-4. 把多事实拆成单事实；
-5. 切到 `accurate` 或 `precise` 后端；
-6. 仍有疑问时直接 fetch 官方结果正文核对。
+4. 多事实拆单事实；
+5. 切 `accurate` / `precise` 后端；
+6. 必要时 fetch 官方正文核对。
 
-例：
+例如：
 
 ```text
-第一轮 general:
-TypeScript 7 release
-
-结果弱
-↓
-
-第二轮 accurate/precise:
 site:typescriptlang.org "TypeScript 7"
 site:github.com/microsoft/typescript-go releases
 ```
 
----
-
-## 5. 推荐后端角色映射
-
-这只是**跨机器的能力分类**，不是要求当前机器必须安装这些产品：
-
-| 后端/类型 | 推荐 role | 用途 |
-|---|---|---|
-| GitHub API / `gh` | `repo`, `code`, `precise` | repo、release、tag、issue、PR、代码 |
-| wigolo 类聚合器 | `general`, `fetch` | 免费第一轮通用搜索、抓取、crawl/extract |
-| Tavily 类 | `accurate`, `research`, `fetch` | 技术/时效/高准确事实、弱结果第二轮 |
-| Brave 类 | `precise`, `general` | `site:`、引号、freshness、Tavily fallback |
-| DuckDuckGo / 其它搜索 MCP | `general`, `fallback` | 通用备用 |
-| 内部/自建搜索 | 按实际能力声明 | 用户自己的联网入口 |
-
-真正路径、command、MCP server、credential locator 全部来自 `.local/runtime.json`。
-
-例如：
-
-```json
-{
-  "search": {
-    "backends": {
-      "my-general-search": {
-        "enabled": true,
-        "lane": "local-managed",
-        "roles": ["general", "fetch"],
-        "priority": 100,
-        "kind": "mcp",
-        "config_path": "<local locator>"
-      },
-      "my-accurate-search": {
-        "enabled": true,
-        "lane": "local-managed",
-        "roles": ["accurate", "research"],
-        "priority": 90,
-        "kind": "command",
-        "command": ["<resolved command>"],
-        "credential": {
-          "type": "env|file|keychain",
-          "locator": "<locator only>"
-        }
-      }
-    }
-  }
-}
-```
-
----
-
-## 6. 失败、熔断和 fallback
+## 5. 失败分类与熔断
 
 ### 确定性失败 → blocked
 
-缺 key、401/403、没订阅、明确 unsupported、配置不存在：
+缺 key、401/403、没订阅、配置不存在、明确 unsupported：
 
 ```text
 python tools/search_state.py fail <backend-id> \
@@ -249,7 +169,7 @@ python tools/search_state.py fail <backend-id> \
 
 ### 临时失败 → cooldown
 
-timeout、5xx、429、短时网络错误：
+timeout、短时网络错误、5xx、429：
 
 ```text
 python tools/search_state.py fail <backend-id> \
@@ -258,67 +178,92 @@ python tools/search_state.py fail <backend-id> \
   --retry-after-minutes 15
 ```
 
-cooldown 期间直接换下一 eligible backend，不重复撞。
+cooldown 期间换下一后端，不重复撞。
 
-### 请求成功且结果可用 → healthy
+### 成功且结果可用 → healthy
 
 ```text
 python tools/search_state.py success <backend-id>
 ```
 
-### MCP/包装层挂了
+## 6. 最重要：废弃 runtime-native search 必须物理下架
 
-优先查看同一 backend 是否已经缓存了等价 CLI/command locator；有就走等价入口，不要重新安装 MCP。
+**`blocked` 只解决策略层，不一定解决运行时注入。**
 
-如果没有等价入口，切下一个已验证 backend。只有所有本地路径都失败，才向用户报告无可用搜索能力及各路径失败原因。
+有些 runtime 会采用 stable tool registration：即使 provider/key 不可用，仍把 `web_search` schema 暴露给模型，并继续注入“使用 web_search”的 system prompt；真正缺 key 只在执行时才报错。此时 state 明明已经 `blocked`，下一新会话模型还是会重新看到并被诱导调用一次。
 
----
+因此，对于 local/self-hosted 会话中已经确认的**确定性硬失败 runtime-native/provider-native search**：
 
-## 7. Discovery：只允许第一次绕路
+```text
+首次实际失败
+↓
+state 标 blocked
+↓
+runtime 支持可逆 tool disable/unregister？
+├─ 是 → 找当前 profile/runtime 的最小作用域开关
+│       → 只关失败的 search tool
+│       → 缓存 suppression locator/strategy 到 runtime.json
+│       → reload/restart/new session
+│       → 验证该 tool 已不再出现在 tool schema
+│       → verified_absent=true
+└─ 否 → 缓存 suppression_status=unsupported
+        → 保持 blocked，永不主动调用
+```
 
-如果本机还没有配置任何搜索 backend：
+**这一动作是搜索自愈的一部分，已授权自动执行**：只要失败是确定性的，并且修改是最小、可逆、只关闭该搜索工具，可以直接处理，不必每次再次询问。若会扩大权限、关闭其它能力、影响非搜索功能或作用域无法确认，才需要用户确认。
+
+不要对 timeout/429/5xx/偶发网络问题做永久物理下架；它们只 cooldown。
+
+具体产品的配置路径、profile 名、开关格式属于本机事实：首次发现后写 `.local/runtime.json.search.contexts.<id>.native_tools`，不要硬编码进中央文档。
+
+完整 suppression contract 见 `capabilities/search-runtime-suppression.md`。
+
+## 7. MCP / wrapper / discovery
+
+MCP 或包装层挂了：
+
+- 同一 backend 已缓存等价 CLI/command locator → 直接走等价入口；
+- 没有 → 换下一已验证 backend；
+- 不要因为 MCP 失败就重新安装一遍已有能力。
+
+本机一个搜索 backend 都没有时才 discovery：
 
 1. 查 local runtime/state；
 2. 查当前 runtime 已配置 MCP；
-3. 查 PATH/已知本地 wrapper；
-4. 一次只探最有希望的一两个；
-5. 成功后立即把 locator + roles + priority 写 runtime，把健康状态写 state；
-6. 失败按类型写 blocked/cooldown；
-7. 下一次直接复用。
+3. 查 PATH / 已知 wrapper；
+4. 一次只探最可能的一两个；
+5. 成功后立即写 locator + roles + priority + healthy；
+6. 失败按 blocked/cooldown 写状态。
 
-不要每次重新找 key、重新判断哪个 MCP 装了、重新猜脚本路径。
-
----
+**第一次可以绕路，第二次不准重新找 key、MCP、脚本路径或再次调用已知废弃工具。**
 
 ## 8. 最终执行摘要
 
 ```text
 本地模型需要外部信息
 ↓
-读 context + local backend cache + circuit breaker
+读 context + backend cache + circuit breaker
 ↓
-按任务类型选 role
-├─ repo/release/code → repo/code backend
-├─ 普通网页 → general backend
-├─ 技术/时效/高准确 → accurate backend
-├─ site:/freshness → precise backend
-└─ 已知 URL → fetch backend
+先过滤 blocked/cooldown/被物理禁用的 native tools
 ↓
-执行第一轮
+按任务 role 选 local-managed backend
+├─ repo/release/code → repo/code
+├─ 普通网页 → general
+├─ 技术/时效/高准确 → accurate
+├─ site:/freshness → precise
+└─ 已知 URL → fetch
+↓
+第一轮
 ↓
 质量检查
-├─ 好 → 引用/回答 + 标 healthy
-└─ 差 → 标 degraded
-          ↓
-       改写查询
-          ↓
-       切 accurate/precise backend 第二轮
+├─ 好 → healthy + 回答
+└─ 差 → degraded → 改写查询 → 换 accurate/precise 第二轮
 ↓
-确定性失败 → blocked
+硬失败 → blocked；若是 runtime-native 且可关闭 → 同时物理下架
 临时失败 → cooldown
 ↓
 所有 local-managed backend 都不可用
 → 才报告具体失败原因
 ```
 
-一句话：**本地模型联网的关键不是“有个 search tool”，而是“按任务选后端 + 对结果做质量判定 + 弱结果自动二搜 + 失败持久化熔断 + 跑通过的本机配置以后直接复用”。**
+一句话：**本地模型联网不是“看见 search tool 就点”，而是“只走已配置的 local-managed 后端；垃圾结果自动二搜；确定性废弃工具既熔断又从运行时物理摘掉”。**
