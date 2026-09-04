@@ -1,6 +1,40 @@
 {
   "version": 1,
-  "skills": {},
-  "mcp": {},
-  "services": {}
+  "skills": {
+    "example": {
+      "strategy": null,
+      "verified": false,
+      "last_verified": null,
+      "facts": {}
+    }
+  },
+  "mcp": {
+    "example": {
+      "configured": false,
+      "transport": null,
+      "verified": false,
+      "last_verified": null
+    }
+  },
+  "services": {},
+  "search": {
+    "backends": {
+      "example": {
+        "verified": false,
+        "last_verified": null,
+        "reason": null,
+        "retry": null
+      }
+    }
+  },
+  "cross_review": {
+    "runtimes": {
+      "example": {
+        "headless_verified": false,
+        "last_result": null,
+        "last_verified": null
+      }
+    }
+  },
+  "skills_sync": {}
 }
