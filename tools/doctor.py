@@ -5,15 +5,16 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import stat
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HOME = Path.home()
 LOCAL_RUNTIME = ROOT / ".local" / "runtime.json"
 LOCAL_STATE = ROOT / ".local" / "state.json"
+
+sys.path.insert(0, str(ROOT / "tools"))
+from platform_fs import is_linkish, points_to  # noqa: E402
 
 fail = False
 
@@ -42,43 +43,8 @@ def read_json(path: Path) -> dict:
     return data
 
 
-def norm(value: str | Path) -> str:
-    return os.path.normcase(os.path.normpath(str(value)))
-
-
-def is_junction(path: Path) -> bool:
-    fn = getattr(path, "is_junction", None)
-    if fn is not None:
-        try:
-            return bool(fn())
-        except OSError:
-            return False
-    if os.name != "nt":
-        return False
-    try:
-        attrs = path.lstat().st_file_attributes
-        reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
-        return bool(attrs & reparse) and path.is_dir() and not path.is_symlink()
-    except (AttributeError, OSError):
-        return False
-
-
-def is_linkish(path: Path) -> bool:
-    return path.is_symlink() or is_junction(path)
-
-
-def points_to(path: Path, target: Path) -> bool:
-    try:
-        if is_linkish(path):
-            return norm(path.resolve()) == norm(target.resolve())
-    except OSError:
-        pass
-    return False
-
-
-def configured_path(runtime: dict, runtime_name: str, key: str, fallback: Path) -> Path:
-    value = runtime.get("runtimes", {}).get(runtime_name, {}).get(key)
-    return Path(value).expanduser() if value else fallback
+def expand_path(value: str) -> Path:
+    return Path(os.path.expandvars(value)).expanduser()
 
 
 def run(cmd: list[str], cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -94,6 +60,95 @@ def check_script(label: str, script: str) -> None:
         bad(f"{label} 未通过")
         for line in (proc.stdout + proc.stderr).strip().splitlines():
             print(f"      {line}")
+
+
+def check_runtime_entry(name: str, entry: dict, router: Path) -> None:
+    label = entry.get("display_name", name)
+    executable = entry.get("executable")
+    if executable:
+        ok(f"runtime {name} ({label}): {executable}")
+    else:
+        warn(f"runtime {name} ({label}): 未检测到 executable")
+
+    entry_path = entry.get("entry_path")
+    if entry_path:
+        path = expand_path(str(entry_path))
+        if not path.is_file():
+            warn(f"runtime {name}: entry_path 不存在: {path}")
+        else:
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError as exc:
+                warn(f"runtime {name}: 无法读取 entry: {exc}")
+            else:
+                candidates = {
+                    str(router),
+                    str(router).replace("\\", "/"),
+                    str(router).replace("/", "\\"),
+                }
+                if any(candidate in text for candidate in candidates):
+                    ok(f"runtime {name}: entry → router.md")
+                else:
+                    warn(f"runtime {name}: entry 存在，但未检测到当前 router 路径")
+    elif entry.get("entry_candidates") and executable:
+        warn(f"runtime {name}: 已检测到 CLI，但没有可用 entry_path")
+
+
+def check_runtime_skills(name: str, entry: dict, central: Path, central_names: set[str]) -> None:
+    mode = entry.get("skills_sync_mode", "none")
+    if mode in (None, "none"):
+        return
+
+    raw_target = entry.get("skills_path")
+    if not raw_target:
+        candidates = entry.get("skills_candidates", []) or []
+        if candidates:
+            raw_target = candidates[0]
+    if not raw_target:
+        warn(f"runtime {name}: skills_sync_mode={mode} 但没有 skills path/candidate")
+        return
+
+    target = expand_path(str(raw_target))
+    if mode == "central-dir-link":
+        if points_to(target, central):
+            ok(f"runtime {name}: skills → central-dir-link")
+        elif target.exists() or is_linkish(target):
+            warn(f"runtime {name}: skills 目标存在但不是中央目录链接: {target}")
+        elif entry.get("executable"):
+            warn(f"runtime {name}: skills 尚未部署: {target}")
+        return
+
+    if mode != "per-skill-link":
+        warn(f"runtime {name}: 未知 skills_sync_mode={mode}")
+        return
+    if not target.is_dir():
+        if entry.get("executable"):
+            warn(f"runtime {name}: skills 目录不存在: {target}")
+        return
+
+    missing = []
+    incorrect = []
+    real_dirs = []
+    for skill_name in sorted(central_names):
+        dest = target / skill_name
+        if not is_linkish(dest):
+            missing.append(skill_name)
+        elif not points_to(dest, central / skill_name):
+            incorrect.append(skill_name)
+    for dest in target.iterdir():
+        if dest.name == ".system":
+            continue
+        if dest.is_dir() and not is_linkish(dest):
+            real_dirs.append(dest.name)
+
+    if not missing and not incorrect:
+        ok(f"runtime {name}: central skill links 完整")
+    if missing:
+        warn(f"runtime {name}: 缺中央 skill: " + ", ".join(missing))
+    if incorrect:
+        warn(f"runtime {name}: skill 链接目标不一致: " + ", ".join(incorrect))
+    if real_dirs:
+        warn(f"runtime {name}: 真实目录（可能是私有/孤儿）: " + ", ".join(sorted(real_dirs)))
 
 
 def main() -> int:
@@ -113,7 +168,7 @@ def main() -> int:
         except RuntimeError as exc:
             bad(str(exc))
     else:
-        warn(".local 尚未初始化；运行 tools/runtime_state.py init 可初始化并缓存本机基础能力")
+        warn(".local 尚未初始化；运行 tools/runtime_state.py init 可初始化 registry 并探测本机能力")
 
     print("== 1. router 引用文件 ==")
     required = [
@@ -125,7 +180,9 @@ def main() -> int:
         "capabilities/search.md",
         "capabilities/cross-review.md",
         "config/README.md",
+        "config/runtime-templates.json",
         "tools/local_state.py",
+        "tools/runtime_registry.py",
         "tools/bootstrap.py",
         "tools/runtime_state.py",
         "tools/sync_skills.py",
@@ -138,68 +195,24 @@ def main() -> int:
     print("== 2. 中央规则可移植性 ==")
     check_script("portability check", "tools/check_portability.py")
 
-    print("== 3. 运行时入口（只检查实际存在的） ==")
-    entry_defaults = {
-        "claude": HOME / ".claude" / "CLAUDE.md",
-        "codex": HOME / ".codex" / "AGENTS.md",
-        "gemini": HOME / ".gemini" / "GEMINI.md",
-        "dsh": HOME / ".dsh" / "AGENTS.md",
-    }
+    print("== 3. 动态 runtime registry ==")
     router = ROOT / "router.md"
-    found = False
-    for name, fallback in entry_defaults.items():
-        entry = configured_path(runtime, name, "entry_path", fallback)
-        if not entry.is_file():
-            continue
-        found = True
-        try:
-            text = entry.read_text(encoding="utf-8", errors="replace")
-        except OSError as exc:
-            bad(f"{entry}: {exc}")
-            continue
-        candidates = {str(router), str(router).replace("\\", "/"), str(router).replace("/", "\\")}
-        if any(c in text for c in candidates):
-            ok(f"{name}: {entry} → router.md")
-        else:
-            warn(f"{name}: {entry} 存在，但未检测到当前 router 路径")
-    if not found:
-        warn("未发现已知运行时入口；自定义入口可记录在 .local/runtime.json")
+    entries = runtime.get("runtimes", {})
+    enabled_entries = [
+        (name, entry)
+        for name, entry in entries.items()
+        if isinstance(entry, dict) and entry.get("enabled", True)
+    ]
+    if not enabled_entries:
+        warn("没有启用的 runtime；可用 runtime_state.py runtime add 注册任意 CLI/runtime")
+    for name, entry in sorted(enabled_entries):
+        check_runtime_entry(name, entry, router)
 
-    print("== 4. skills 部署 ==")
+    print("== 4. runtime skills 部署 ==")
     central = ROOT / "skills"
     central_names = {p.name for p in central.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
-
-    claude_dir = configured_path(runtime, "claude", "skills_path", HOME / ".claude" / "skills")
-    if claude_dir.exists() or is_linkish(claude_dir):
-        if points_to(claude_dir, central):
-            ok(f"claude skills → {central}")
-        else:
-            warn(f"claude skills 使用其它布局：{claude_dir}；以 runtime/实测为准")
-
-    codex_dir = configured_path(runtime, "codex", "skills_path", HOME / ".codex" / "skills")
-    if codex_dir.is_dir():
-        missing = []
-        dangling = []
-        real_dirs = []
-        for name in sorted(central_names):
-            dest = codex_dir / name
-            if not is_linkish(dest):
-                missing.append(name)
-            elif not points_to(dest, central / name):
-                dangling.append(name)
-        for dest in codex_dir.iterdir():
-            if dest.name == ".system":
-                continue
-            if dest.is_dir() and not is_linkish(dest):
-                real_dirs.append(dest.name)
-        if not missing and not dangling:
-            ok("codex 中央 skill 链接完整")
-        if missing:
-            warn("codex 缺中央 skill: " + ", ".join(missing))
-        if dangling:
-            warn("codex 链接目标不一致: " + ", ".join(dangling))
-        if real_dirs:
-            warn("codex 真实目录（可能是私有/孤儿）: " + ", ".join(sorted(real_dirs)))
+    for name, entry in sorted(enabled_entries):
+        check_runtime_skills(name, entry, central, central_names)
 
     print("== 5. skills 索引 ==")
     proc = run([sys.executable, "tools/gen-index.py", "--check"])
@@ -236,9 +249,10 @@ def main() -> int:
             else:
                 warn("pre-commit hook 未安装；编辑机建议安装")
 
-    print("== 7. 通用命令（实时事实） ==")
-    for command in ("git", "node", "npm", "npx", "python3", "python", "bash", "az", "mc", "gh", "claude", "codex", "agy"):
-        path = shutil.which(command)
+    print("== 7. 本机 support command probes ==")
+    cached_commands = runtime.get("paths", {}).get("commands", {})
+    for command in runtime.get("probe_commands", []) or []:
+        path = cached_commands.get(command) or shutil.which(command)
         if path:
             ok(f"{command}: {path}")
         else:
