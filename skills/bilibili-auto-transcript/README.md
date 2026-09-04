@@ -1,82 +1,111 @@
-# 📼 Bilibili Auto Transcript
+# Bilibili Auto Transcript
 
-**B站视频自动转录 & 收藏夹扫描技能**
+B站视频转录与收藏夹扫描：CC 字幕 → B站 AI 字幕 → Whisper 本地转录，并支持可选 AI 摘要。
 
-三级降级策略：CC字幕 → B站AI字幕 → OpenAI Whisper 语音转文字，自动获取 B站视频的文字内容。
+## 当前架构
 
-## 功能
+这个 Skill 已从 OpenClaw 专属目录迁成 ai-prompt 的 runtime/state 模式：
 
-- **三级字幕降级**：人工CC字幕 → AI字幕(9种语言) → Whisper 本地转录，逐级自动降级
-- **智能模型选择**：有GPU且显存≥6GB用medium，<6GB用small；无GPU用base/tiny（依视频时长）
-- **收藏夹扫描**：分页获取收藏夹所有视频，去重、断点续传
-- **批量转录**：自动遍历收藏夹新视频，支持重试、报告生成
-- **标题校验**：转录完成后自动对比B站最新标题，UP主改标题时自动修正
-- **AI摘要**（可选）：设置 `OPENAI_API_KEY` 后自动生成结构化视频摘要
-- **目录组织**：按视频发布年月自动分目录存储
+- Skill 代码位置由当前 `SKILL.md` 自身解析；
+- 机器配置缓存到 `AI_PROMPT_ROOT/.local/runtime.json`；
+- state/output/db/Bash/browser locator 不再写死；
+- 旧 OpenClaw/旧 knowledge/db 目录存在时首次会自动复用并缓存，避免历史数据断开；
+- API key/Cookie 等 secret 仍只放环境变量或 gitignored `.env`，不进 `.local`。
 
-## 设计决策
-
-v5.0 从 Qwen3-ASR 换回了 Whisper 作为本地语音转文字引擎。原因：
-
-- **架构差异** — Qwen3-ASR 是 **LLM 做语音转文字**，音频整段送进大语言模型推理，慢且吃显存。Whisper 是**纯语音识别模型**，30 秒一段做声学特征识别，不需要 LLM 推理，快得多
-- **资源占用** — Qwen3-ASR-1.7B 需要 4-6GB 显存且推理时间久，Whisper 有更轻量的模型可选（tiny 仅 39MB）
-- **安装省心** — `pip install openai-whisper` 一行搞定，模型自动下载。Qwen3-ASR 需从 HuggingFace 下 2-5GB 权重
-- **够用即可** — 语音转文字是三级降级的最后兜底，为这个场景扛一个 LLM 级别的模型不值当
+详细 Agent 规则见 `SKILL.md`。
 
 ## 快速开始
 
-```bash
-# 1. 安装依赖（首次）
-cd ~/.openclaw/workspace/skills/bilibili-auto-transcript
-python3 -m venv .venv
-.venv/bin/pip install openai-whisper requests python-dotenv
+查看本机已解析配置：
 
-# 2. 手动转录单个视频
-bash scripts/bilibili_transcript.sh "https://www.bilibili.com/video/BVxxxxx/"
-
-# 3. 批量转录收藏夹所有新视频
-.venv/bin/python3 scripts/batch_transcribe.py
+```text
+python <skill_dir>/scripts/runtime_config.py show
 ```
+
+单视频：
+
+```text
+python <skill_dir>/scripts/run_transcript.py "https://www.bilibili.com/video/BVxxxxx/"
+```
+
+收藏夹扫描：
+
+```text
+python <skill_dir>/scripts/bilibili_scanner.py
+```
+
+批量转录：
+
+```text
+python <skill_dir>/scripts/batch_transcribe.py
+```
+
+`<skill_dir>` 表示当前这份 Skill 的实际目录，不要替换成某个固定 OpenClaw/Codex/Claude home。
 
 ## 依赖
 
-- yt-dlp — 视频/字幕下载
-- ffmpeg — 音频处理
-- `openai-whisper` — 本地语音转文字引擎（通过 `.venv/bin/pip install openai-whisper` 安装）
-- `requests` — HTTP 请求（批量转录用）
-- `python-dotenv` — 加载 `.env` 文件（通过 `.venv/bin/pip install python-dotenv` 安装）
-- opencc — 繁转简（可选）
-- chromium-browser — Cookie支持（B站AI字幕）
+- Python
+- `yt-dlp`
+- `ffmpeg`
+- `requests`
+- Bash（当前单视频底层引擎仍为 Bash；Windows 可使用 Git Bash）
+- `openai-whisper`（只有字幕都拿不到时才需要）
+- `python-dotenv`（使用 Skill `.env` 时）
+- `opencc`（可选）
+
+建议在 Skill 目录创建虚拟环境，但 venv 的可执行路径是机器事实；Windows/macOS/Linux 不共用固定 `.venv/bin/python3` 字符串。
 
 ## 配置
 
-1. `cp .env.example .env`，编辑 `.env` 设置 `FAV_MEDIA_ID`（收藏夹ID）和 `OPENAI_API_KEY`（AI摘要）
-2. 用 chromium-browser 登录 bilibili.com 获取 Cookie
-3. 支持任何 OpenAI 兼容 API（DeepSeek、OpenCode Go、OpenRouter 等）
+非 secret 的稳定设置可写/自动缓存到：
 
-## 项目结构
-
+```text
+.local/runtime.json -> skills.bilibili-auto-transcript
 ```
+
+支持：`state_dir`、`output_dir`、`db_path`、`bash`、`browser_type`、`favorite_media_id`。
+
+临时覆盖环境变量：
+
+- `BILIBILI_STATE_DIR`
+- `BILIBILI_OUTPUT_DIR`
+- `BILIBILI_DB_PATH`
+- `BILIBILI_BASH`
+- `BILIBILI_BROWSER`
+- `FAV_MEDIA_ID`
+
+Secret/摘要配置继续用 `.env` 或环境变量：
+
+- `OPENAI_API_KEY`
+- `SUMMARY_API_URL`
+- `SUMMARY_API_MODEL`
+
+## 数据
+
+- SQLite 是转录/摘要主数据源；
+- TXT 是展示层；
+- processed list、CSV report、log 统一属于本机 state；
+- 输出默认按发布年月分目录；
+- 同一 BV 按 `bvid` upsert。
+
+## 目录
+
+```text
 bilibili-auto-transcript/
-├── SKILL.md                    # Skill 元数据
-├── .env                        # API密钥（不提交git）
-├── .env.example                # 配置模板（提交git，供朋友参考）
-├── .db/                        # SQLite 数据库（不提交git）
-│   └── transcripts.db          # 转录记录+摘要数据库
+├── SKILL.md
+├── README.md
+├── .env.example
 ├── scripts/
-│   ├── bilibili_scanner.py     # 收藏夹扫描
-│   ├── bilibili_transcript.sh  # 核心转录引擎（v5.0，Whisper）
-│   ├── generate_summary.py     # AI摘要生成器（三种模式统一调用）
-│   ├── transcript_db.py        # SQLite 数据库管理层
-│   ├── fill_summaries.py       # 批量补摘要（cronjob推荐）
-│   ├── migrate_to_db.py        # 旧TXT迁移到数据库
-│   ├── logger.py               # 共享日志模块
-│   └── batch_transcribe.py     # 批量转录调度
+│   ├── runtime_config.py
+│   ├── run_transcript.py
+│   ├── bilibili_scanner.py
+│   ├── batch_transcribe.py
+│   ├── bilibili_transcript.sh
+│   ├── transcript_db.py
+│   ├── generate_summary.py
+│   ├── fill_summaries.py
+│   └── logger.py
 └── references/
-    ├── architecture.md         # 架构说明
-    └── bilibili-fav-api.md     # B站API参考
 ```
 
-## 许可
-
-MIT
+机器生成的数据不应作为仓库内容提交。
