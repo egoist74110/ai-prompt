@@ -8,8 +8,15 @@
   },
   "paths": {
     "home": "<resolved home>",
-    "python": "<resolved python executable>"
+    "python": "<resolved python executable>",
+    "commands": {}
   },
+  "runtime_registry": {
+    "templates_seeded": true,
+    "template_version": 1,
+    "template_source": "config/runtime-templates.json"
+  },
+  "probe_commands": [],
   "credentials": {
     "example": {
       "type": "file|keychain|env|command",
@@ -21,19 +28,24 @@
     }
   },
   "runtimes": {
-    "codex": {
-      "entry_path": null,
-      "skills_path": null,
-      "skills_layout": null,
-      "link_kind": null,
-      "executable": null,
-      "review_args": []
-    },
-    "claude": {
-      "entry_path": null,
-      "skills_path": null,
-      "executable": null,
-      "review_args": []
+    "<runtime-id>": {
+      "display_name": "<human-readable name>",
+      "enabled": true,
+      "source": "template|user",
+      "command_candidates": ["<command-or-path>"],
+      "entry_candidates": ["~/<runtime-dir>/<entry-file>"],
+      "skills_candidates": ["~/<runtime-dir>/skills"],
+      "capabilities": ["agent", "review", "skills"],
+      "skills_sync_mode": "per-skill-link|central-dir-link|none",
+      "auto_sync_skills": false,
+      "review": {
+        "args": ["<headless-arg>"],
+        "priority": 50
+      },
+      "executable": "<resolved executable after detection>",
+      "entry_path": "<resolved entry after detection>",
+      "skills_path": "<resolved skills path after detection>",
+      "skills_layout": "<detected layout>"
     }
   },
   "skills": {
