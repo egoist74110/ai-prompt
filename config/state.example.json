@@ -19,11 +19,16 @@
   "services": {},
   "search": {
     "backends": {
-      "example": {
+      "<backend-id>": {
         "verified": false,
-        "last_verified": null,
+        "status": "unknown|healthy|degraded|cooldown|blocked",
+        "failure_count": 0,
+        "last_success": null,
+        "last_failure": null,
+        "reason_code": "auth|config|permission|unsupported|missing-credential|subscription|transient|timeout|network|server|rate-limit|quota|quality|null",
         "reason": null,
-        "retry": null
+        "retry": "when-config-changes|after-cooldown|next-query-or-other-backend|null",
+        "retry_at": null
       }
     }
   },
