@@ -69,7 +69,20 @@
         "lane": "cloud-native|local-managed",
         "endpoint": "<non-secret endpoint if useful>",
         "preferred_backends": ["<backend-id>"],
-        "allow_cross_lane_fallback": false
+        "allow_cross_lane_fallback": false,
+        "native_tools": {
+          "<tool-id>": {
+            "backend": "<backend-id>",
+            "policy": "allow|disabled",
+            "suppression": {
+              "strategy": "runtime-config|tool-filter|plugin-toggle|profile-override|other",
+              "config_locator": "<local non-secret locator>",
+              "scope": "<profile|session|runtime>",
+              "verified_absent": false,
+              "requires_restart": true
+            }
+          }
+        }
       }
     },
     "backends": {
