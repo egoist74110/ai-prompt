@@ -47,25 +47,40 @@ def mark_failure(
     retry_after_minutes: int | None = None,
 ) -> dict[str, Any]:
     entry = backend_state(state, backend)
-    entry["verified"] = False
     entry["failure_count"] = int(entry.get("failure_count", 0)) + 1
     entry["last_failure"] = iso()
     entry["reason_code"] = failure_class
     entry["reason"] = reason
 
     if failure_class in HARD_FAILURES:
-        entry.update({"status": "blocked", "retry": "when-config-changes", "retry_at": None})
+        entry.update(
+            {
+                "verified": False,
+                "status": "blocked",
+                "retry": "when-config-changes",
+                "retry_at": None,
+            }
+        )
     elif failure_class in TRANSIENT_FAILURES:
         minutes = retry_after_minutes if retry_after_minutes is not None else (60 if failure_class in {"rate-limit", "quota"} else 15)
         entry.update(
             {
+                "verified": False,
                 "status": "cooldown",
                 "retry": "after-cooldown",
                 "retry_at": iso(now() + timedelta(minutes=max(1, minutes))),
             }
         )
-    else:  # quality: backend worked, but results were weak; lower rank rather than hard-disable.
-        entry.update({"status": "degraded", "retry": "next-query-or-other-backend", "retry_at": None})
+    else:  # quality: transport worked; keep it verified but rank below healthy backends.
+        entry.update(
+            {
+                "verified": True,
+                "status": "degraded",
+                "last_success": entry.get("last_success") or iso(),
+                "retry": "next-query-or-other-backend",
+                "retry_at": None,
+            }
+        )
     return entry
 
 
