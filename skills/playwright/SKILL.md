@@ -1,64 +1,46 @@
 ---
-name: "playwright"
-description: "Use when the task requires automating a real browser from the terminal (navigation, form filling, snapshots, screenshots, data extraction, UI-flow debugging) via `playwright-cli` or the bundled wrapper script."
+name: playwright
+description: "Use for real-browser terminal automation. Resolve the bundled launcher from the current skill directory, cache the working npx/Node launcher locally, and reuse it across Codex/Claude/other runtimes."
 ---
-
 
 # Playwright CLI Skill
 
-Drive a real browser from the terminal using `playwright-cli`. Prefer the bundled wrapper script so the CLI works even when it is not globally installed.
-Treat this skill as CLI-first automation. Do not pivot to `@playwright/test` unless the user explicitly asks for test files.
+Drive a real browser from the terminal using `@playwright/cli`. This Skill is **runtime-neutral**: do not assume it lives under `$CODEX_HOME` or that cwd is the ai-prompt root.
 
-## Prerequisite check (required)
+## Fast path
 
-Before proposing commands, check whether `npx` is available (the wrapper depends on it):
+Use the Python wrapper relative to the currently loaded Skill directory:
 
-```bash
-command -v npx >/dev/null 2>&1
+```text
+python <skill_dir>/scripts/playwright_cli.py <command> [args]
 ```
 
-If it is not available, pause and ask the user to install Node.js/npm (which provides `npx`). Provide these steps verbatim:
+Examples:
 
-```bash
-# Verify Node/npm are installed
-node --version
-npm --version
-
-# If missing, install Node.js/npm, then:
-npm install -g @playwright/cli@latest
-playwright-cli --help
+```text
+python <skill_dir>/scripts/playwright_cli.py open https://playwright.dev --headed
+python <skill_dir>/scripts/playwright_cli.py snapshot
+python <skill_dir>/scripts/playwright_cli.py click e15
+python <skill_dir>/scripts/playwright_cli.py screenshot
 ```
 
-Once `npx` is present, proceed with the wrapper script. A global install of `playwright-cli` is optional.
+The wrapper follows the project-wide rule:
 
-## Skill path (set once)
+1. check `.local/runtime.json` for `skills.playwright.launcher`;
+2. if still valid, reuse it directly;
+3. otherwise discover `npx` once;
+4. on Windows, resolve a direct Node + `npx-cli.js` launcher when possible instead of routing user arguments through `cmd.exe`;
+5. cache the resolved launcher for later sessions.
 
-```bash
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-export PWCLI="$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh"
-```
+`PLAYWRIGHT_NPX` can override discovery for the current machine/session.
 
-User-scoped skills install under `$CODEX_HOME/skills` (default: `~/.codex/skills`).
+Legacy `scripts/playwright_cli.sh` is only a compatibility wrapper around the Python launcher.
 
-## Quick start
+## Prerequisite
 
-Use the wrapper script:
+Node.js/npm is required because the launcher uses `npx --package @playwright/cli` semantics. If discovery reports no `npx`, ask the user to install Node.js/npm. Do not re-run the same PATH hunt every turn after a successful discovery has already been cached.
 
-```bash
-"$PWCLI" open https://playwright.dev --headed
-"$PWCLI" snapshot
-"$PWCLI" click e15
-"$PWCLI" type "Playwright"
-"$PWCLI" press Enter
-"$PWCLI" screenshot
-```
-
-If the user prefers a global install, this is also valid:
-
-```bash
-npm install -g @playwright/cli@latest
-playwright-cli --help
-```
+A global `playwright-cli` install is optional; the bundled launcher is preferred because it keeps the invocation consistent across machines.
 
 ## Core workflow
 
@@ -66,82 +48,46 @@ playwright-cli --help
 2. Snapshot to get stable element refs.
 3. Interact using refs from the latest snapshot.
 4. Re-snapshot after navigation or significant DOM changes.
-5. Capture artifacts (screenshot, pdf, traces) when useful.
+5. Capture screenshot/pdf/trace only when useful.
 
-Minimal loop:
+Example:
 
-```bash
-"$PWCLI" open https://example.com
-"$PWCLI" snapshot
-"$PWCLI" click e3
-"$PWCLI" snapshot
+```text
+python <skill_dir>/scripts/playwright_cli.py open https://example.com
+python <skill_dir>/scripts/playwright_cli.py snapshot
+python <skill_dir>/scripts/playwright_cli.py click e3
+python <skill_dir>/scripts/playwright_cli.py snapshot
 ```
+
+## Session reuse
+
+If `PLAYWRIGHT_CLI_SESSION` is set, the wrapper automatically appends `--session` unless the caller already supplied one. The session name is runtime data; do not hardcode a machine/user-specific session in this Skill.
 
 ## When to snapshot again
 
-Snapshot again after:
+Snapshot after:
 
-- navigation
-- clicking elements that change the UI substantially
-- opening/closing modals or menus
-- tab switches
-
-Refs can go stale. When a command fails due to a missing ref, snapshot again.
-
-## Recommended patterns
-
-### Form fill and submit
-
-```bash
-"$PWCLI" open https://example.com/form
-"$PWCLI" snapshot
-"$PWCLI" fill e1 "user@example.com"
-"$PWCLI" fill e2 "password123"
-"$PWCLI" click e3
-"$PWCLI" snapshot
-```
-
-### Debug a UI flow with traces
-
-```bash
-"$PWCLI" open https://example.com --headed
-"$PWCLI" tracing-start
-# ...interactions...
-"$PWCLI" tracing-stop
-```
-
-### Multi-tab work
-
-```bash
-"$PWCLI" tab-new https://example.com
-"$PWCLI" tab-list
-"$PWCLI" tab-select 0
-"$PWCLI" snapshot
-```
-
-## Wrapper script
-
-The wrapper script uses `npx --package @playwright/cli playwright-cli` so the CLI can run without a global install:
-
-```bash
-"$PWCLI" --help
-```
-
-Prefer the wrapper unless the repository already standardizes on a global install.
+- navigation;
+- major DOM changes;
+- opening/closing modal/menu;
+- tab switches;
+- a stale/missing element ref error.
 
 ## References
 
-Open only what you need:
+Open only what is needed:
 
-- CLI command reference: `references/cli.md`
-- Practical workflows and troubleshooting: `references/workflows.md`
+- `references/cli.md`
+- `references/workflows.md`
+
+Paths are relative to this Skill directory, not cwd.
 
 ## Guardrails
 
-- Always snapshot before referencing element ids like `e12`.
-- Re-snapshot when refs seem stale.
-- Prefer explicit commands over `eval` and `run-code` unless needed.
-- When you do not have a fresh snapshot, use placeholder refs like `eX` and say why; do not bypass refs with `run-code`.
-- Use `--headed` when a visual check will help.
-- When capturing artifacts in this repo, use `output/playwright/` and avoid introducing new top-level artifact folders.
-- Default to CLI commands and workflows, not Playwright test specs.
+- Snapshot before using element ids such as `e12`.
+- Re-snapshot when refs may be stale.
+- Prefer explicit CLI actions over arbitrary `eval`/`run-code`.
+- Use `--headed` when visual inspection is actually needed.
+- Artifacts should go to a task/project-appropriate output directory; do not assume the ai-prompt repository itself is the user project.
+- Current session browser tools, if already exposed by the runtime and suitable for the task, are realtime facts and may be preferable to launching another browser process.
+- If cached launcher fails, invalidate/re-discover it and refresh `.local/runtime.json`; do not add another OS-specific absolute path to this file.
