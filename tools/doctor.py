@@ -85,6 +85,17 @@ def run(cmd: list[str], cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
 
 
+def check_script(label: str, script: str) -> None:
+    proc = run([sys.executable, script])
+    if proc.returncode == 0:
+        first = (proc.stdout.strip().splitlines() or [f"{label} 通过"])[0]
+        ok(first)
+    else:
+        bad(f"{label} 未通过")
+        for line in (proc.stdout + proc.stderr).strip().splitlines():
+            print(f"      {line}")
+
+
 def main() -> int:
     runtime: dict = {}
 
@@ -95,10 +106,14 @@ def main() -> int:
             runtime = read_json(LOCAL_RUNTIME)
             read_json(LOCAL_STATE)
             ok(".local runtime/state JSON 有效")
+            if runtime.get("bootstrap", {}).get("last_discovered"):
+                ok("bootstrap machine discovery 已运行")
+            else:
+                warn("local runtime 尚无 bootstrap 记录 → 可运行 runtime_state.py detect")
         except RuntimeError as exc:
             bad(str(exc))
     else:
-        warn(".local 尚未初始化；首次需要缓存时运行 tools/runtime_state.py init")
+        warn(".local 尚未初始化；运行 tools/runtime_state.py init 可初始化并缓存本机基础能力")
 
     print("== 1. router 引用文件 ==")
     required = [
@@ -111,14 +126,19 @@ def main() -> int:
         "capabilities/cross-review.md",
         "config/README.md",
         "tools/local_state.py",
+        "tools/bootstrap.py",
         "tools/runtime_state.py",
         "tools/sync_skills.py",
+        "tools/check_portability.py",
     ]
     for rel in required:
         path = ROOT / rel
         ok(rel) if path.is_file() else bad(f"{rel} 缺失")
 
-    print("== 2. 运行时入口（只检查实际存在的） ==")
+    print("== 2. 中央规则可移植性 ==")
+    check_script("portability check", "tools/check_portability.py")
+
+    print("== 3. 运行时入口（只检查实际存在的） ==")
     entry_defaults = {
         "claude": HOME / ".claude" / "CLAUDE.md",
         "codex": HOME / ".codex" / "AGENTS.md",
@@ -143,9 +163,9 @@ def main() -> int:
         else:
             warn(f"{name}: {entry} 存在，但未检测到当前 router 路径")
     if not found:
-        warn("未发现已知运行时入口；自定义入口可在 .local/runtime.json 记录")
+        warn("未发现已知运行时入口；自定义入口可记录在 .local/runtime.json")
 
-    print("== 3. skills 部署 ==")
+    print("== 4. skills 部署 ==")
     central = ROOT / "skills"
     central_names = {p.name for p in central.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
 
@@ -181,7 +201,7 @@ def main() -> int:
         if real_dirs:
             warn("codex 真实目录（可能是私有/孤儿）: " + ", ".join(sorted(real_dirs)))
 
-    print("== 4. skills 索引 ==")
+    print("== 5. skills 索引 ==")
     proc = run([sys.executable, "tools/gen-index.py", "--check"])
     if proc.returncode == 0:
         ok((proc.stdout.strip().splitlines() or ["gen-index --check 通过"])[0])
@@ -190,7 +210,7 @@ def main() -> int:
         for line in (proc.stdout + proc.stderr).strip().splitlines():
             print(f"      {line}")
 
-    print("== 5. pre-commit hook ==")
+    print("== 6. pre-commit hook ==")
     git = shutil.which("git")
     if not git:
         warn("git 不在 PATH，跳过 hook 检查")
@@ -216,8 +236,8 @@ def main() -> int:
             else:
                 warn("pre-commit hook 未安装；编辑机建议安装")
 
-    print("== 6. 通用命令 ==")
-    for command in ("git", "node", "python3", "python", "az", "mc", "gh", "claude", "codex", "agy"):
+    print("== 7. 通用命令（实时事实） ==")
+    for command in ("git", "node", "npm", "npx", "python3", "python", "bash", "az", "mc", "gh", "claude", "codex", "agy"):
         path = shutil.which(command)
         if path:
             ok(f"{command}: {path}")
