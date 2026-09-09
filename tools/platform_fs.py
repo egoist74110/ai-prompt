@@ -75,8 +75,13 @@ def create_dir_link(target: Path, link: Path) -> str:
     target = target.resolve()
     if os.name == "nt":
         command = f'mklink /J "{link}" "{target}"'
+        # shell 字符串而非 argv list：Windows 下 list 形式会经 list2cmdline
+        # 把内部引号转义成 \" ，cmd.exe 不识别该转义，mklink 收到畸形参数并报
+        # "The filename, directory name, or volume label syntax is incorrect"。
+        # shell=True 把命令原样交给 cmd，引号保持正确。
         proc = subprocess.run(
-            ["cmd.exe", "/d", "/s", "/c", command],
+            command,
+            shell=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             text=True,
