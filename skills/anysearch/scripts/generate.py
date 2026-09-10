@@ -21,8 +21,8 @@ MARKERS = {
 
 
 def load_constants():
-    with open(os.path.join(SHARED_DIR, "constants.json"), "r", encoding="utf-8") as f:
-        return json.load(f)
+    with open(os.path.join(SHARED_DIR, "constants.json"), "r", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 def render_constants(ext: str, constants: dict) -> str:
@@ -35,21 +35,48 @@ def render_constants(ext: str, constants: dict) -> str:
         lines = ["AVAILABLE_DOMAINS = ["]
         for i in range(0, len(domains), 6):
             lines.append("    " + ", ".join(f'\"{d}\"' for d in domains[i:i + 6]) + ",")
-        lines += ["]", "", "CONTENT_TYPES = [", "    " + ", ".join(f'\"{c}\"' for c in content_types) + ",", "]", "", "FRESHNESS_VALUES = [" + ", ".join(f'\"{x}\"' for x in freshness) + "]", "ZONES = [" + ", ".join(f'\"{x}\"' for x in zones) + "]"]
+        lines += [
+            "]",
+            "",
+            "CONTENT_TYPES = [",
+            "    " + ", ".join(f'\"{c}\"' for c in content_types) + ",",
+            "]",
+            "",
+            "FRESHNESS_VALUES = [" + ", ".join(f'\"{x}\"' for x in freshness) + "]",
+            "ZONES = [" + ", ".join(f'\"{x}\"' for x in zones) + "]",
+        ]
         return "\n".join(lines)
+
     if ext == ".js":
         lines = ["const AVAILABLE_DOMAINS = ["]
         for i in range(0, len(domains), 6):
             lines.append("  " + ",".join(f'\"{d}\"' for d in domains[i:i + 6]) + ",")
-        lines += ["];", "", "const CONTENT_TYPES = [", "  " + ",".join(f'\"{c}\"' for c in content_types) + ",", "];", "", "const FRESHNESS_VALUES = [" + ",".join(f'\"{x}\"' for x in freshness) + "];", "const ZONES = [" + ",".join(f'\"{x}\"' for x in zones) + "];"]
+        lines += [
+            "];",
+            "",
+            "const CONTENT_TYPES = [",
+            "  " + ",".join(f'\"{c}\"' for c in content_types) + ",",
+            "];",
+            "",
+            "const FRESHNESS_VALUES = [" + ",".join(f'\"{x}\"' for x in freshness) + "];",
+            "const ZONES = [" + ",".join(f'\"{x}\"' for x in zones) + "];",
+        ]
         return "\n".join(lines)
+
     if ext == ".ps1":
         lines = ["$AVAILABLE_DOMAINS = @("]
         chunks = [domains[i:i + 6] for i in range(0, len(domains), 6)]
         for idx, chunk in enumerate(chunks):
             lines.append("    " + ", ".join(f'\"{d}\"' for d in chunk) + ("," if idx < len(chunks) - 1 else ""))
-        lines += [")", "", "$CONTENT_TYPES = @(" + ", ".join(f'\"{x}\"' for x in content_types) + ")", "$FRESHNESS_VALUES = @(" + ", ".join(f'\"{x}\"' for x in freshness) + ")", "$ZONES = @(" + ", ".join(f'\"{x}\"' for x in zones) + ")"]
+        lines += [
+            ")",
+            "",
+            "$CONTENT_TYPES = @(" + ", ".join(f'\"{x}\"' for x in content_types) + ")",
+            "$FRESHNESS_VALUES = @(" + ", ".join(f'\"{x}\"' for x in freshness) + ")",
+            "$ZONES = @(" + ", ".join(f'\"{x}\"' for x in zones) + ")",
+        ]
         return "\n".join(lines)
+
     if ext == ".sh":
         return "\n".join([
             "AVAILABLE_DOMAINS=(" + " ".join(f'\"{x}\"' for x in domains) + ")",
@@ -57,6 +84,7 @@ def render_constants(ext: str, constants: dict) -> str:
             "FRESHNESS_VALUES=(" + " ".join(f'\"{x}\"' for x in freshness) + ")",
             "ZONES=(" + " ".join(f'\"{x}\"' for x in zones) + ")",
         ])
+
     raise ValueError(f"unsupported extension: {ext}")
 
 
@@ -67,7 +95,10 @@ def inject(source: str, ext: str, name: str, content: str) -> str | None:
     end_idx = source.find(end)
     if begin_idx < 0 or end_idx < 0 or end_idx <= begin_idx:
         return None
-    after_begin = source.index("\n", begin_idx) + 1
+    newline_idx = source.find("\n", begin_idx)
+    if newline_idx < 0 or newline_idx >= end_idx:
+        return None
+    after_begin = newline_idx + 1
     return source[:after_begin] + content + "\n" + source[end_idx:]
 
 
@@ -75,12 +106,14 @@ def process_file(path: str, constants: dict, check_only: bool) -> bool:
     if not os.path.isfile(path):
         print(f"  {os.path.basename(path)}: MISSING")
         return False
+
     ext = os.path.splitext(path)[1]
-    with open(path, "r", encoding="utf-8") as f:
-        original = f.read()
+    with open(path, "r", encoding="utf-8") as handle:
+        original = handle.read()
+
     generated = inject(original, ext, "CONSTANTS", render_constants(ext, constants))
     if generated is None:
-        print(f"  {os.path.basename(path)}: CONSTANTS markers missing")
+        print(f"  {os.path.basename(path)}: CONSTANTS markers missing or malformed")
         return False
     if generated == original:
         print(f"  {os.path.basename(path)}: up to date")
@@ -88,27 +121,40 @@ def process_file(path: str, constants: dict, check_only: bool) -> bool:
     if check_only:
         print(f"  {os.path.basename(path)}: OUT OF DATE")
         return False
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(generated)
+
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(generated)
     print(f"  {os.path.basename(path)}: updated")
     return True
 
 
 def main() -> int:
     check_only = "--check" in sys.argv
-    constants = load_constants()
+    try:
+        constants = load_constants()
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        print(f"FAILED: cannot load shared constants: {exc}")
+        return 1
+
     scripts = [os.path.join(SCRIPT_DIR, "anysearch_cli" + ext) for ext in (".py", ".js", ".ps1", ".sh")]
     ok = True
-    # Do not short-circuit: every target must be checked/updated even if one fails.
+
     for path in scripts:
-        if not process_file(path, constants, check_only):
+        try:
+            current_ok = process_file(path, constants, check_only)
+        except (OSError, UnicodeError) as exc:
+            print(f"  {os.path.basename(path)}: ERROR: {exc}")
+            current_ok = False
+        if not current_ok:
             ok = False
+
     if not ok:
         if check_only:
-            print("FAILED: generated constants are out of date. Run: python skills/anysearch/scripts/generate.py")
+            print("FAILED: generated constants are out of date or one or more targets could not be checked. Run: python skills/anysearch/scripts/generate.py")
         else:
             print("FAILED: one or more generated targets could not be synchronized.")
         return 1
+
     print("OK: generated constants are current." if check_only else "Done.")
     return 0
 
