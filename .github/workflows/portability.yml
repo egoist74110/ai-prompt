@@ -32,6 +32,9 @@ jobs:
       - name: Check skill discovery index
         run: python tools/gen-index.py --check
 
+      - name: Check AnySearch generated constants
+        run: python skills/anysearch/scripts/generate.py --check
+
       - name: Compile Python sources
         run: python -m compileall -q tools skills
 
