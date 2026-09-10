@@ -13,7 +13,13 @@ Follow `router.md` search routing:
 3. If native search is absent/unusable, select from verified configured backends regardless of model hosting.
 4. Cache verified context/backend facts.
 
-`cloud-native` and `local-managed` are backend-selection lanes, not a prohibition on fallback. Same-lane backends sort first. Cloud contexts may fall back to verified local-managed MCP/CLI/fetch backends; an explicit `allow_cross_lane_fallback=false` disables that behavior.
+`cloud-native` and `local-managed` are backend-selection lanes, not a prohibition on fallback. Same-lane backends sort first. New cloud contexts may fall back to verified local-managed MCP/CLI/fetch backends by default; an explicit `allow_cross_lane_fallback=false` disables that behavior.
+
+Legacy contexts keep any stored `allow_cross_lane_fallback` boolean exactly as written because the old schema cannot prove whether it was a default or a user choice. Never silently reinterpret a legacy `false` as `true`. If the user wants an existing context to adopt the current lane default, use the explicit migration command:
+
+```text
+python tools/search_state.py context-adopt-fallback-default <context-id>
+```
 
 ## 1. Cache before discovery
 
@@ -43,72 +49,29 @@ Escalate one level at a time; external calls spend user resources:
 3. verified free search backend;
 4. paid backend only when cheaper evidence is insufficient and the fact matters.
 
-Select by role:
+Prefer repository APIs for repo/release/tag/issue/PR/code facts, `general` for broad first-pass search, `accurate` for technical/fresh facts, `precise` for quoted/site-scoped queries, and `fetch`/`crawl`/`extract` for known URLs. Product/backend names are examples, never a fixed installation list.
 
-- repo/release/tag/issue/PR/code -> `repo` / `code`; prefer official repository data;
-- broad web -> `general`;
-- technical/version/date/price/freshness -> `accurate`;
-- `site:` / exact phrase / freshness -> `precise`;
-- known URL -> `fetch` / `crawl` / `extract`, not another search.
+## 3. Validate result quality
 
-Do not repeat paid calls for the same small fact.
+A successful request may still be a bad search. Check entity alignment, authoritative sources, topic pollution, freshness, backend degradation, and low relevance. Weak-but-working evidence is `degraded`, not permanently blocked. Rewrite the query or switch backend before forcing an answer.
 
-## 3. Validate results
+## 4. Failure classes
 
-A successful request may still be a bad search. Check:
+- deterministic auth/config/permission/unsupported/subscription failures -> `blocked` until configuration changes;
+- timeout/network/server/rate-limit/quota -> `cooldown`;
+- weak results -> `degraded`;
+- valid result -> `healthy`.
 
-1. entity/project alignment;
-2. source authority;
-3. topic pollution;
-4. time alignment for freshness-sensitive facts;
-5. backend degradation;
-6. lexical/entity relevance.
+Persist these states with `tools/search_state.py`; do not repeatedly rediscover or retry a known hard failure.
 
-Weak-but-working evidence is `degraded`, not permanently blocked.
+## 5. Physical suppression is local/self-hosted only
 
-## 4. Two-pass search
+Logical backend selection and runtime tool suppression are separate. A cloud context using a local-managed CLI fallback does **not** make the cloud runtime eligible for physical native-tool suppression.
 
-First pass: query one fact at a time, use exact entity names, and prefer repository backends for repository facts.
+For confirmed deterministic runtime-native search failures in a local/self-hosted session only, follow `capabilities/search-runtime-suppression.md`: disable only the failed search tool at the narrowest reversible scope, verify absence, and cache the suppression result. Never physically suppress transient failures.
 
-If evidence is weak, do not force an answer. Rewrite/narrow the query, add an official `site:` or repository identity when appropriate, switch role/backend, and fetch the authoritative source text when needed.
+## 6. MCP / wrapper fallback
 
-## 5. Failure classes and circuit breaker
+If a wrapper fails, reuse a cached equivalent locator for the same backend or switch to the next verified backend. Discover only when no usable cached backend exists, then cache success/failure immediately.
 
-Deterministic auth/config/permission/subscription/unsupported failures -> `blocked` until configuration changes.
-
-Transient timeout/network/5xx/429/quota failures -> `cooldown` and use the next backend.
-
-Valid success -> `healthy`. Quality failure -> `degraded`.
-
-Use `tools/search_state.py fail|success|reset` to persist these facts.
-
-## 6. Physical suppression is local/self-hosted only
-
-Logical backend fallback applies to any hosting context. Physical removal of a broken runtime-native search tool is different and applies only to confirmed local/self-hosted sessions where the runtime supports a reversible narrow disable/unregister operation.
-
-For a deterministic local runtime-native failure: mark blocked, disable only that failed search tool at the narrowest scope when supported, reload, verify absence, and cache the suppression fact. Never physically suppress transient failures. See `capabilities/search-runtime-suppression.md`.
-
-## 7. MCP / wrapper / discovery
-
-If a wrapper fails, reuse a cached equivalent CLI/locator for the same backend or move to the next verified backend. Do not reinstall an existing capability merely because one wrapper failed.
-
-Discover only when no verified usable backend remains: inspect runtime/state, current MCP config, PATH/known wrappers, then probe only likely candidates. Cache successful locators and persist failures immediately.
-
-## 8. Execution summary
-
-```text
-need external information
--> prefer usable platform-native search when present
--> otherwise read context + backend cache + circuit breaker
--> select same-lane backend first, then permitted verified fallback
--> execute focused first pass
--> validate evidence
-   -> good: healthy + answer
-   -> weak: degraded + rewrite/switch backend
--> hard failure: blocked
--> transient failure: cooldown
--> local runtime-native deterministic failure: optional physical suppression
--> if all eligible backends fail: report concrete failure reasons
-```
-
-**Rule:** hosting determines runtime behavior; verified backend availability determines how search is executed. Never infer one from the other.
+**Rule:** choose search backends from verified capability facts rather than model hosting alone; preserve explicit/legacy fallback policy, and keep physical suppression limited to confirmed local/self-hosted runtime-native failures.
