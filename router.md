@@ -24,11 +24,11 @@ Runtime names are local data, not central constants.
 For Skills, MCP, search, APIs, headless runtimes, and local tools, stop at the first sufficient layer:
 
 1. current-session execution facts;
-2. verified `.local/runtime.json` / `.local/state.json` facts;
-3. exposed tools are candidates only, not proof of availability;
+2. verified `.local/runtime.json` / `.local/state.json` facts, including valid `blocked`, `cooldown`, and `unsupported` state;
+3. exposed tools are candidates only, not proof that they should be retried;
 4. discover/probe only if earlier layers cannot resolve the need or cached state requires retry.
 
-After successful discovery, cache machine locators/config in runtime and verified strategy/result/retry state in state. Current execution overrides stale cache.
+After successful discovery, cache machine locators/config in runtime and verified strategy/result/retry state in state. Current execution overrides stale cache, but merely exposing a previously blocked tool does not invalidate its retry condition.
 
 ## Local Search Routing
 
@@ -40,7 +40,8 @@ Before external search, determine hosting without making a search call:
 4. cache the result.
 
 - local/self-hosted -> read `capabilities/search.md`;
-- cloud -> do not load local-search rules; use platform-native search.
+- cloud with platform-native search -> use that native search;
+- cloud without native search -> use an already verified MCP/CLI/fetch backend when available; read `capabilities/search.md` only if backend selection/fallback rules are needed.
 
 Deterministic native/provider search failures in local sessions follow `capabilities/search-runtime-suppression.md`.
 
@@ -49,12 +50,12 @@ Deterministic native/provider search failures in local sessions follow `capabili
 1. Always read `common.md`.
 2. Complete problem solving/implementation -> read `models/high.md`.
 3. Scout/context collection/mechanical execution only -> read `models/scout.md`, not `models/high.md`.
-4. Load capabilities only when triggered:
-   - Skills -> `capabilities/skills.md` then matching `skills/<name>/SKILL.md`;
+4. If the current session does not already expose the central Skill metadata, read `capabilities/skills.md` once before planning implementation/review work; load only matching `skills/<name>/SKILL.md` files.
+5. Load other capabilities only when triggered:
    - MCP/tool discovery -> `capabilities/mcp.md`;
    - cross-review -> `capabilities/cross-review.md` when triggered by `models/high.md`;
-   - local search -> `capabilities/search.md`;
-   - implementation side effects -> `capabilities/cleanup.md` before delivery.
+   - search strategy -> `capabilities/search.md` when required by the routing rules above;
+   - any role that will create file/config/process/build/debug side effects -> read `capabilities/cleanup.md` before the first side effect and follow its applicable cleanup rules on success, failure, and early exit.
 
 Do not bulk-read Skills/capabilities.
 
@@ -79,7 +80,7 @@ Do not bulk-read Skills/capabilities.
 
 ## Side Effects / Delivery
 
-Implementation tasks that modify files/configuration or start processes MUST track task-owned side effects and execute `capabilities/cleanup.md` before delivery. Cleanup ownership, regression scope, process handling, and post-cleanup smoke are defined there; do not duplicate that checklist here.
+`capabilities/cleanup.md` is authoritative for ownership, regression scope, process/port/config cleanup, failure paths, and post-cleanup smoke. The trigger above applies to every role, not only implementers.
 
 ## Native Entrypoints
 
