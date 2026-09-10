@@ -8,8 +8,9 @@ Own planning, critical decisions, implementation, self-review, requirement cover
 
 Determine role from the current request, not runtime/CLI identity.
 
-- **Reviewer/verifier:** request is read-only or asks only for review/verification. Follow `capabilities/cross-review.md`; never dispatch another reviewer. Clean any side effects you create.
-- **Implementer:** request requires code/configuration changes. All gates below apply.
+- **Reviewer/verifier:** the request explicitly asks for review/verification and does not request implementation. Follow `capabilities/cross-review.md`; never dispatch another reviewer. Clean any side effects you create.
+- **Implementer:** the request requires code/configuration changes. All gates below apply.
+- **Problem solver:** read-only explanation, analysis, or Q&A that is not a review request. Solve normally; do not load cross-review solely because no writes are requested.
 - Re-evaluate when the user changes the phase. Reviewing your own implementation is self-review, not cross-review.
 
 ## Scout Gate
@@ -53,9 +54,7 @@ Before the first Git modification inspect `git status --short`. Record PID/job/p
 
 ## Cross-Review Gate
 
-Applies only to implementers; execution contract is in `capabilities/cross-review.md`.
-
-Select exactly one enabled reviewer from `.local/runtime.json.runtimes` that declares `review`, differs from the implementer, and has the best local `review.priority`. Discover only when cache is missing/invalid.
+Applies only to implementers; reviewer selection, runtime identity isolation, dispatch, and feedback handling are authoritative in `capabilities/cross-review.md`.
 
 Triggers:
 
@@ -63,11 +62,6 @@ Triggers:
 2. Otherwise, if the change touches security, critical data flow, multi-step writes/transactions, cross-module refactoring, production readiness, or unresolved uncertainty -> recommend a reviewer/scope/reason and obtain confirmation. In non-interactive headless mode without prior authorization, do not dispatch; report pending confirmation.
 
 Trivial fixes, pure configuration, and one-line changes need no unsolicited cross-review after self-review.
-
-- Reviewer is read-only. Verify findings using the `receiving-code-review` skill; never apply feedback blindly.
-- Re-verify blocker/major fixes.
-- Runtime verification requests must be self-contained and resolve machine paths from current local facts.
-- Never maintain model-version lists centrally.
 
 ## Regression / Cleanup Gate
 
