@@ -1,49 +1,49 @@
-# 交叉审查（Cross-Review：不同高级模型互审代码）
+# Cross-Review
 
-实现方与审查方**不能是同一个运行时**。本文件只保存跨机器成立的流程；可用运行时、命令、权限、trusted workspace、headless 能力都属于本地 runtime/state，不写死在中央文档。
+The implementer and reviewer **MUST NOT be the same runtime**. This file contains only cross-machine workflow rules. Available runtimes, commands, permissions, trusted workspaces, and headless capability are local runtime/state facts and must not be hard-coded here.
 
-## 先判身份（递归终止条件）
+## Identity and Recursion Termination
 
-- **实现方**：当前请求要你写/改代码并交付 → 才适用本文件的派审流程。
-- **审查方 / 验证方**：当前请求明确限定为只读、只出意见、不改代码 → 完成审查后结束。
+- **Implementer:** the current request requires writing/modifying code and delivering it -> this file's dispatch workflow applies.
+- **Reviewer / verifier:** the current request explicitly limits the runtime to read-only review/opinions and forbids code changes -> finish the review and stop.
 
-**审查方绝对不得再次派交叉审查。** 身份按当前阶段重判；实现完自己复看只是自检，不算跨运行时审查。
+**A reviewer MUST NEVER dispatch another cross-review.** Re-evaluate identity by the current phase. An implementer rereading its own work is self-review, not cross-runtime review.
 
-## 何时用
+## When to Use
 
-1. 用户明确要求“审查 / 交叉审查 / 审一下”等 → 直接执行，不二次确认。
-2. 用户没提，但改动命中高风险面（安全、关键数据流、跨模块重构、上线就绪、高模自检仍不确定）→ 先说明建议派哪个运行时审什么，等用户确认。
-3. 非交互 headless 场景且用户没有事先授权 → 不擅自消耗另一个运行时额度；把建议写进输出后结束。
+1. The user explicitly requests review/cross-review -> execute directly without asking again.
+2. The user did not request it, but changes touch high-risk areas such as security, critical data flow, cross-module refactoring, production readiness, or unresolved high-model uncertainty -> state which runtime you recommend and what it should review, then wait for confirmation.
+3. In non-interactive headless mode without prior authorization -> do not consume another runtime's quota automatically; include the recommendation in output and stop.
 
-trivial 修复、纯配置、一行改动、无外部副作用的局部逻辑可直接自检交付。
+Trivial fixes, pure configuration, one-line changes, and isolated logic without external side effects may be delivered after self-review.
 
-## 审查运行时选择：只读 registry，不认固定名字
+## Reviewer Selection: Registry Only
 
-候选只来自 `.local/runtime.json.runtimes`。中央**不维护 Claude / Codex / Gemini / Qwen Code / 其它 CLI 的固定名单或固定顺序**。
+Candidates come only from `.local/runtime.json.runtimes`. Central rules maintain **no fixed list or order of Claude, Codex, Gemini, Qwen Code, or any other CLI**.
 
-筛选规则：
+Filter candidates as follows:
 
-1. `enabled != false`。
-2. `capabilities` 包含 `review`。
-3. runtime id 不等于当前实现方。
-4. 有已解析的 `executable`，或可通过它自己的 `command_candidates` 做最小 discovery。
-5. `review.args` 已配置；如果该 CLI 不需要额外参数，可以是空数组。
-6. 优先使用 `.local/state.json.cross_review.runtimes.<id>.headless_verified == true` 的条目。
-7. 多个都可用时按 registry 中 `review.priority` 从高到低；没填优先级的排在已填值之后。
+1. `enabled != false`.
+2. `capabilities` contains `review`.
+3. Runtime id differs from the current implementer.
+4. A resolved `executable` exists, or minimal discovery can resolve one from its own `command_candidates`.
+5. `review.args` is configured; it may be an empty array when the CLI needs no additional arguments.
+6. Prefer entries where `.local/state.json.cross_review.runtimes.<id>.headless_verified == true`.
+7. If multiple candidates remain, sort by `review.priority` descending. Entries without priority follow entries with explicit priority.
 
-因此新增任何审查工具只需要注册本地数据，不需要修改本文件或 Python 代码。
+Adding a reviewer therefore requires only local registry data, not changes to this file or central Python.
 
-## Headless invocation
+## Headless Invocation
 
-统一调用模型：
+Use the generic form:
 
 ```text
-<runtime.executable> <runtime.review.args...> "<审查请求>"
+<runtime.executable> <runtime.review.args...> "<review request>"
 ```
 
-命令名、参数、路径、模型选择都来自 registry / 当前会话事实。中央不保存某个产品的具体 CLI 示例作为逻辑依赖。
+Command names, arguments, paths, and model selection come from the registry/current-session facts. Central rules must not depend on product-specific CLI examples.
 
-本地 runtime 结构示例：
+Example local runtime structure:
 
 ```json
 {
@@ -61,7 +61,7 @@ trivial 修复、纯配置、一行改动、无外部副作用的局部逻辑可
 }
 ```
 
-成功/失败状态写入 `.local/state.json`：
+Write success/failure state to `.local/state.json`:
 
 ```json
 {
@@ -76,11 +76,11 @@ trivial 修复、纯配置、一行改动、无外部副作用的局部逻辑可
 }
 ```
 
-缓存不得包含登录 token、cookie、密钥正文。
+Never cache login tokens, cookies, or secret contents.
 
-### 新增审查运行时
+### Adding a Review Runtime
 
-使用通用 registry CLI；下面只是字段结构示例，不代表某个固定产品：
+Use the generic registry CLI. This illustrates field structure only and does not define a fixed product:
 
 ```text
 python tools/runtime_state.py runtime add <runtime-id> \
@@ -90,67 +90,69 @@ python tools/runtime_state.py runtime add <runtime-id> \
   --review-priority 70
 ```
 
-注册后会自动 detect；也可单独运行：
+Registration performs detection automatically. It may also be refreshed explicitly:
 
 ```text
 python tools/runtime_state.py runtime detect <runtime-id> --refresh
 ```
 
-## 权限与 workspace
+## Permissions and Workspace
 
-headless 运行时常见前置条件包括：
+Common headless prerequisites include:
 
-- 目标仓库必须在该运行时允许读取的 workspace 范围内。
-- 需要 `git diff`、测试命令等时，可能需要细粒度 command 权限。
-- 某些运行时的 plan/headless 权限可能根本不能读文件。
+- The target repository must be inside the runtime's readable workspace.
+- `git diff`, tests, and similar operations may require fine-grained command permissions.
+- Some plan/headless permission modes may not allow file reads at all.
 
-这些都属于**机器配置**：权限文件路径、allowed root、trustedWorkspaces 当前值等写进本地 runtime/state，中央只保留规则。
+These are **machine configuration**. Store permission-file paths, allowed roots, trusted-workspace values, etc. in local runtime/state; central rules contain only policy.
 
-**修改任何运行时权限配置都意味着扩大 AI 的访问面，必须先取得用户确认。** 不要为了审查方便启用类似“跳过所有权限检查”的高危参数。
+**Changing runtime permissions expands AI access and requires user confirmation first.** Never enable dangerous options equivalent to skipping all permission checks merely to make review convenient.
 
-审查方无输出 / 调用失败时，不能当成通过：
+No output or invocation failure is not a passing review:
 
-1. 检查 registry/state 缓存是否过期。
-2. 对该 runtime 做最小 discovery：executable、workspace、读文件权限、必要命令权限。
-3. 成功后刷新本地缓存；仍失败则顺延下一个 registry 候选或如实报告。
+1. Check whether registry/state cache is stale.
+2. Perform minimal discovery for that runtime: executable, workspace access, file-read permission, and required command permissions.
+3. Refresh local cache after success. If it still fails, try the next registry candidate or report the failure accurately.
 
-## 审查请求格式
+## Review Request Format
 
-请求至少包含：
+A review request must contain at least:
 
-1. **改动范围**：文件列表或 `git diff`；大改动按模块分批。
-   - 给外部运行时的文件路径应在发起时解析成**当前机器真实绝对路径**，避免另一个运行时 cwd 不一致。
-   - 这里的“绝对路径”是运行时生成的数据，不得预写某个用户名/home 到中央文档。
-2. **背景**：一句话说明需求/工单/这次改了什么。
-3. **审查清单**：正确性与边界条件；并发与失败路径；安全；现有架构一致性；资源生命周期。
-4. **输出要求**：每条问题给 `file:line` + 问题 + 严重度（blocker / major / minor）+ 具体建议；结尾给“通过 / 修 minor 后可过 / 需返工”。
-5. **禁令**：只审给定范围；无法确认标 unknown；不得把纯风格偏好标 blocker；用户没要求时不要直接改代码。
+1. **Change scope:** file list or `git diff`; split large changes by module.
+   - Resolve paths sent to an external runtime to the **current machine's real absolute paths** at dispatch time so cwd differences do not break review.
+   - Absolute paths are generated runtime data. Never pre-write a username/home path into central docs.
+2. **Context:** one sentence describing the requirement/ticket/change.
+3. **Review checklist:** correctness and edge cases; concurrency and failure paths; security; architectural consistency; resource lifecycle.
+4. **Output contract:** each finding must include `file:line`, problem, severity (`blocker` / `major` / `minor`), and concrete recommendation; finish with one of `pass`, `pass after minor fixes`, or `rework required`.
+5. **Restrictions:** review only the supplied scope; mark unverifiable claims `unknown`; do not label pure style preferences as blockers; do not modify code unless explicitly requested.
 
-## 收反馈（实现方）
+## Receiving Feedback
 
-- 按 `receiving-code-review` skill：逐条核实，不盲从。
-- blocker / major 修复并复验。
-- minor 可解释后保留，但写进交付汇报。
-- 审查结论是输入，不替代实现方自己的验证。
+For the implementer:
 
-## 验证交接
+- Use the `receiving-code-review` skill to verify findings one by one; never follow feedback blindly.
+- Fix and re-verify blocker/major findings.
+- Minor findings may be retained with justification, but mention them in delivery.
+- Reviewer conclusions are inputs, not substitutes for implementer validation.
 
-静态读码无法确认、必须实际运行才能验证的项，生成一段可直接交给验证运行时的自包含提示词。至少包含：
+## Verification Handoff
 
-- 当前仓库**实际绝对路径**、分支/commit、文件范围。
-- 需求背景和上一轮审查修了什么。
-- 启动命令、精确入口、必要权限、前置状态构造方法。
-- happy path 之外的破坏性/边界场景：快速连点、中途改值、脏数据、断网/超时、并发等。
-- 本轮修复项标为【回归重点】。
-- 报告格式：现象、复现步骤、期望 vs 实际、严重度、涉及文件；结尾三档结论。
-- 验证者只收集事实，不改代码、不编结果。
+For findings that static inspection cannot resolve and that require execution, generate a self-contained prompt for a verification runtime containing at least:
 
-机器相关的验证入口、测试账号 locator、项目绝对路径等只出现在**本次生成的提示词或 `.local/`**，不回写中央文档。
+- Current repository **real absolute path**, branch/commit, and file scope.
+- Requirement context and what the previous review/fix changed.
+- Start command, exact entrypoint, required permissions, and prerequisite-state construction.
+- Destructive/edge scenarios beyond the happy path: rapid repeated actions, mid-flow value changes, dirty data, network loss/timeout, concurrency, etc.
+- Mark current fixes as `[REGRESSION FOCUS]`.
+- Report format: observation, reproduction steps, expected vs actual, severity, affected files; finish with a three-level conclusion.
+- The verifier collects facts only; it does not modify code or fabricate results.
+
+Machine-specific verification entrypoints, test-account locators, and absolute project paths belong only in the **generated per-run prompt or `.local/`**, never in central docs.
 
 ## Guardrails
 
-- 不维护快速过期的模型名/版本列表。
-- 不维护固定运行时名单、固定优先级或固定 CLI invocation。
-- runtime 第一次跑通后缓存，后续直接复用；失败才重新 discovery。
-- 不为了审查方便扩大运行时权限。
-- 审查方不得递归再派审查。
+- Do not maintain fast-expiring model/version lists.
+- Do not maintain fixed runtime lists, fixed priorities, or fixed CLI invocations.
+- Cache a runtime after first successful verification; reuse it until failure requires discovery again.
+- Never expand runtime permissions merely for review convenience.
+- A reviewer must never recursively dispatch another review.
