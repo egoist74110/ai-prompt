@@ -9,8 +9,11 @@ import json
 import os
 import platform
 import shutil
+import tempfile
+import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterator
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / ".local"
@@ -18,6 +21,8 @@ FILES = {
     "runtime": LOCAL / "runtime.json",
     "state": LOCAL / "state.json",
 }
+LOCK_TIMEOUT = 10.0
+STALE_LOCK_AGE = 30.0
 
 
 def default_runtime() -> dict[str, Any]:
@@ -48,10 +53,7 @@ def default_runtime() -> dict[str, Any]:
         "services": {},
         "runtimes": {},
         "skills": {},
-        "search": {
-            "contexts": {},
-            "backends": {},
-        },
+        "search": {"contexts": {}, "backends": {}},
     }
 
 
@@ -67,26 +69,66 @@ def default_state() -> dict[str, Any]:
     }
 
 
+@contextmanager
+def _file_lock(path: Path) -> Iterator[None]:
+    """Portable short-lived cross-process lock for one local JSON file."""
+    lock = path.with_suffix(path.suffix + ".lock")
+    deadline = time.monotonic() + LOCK_TIMEOUT
+    while True:
+        try:
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f"{os.getpid()}\n".encode())
+            os.close(fd)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - lock.stat().st_mtime > STALE_LOCK_AGE:
+                    lock.unlink(missing_ok=True)
+                    continue
+            except FileNotFoundError:
+                continue
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"timed out waiting for local state lock: {lock}")
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        try:
+            lock.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def _atomic_write(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    fd, tmp_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    finally:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def ensure_files() -> None:
     LOCAL.mkdir(parents=True, exist_ok=True)
     defaults = {"runtime": default_runtime(), "state": default_state()}
     for kind, path in FILES.items():
-        if not path.exists():
-            _atomic_write(path, defaults[kind])
+        if path.exists():
+            continue
+        with _file_lock(path):
+            if not path.exists():
+                _atomic_write(path, defaults[kind])
 
 
-def read_kind(kind: str) -> dict[str, Any]:
-    if kind not in FILES:
-        raise KeyError(kind)
-    ensure_files()
-    path = FILES[kind]
+def _read_path(path: Path) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -96,10 +138,38 @@ def read_kind(kind: str) -> dict[str, Any]:
     return data
 
 
-def write_kind(kind: str, data: dict[str, Any]) -> None:
+def read_kind(kind: str) -> dict[str, Any]:
     if kind not in FILES:
         raise KeyError(kind)
-    _atomic_write(FILES[kind], data)
+    ensure_files()
+    return _read_path(FILES[kind])
+
+
+def write_kind(kind: str, data: dict[str, Any]) -> None:
+    """Replace one document under a write lock.
+
+    Callers performing read-modify-write should use update_kind() instead so the
+    read and write occur in the same transaction and cannot lose concurrent updates.
+    """
+    if kind not in FILES:
+        raise KeyError(kind)
+    ensure_files()
+    path = FILES[kind]
+    with _file_lock(path):
+        _atomic_write(path, data)
+
+
+def update_kind(kind: str, updater: Callable[[dict[str, Any]], Any]) -> dict[str, Any]:
+    """Atomically re-read, mutate, and replace a local document under one lock."""
+    if kind not in FILES:
+        raise KeyError(kind)
+    ensure_files()
+    path = FILES[kind]
+    with _file_lock(path):
+        data = _read_path(path)
+        updater(data)
+        _atomic_write(path, data)
+        return data
 
 
 def parts(key: str) -> list[str]:
@@ -157,6 +227,6 @@ def migrate_local_files() -> None:
     """Add newly introduced schema keys to existing local files without destroying cache."""
     ensure_files()
     for kind, defaults in (("runtime", default_runtime()), ("state", default_state())):
-        data = read_kind(kind)
-        if merge_defaults(data, defaults):
-            write_kind(kind, data)
+        def migrate(data: dict[str, Any], defaults=defaults) -> None:
+            merge_defaults(data, defaults)
+        update_kind(kind, migrate)
