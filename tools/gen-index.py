@@ -52,8 +52,6 @@ def collect():
         desc = re.sub(r"\s+", " ", desc).strip()
         if CJK.search(desc):
             problems.append(f"{skill_md.relative_to(ROOT)}: description must be English")
-        if len(desc) > 240:
-            desc = desc[:240] + "..."
         entries.append((name, directory.name, desc))
     return entries, problems
 
