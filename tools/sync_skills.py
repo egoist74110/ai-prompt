@@ -8,7 +8,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from local_state import ROOT, migrate_local_files, read_kind, write_kind
+from local_state import ROOT, migrate_local_files, read_kind, update_kind
 from platform_fs import create_dir_link, is_junction, is_linkish, link_target, points_to, remove_linkish
 
 
@@ -26,7 +26,7 @@ def resolve_target(entry: dict) -> Path | None:
     return None
 
 
-def _record(state: dict, runtime_name: str, central: Path, target: Path, mode: str, managed_names=None) -> None:
+def _record_payload(central: Path, target: Path, mode: str, managed_names=None) -> dict:
     record = {
         "verified": True,
         "central": str(central),
@@ -36,33 +36,31 @@ def _record(state: dict, runtime_name: str, central: Path, target: Path, mode: s
     }
     if managed_names is not None:
         record["managed_names"] = sorted(managed_names)
-    state.setdefault("skills_sync", {})[runtime_name] = record
+    return record
 
 
-def sync_central_dir(runtime_name: str, entry: dict, central: Path, target: Path, state: dict) -> bool:
+def sync_central_dir(runtime_name: str, entry: dict, central: Path, target: Path) -> tuple[bool, dict, dict]:
     if points_to(target, central):
-        _record(state, runtime_name, central, target, "central-dir-link")
-        print(f"{runtime_name}: central skills link 已是最新")
-        return False
+        print(f"{runtime_name}: central skills link is current")
+        return False, {}, _record_payload(central, target, "central-dir-link")
 
     if target.exists() or is_linkish(target):
         raise RuntimeError(
-            f"{runtime_name}: {target} 已存在且不是中央目录链接；为避免覆盖运行时私有数据，不自动替换"
+            f"{runtime_name}: {target} exists and is not the managed central-directory link; refusing to replace runtime-private data"
         )
 
     target.parent.mkdir(parents=True, exist_ok=True)
     link_kind = create_dir_link(central, target)
-    entry.update({"skills_path": str(target), "skills_layout": "central-dir-link", "link_kind": link_kind})
-    _record(state, runtime_name, central, target, "central-dir-link")
+    patch = {"skills_path": str(target), "skills_layout": "central-dir-link", "link_kind": link_kind}
     print(f"{runtime_name}: added central skills {link_kind}")
-    return True
+    return True, patch, _record_payload(central, target, "central-dir-link")
 
 
-def sync_per_skill(runtime_name: str, entry: dict, central: Path, target: Path, state: dict) -> bool:
+def sync_per_skill(runtime_name: str, entry: dict, central: Path, target: Path, previous: dict) -> tuple[bool, dict, dict]:
     if not target.exists():
         if not entry.get("executable"):
-            print(f"{runtime_name}: runtime 未检测到且 skills 目录不存在，skip")
-            return False
+            print(f"{runtime_name}: runtime not detected and skills directory is absent; skip")
+            return False, {}, _record_payload(central, target, "per-skill-link", [])
         target.mkdir(parents=True, exist_ok=True)
     if not target.is_dir():
         raise RuntimeError(f"{runtime_name}: skills target is not a directory: {target}")
@@ -70,7 +68,6 @@ def sync_per_skill(runtime_name: str, entry: dict, central: Path, target: Path, 
     changed = False
     link_kind: str | None = None
     central_names = {p.name for p in central.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
-    previous = state.get("skills_sync", {}).get(runtime_name, {})
     previously_managed = set(previous.get("managed_names", []) or [])
     managed_now: set[str] = set()
 
@@ -120,14 +117,29 @@ def sync_per_skill(runtime_name: str, entry: dict, central: Path, target: Path, 
         print(f"{runtime_name}: removed obsolete managed {name}")
         changed = True
 
-    entry.update({
+    patch = {
         "skills_path": str(target),
         "skills_layout": "per-skill-link",
         "link_kind": link_kind or entry.get("link_kind"),
-    })
-    _record(state, runtime_name, central, target, "per-skill-link", managed_now)
-    print(f"{runtime_name}: skills 同步完成" if changed else f"{runtime_name}: skills 已是最新")
-    return changed
+    }
+    print(f"{runtime_name}: skills sync complete" if changed else f"{runtime_name}: skills are current")
+    return changed, patch, _record_payload(central, target, "per-skill-link", managed_now)
+
+
+def _persist(runtime_name: str, runtime_patch: dict, state_record: dict) -> None:
+    def patch_runtime(runtime: dict) -> None:
+        entries = runtime.setdefault("runtimes", {})
+        if runtime_name not in entries:
+            raise KeyError(runtime_name)
+        entries[runtime_name].update(runtime_patch)
+
+    def patch_state(state: dict) -> None:
+        state.setdefault("skills_sync", {})[runtime_name] = state_record
+
+    # Each document is independently transactional. No stale whole-document snapshot
+    # is written back after filesystem work.
+    update_kind("runtime", patch_runtime)
+    update_kind("state", patch_state)
 
 
 def sync(runtime_name: str) -> int:
@@ -157,15 +169,18 @@ def sync(runtime_name: str) -> int:
     if not central.is_dir():
         raise RuntimeError(f"central skills directory missing: {central}")
 
+    previous = state.get("skills_sync", {}).get(runtime_name, {})
+    if not isinstance(previous, dict):
+        previous = {}
+
     if mode == "central-dir-link":
-        sync_central_dir(runtime_name, entry, central, target, state)
+        _, runtime_patch, state_record = sync_central_dir(runtime_name, entry, central, target)
     elif mode == "per-skill-link":
-        sync_per_skill(runtime_name, entry, central, target, state)
+        _, runtime_patch, state_record = sync_per_skill(runtime_name, entry, central, target, previous)
     else:
         raise RuntimeError(f"{runtime_name}: unsupported skills_sync_mode: {mode}")
 
-    write_kind("runtime", runtime)
-    write_kind("state", state)
+    _persist(runtime_name, runtime_patch, state_record)
     return 0
 
 
