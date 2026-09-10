@@ -30,20 +30,21 @@ For Skills, MCP, search, APIs, headless runtimes, and local tools, stop at the f
 
 After successful discovery, cache machine locators/config in runtime and verified strategy/result/retry state in state. Current execution overrides stale cache, but merely exposing a previously blocked tool does not invalidate its retry condition.
 
-## Local Search Routing
+## Search Routing
 
-Before external search, determine hosting without making a search call:
+Before external search, determine hosting and actual search availability without making a search call:
 
 1. use verified `.local/runtime.json.search.contexts` if available;
 2. otherwise inspect local runtime/config/process facts; private/LAN endpoint implies self-hosted, provider domain + API key implies cloud;
-3. if still unknown, ask the user; never guess;
-4. cache the result.
+3. if hosting is still unknown, ask the user; never guess;
+4. separately determine whether a usable platform-native search backend exists; tool exposure alone is not success;
+5. cache verified facts.
 
-- local/self-hosted -> read `capabilities/search.md`;
-- cloud with platform-native search -> use that native search;
-- cloud without native search -> use an already verified MCP/CLI/fetch backend when available; read `capabilities/search.md` only if backend selection/fallback rules are needed.
+- usable platform-native search -> prefer it;
+- no usable native search -> use an already verified eligible MCP/CLI/fetch backend regardless of model hosting;
+- read `capabilities/search.md` whenever backend selection, fallback, or search failure policy is needed.
 
-Deterministic native/provider search failures in local sessions follow `capabilities/search-runtime-suppression.md`.
+Hosting and backend availability are independent. Same-lane backends are preferred, but cloud contexts may use verified configured fallbacks when native search is absent. Deterministic runtime-native search failures in local/self-hosted sessions alone may trigger `capabilities/search-runtime-suppression.md`.
 
 ## Read Order
 
