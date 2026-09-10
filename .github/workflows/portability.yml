@@ -26,8 +26,14 @@ jobs:
       - name: Check central portability rules
         run: python tools/check_portability.py
 
+      - name: Check AI-facing document language
+        run: python tools/check_prompt_language.py
+
       - name: Check skill discovery index
         run: python tools/gen-index.py --check
+
+      - name: Check AnySearch generated constants
+        run: python skills/anysearch/scripts/generate.py --check
 
       - name: Compile Python sources
         run: python -m compileall -q tools skills

@@ -1,279 +1,100 @@
 # Regression / Cleanup Gate
 
-本文件定义**实现任务交付前的回归与清场纪律**。目标不是让 AI “看起来做完了”，而是让它离开时把工作区恢复到一个可继续工作的状态。
+Authoritative delivery rules for implementation tasks with file/config/process/build/debug side effects.
 
-> **功能跑通 ≠ 任务完成。**
->
-> 任务完成 = 目标实现 + 必要回归通过 + 本次任务产生的垃圾清掉 + 本次任务启动的资源回收 + 工作区 diff 可解释。
+**Complete = required behavior verified + relevant regression passed + task-owned temporary resources reclaimed + final diff/state explainable.**
 
-适用于：写/改代码、改配置、跑测试、启动开发服务器、浏览器自动化、临时脚本、生成文件、构建、迁移、调试、MCP/本地服务等可能产生副作用的任务。
+## 1. Baseline and Ownership
 
----
+Before the first side effect, establish only the relevant baseline.
 
-## 0. 总原则
-
-1. **清场是任务的一部分，不是可选优化。** 最终回复前必须执行。
-2. **只清理本次任务拥有的东西。** 不删除开工前已有文件，不杀开工前已有进程，不释放无法确认归属的端口。
-3. **失败路径也要清理。** 中途报错、方案放弃、测试失败、改用另一条路线时，都要回收已经创建的临时资源。
-4. **有意留下的交付物不算垃圾。** 用户要求的文件、必要构建产物、明确要求常驻的服务可以保留，但要在交付里说明。
-5. **不能证明安全删除/终止时，宁可不动并明确报告。** 不为了“看起来干净”误伤用户环境。
-
----
-
-## 1. 开工基线：先知道哪些东西不是你弄的
-
-如果任务可能修改工作区或启动资源，在第一次有副作用的操作前建立最小基线。
-
-### Git 工作区
-
-如果目标目录是 Git 仓库，至少看一次：
+For Git workspaces run at least:
 
 ```text
 git status --short
 ```
 
-必要时再看：
+Track resources as they are created:
 
-```text
-git diff --stat
-git diff --name-only
-```
+- `baseline`: existed before the task; preserve;
+- `temporary`: task-owned and not a deliverable; remove/stop/restore;
+- `artifact`: requested deliverable; keep;
+- `unknown`: ownership unclear; never destroy blindly.
 
-目的不是要求工作区一开始必须干净，而是记住：
+For long-lived processes record command, PID/job, port if applicable, and purpose. Track temporary files, builds/logs/traces, config/permission changes, proxies/tunnels, browsers, workers, MCP/services, and other task-owned side effects.
 
-- 哪些 modified/untracked 是用户原来就有的；
-- 哪些文件是本次任务新增/修改的；
-- 收尾时不能把用户原有脏状态误删。
+Never reconstruct ownership by guesswork at cleanup time.
 
-### 进程 / 端口
+## 2. Regression
 
-只有任务将启动服务器、浏览器、watcher、MCP、本地 API、测试 worker 等长生命周期进程时才需要记录相关基线。
+Verify target behavior, then the smallest meaningful adjacent scope:
 
-至少记住：
+1. directly relevant test/lint/typecheck/smoke;
+2. shared callers/routes/build chain when affected;
+3. for bug fixes, preferably both the formerly failing case and one nearby normal case.
 
-- 本次启动命令；
-- PID（能取得时）；
-- 监听端口（若有）；
-- 启动目录 / 服务用途。
+Match validation scope to risk; do not run huge suites ceremonially. If execution is impossible, report `not run` and why. Static inspection is not a passing runtime test.
 
-不要为了建立基线全机扫描所有进程；只看与当前任务相关的名称/端口。
+## 3. Workspace Hygiene
 
----
-
-## 2. Task Resource Ledger：边做边记自己产生了什么
-
-不要指望最后凭记忆猜垃圾从哪来。任务执行过程中，遇到下面资源就记进当前任务的临时 ledger / working notes：
-
-### Files
-
-- 临时脚本；
-- debug patch / `.bak` / `.orig` / `.rej`；
-- 抓取/下载的中间文件；
-- 临时 JSON/CSV/log；
-- 截图、trace、HAR、coverage、profiling 输出；
-- 测试生成物；
-- 为排障复制出的配置文件；
-- 临时 build/output 目录。
-
-同时标记：
-
-```text
-temporary → 收尾应删除
-artifact  → 用户要求的交付物，保留
-unknown   → 收尾重新判断，不擅自删
-```
-
-### Processes / Services
-
-- dev server；
-- Vite/Webpack watcher；
-- `python -m http.server`；
-- uvicorn/gunicorn；
-- Playwright/browser driver；
-- MCP server；
-- 临时代理/tunnel；
-- test worker；
-- tail/watch/log follower；
-- 后台 shell / PowerShell job。
-
-凡是为了本任务临时启动且用户没要求常驻的，都默认属于 cleanup 范围。
-
-### Environment / Config Side Effects
-
-- 临时改的权限；
-- 临时代理；
-- 临时 hosts/端口映射；
-- 为测试改的 feature flag；
-- 临时 credential locator；
-- 临时运行时配置；
-- 为排障关闭的安全检查或服务。
-
-如果只是当前子进程环境变量，进程结束自然恢复，不必额外操作；如果写进文件/系统配置，收尾必须恢复或明确说明为什么保留。
-
----
-
-## 3. 功能回归：别只证明“新东西能跑”
-
-实现完成后先验证目标行为，再检查是否破坏已有行为。
-
-按改动范围选择最小但有意义的回归：
-
-1. 先跑直接命中的 unit/test/lint/typecheck/smoke。
-2. 改公共函数、共享配置、路由、构建链时，再跑相邻调用方或更高层 smoke。
-3. bug 修复最好验证：
-   - 修复前会失败的场景现在通过；
-   - 一个邻近正常场景仍通过。
-4. 无法运行验证时，明确写“未运行 + 原因”，不要把静态阅读说成测试通过。
-
-不要为了形式全量跑超大测试套；验证范围应和风险匹配。
-
----
-
-## 4. Workspace Hygiene Sweep：交付前逐项扫
-
-### A. Diff / 未跟踪文件
-
-Git 仓库至少执行：
+Before delivery, inspect at least:
 
 ```text
 git status --short
 git diff --check
 ```
 
-并人工判断：
+Every changed/untracked file must be explained as baseline, required change, intentional artifact, or task-owned residue to remove.
 
-- 每个新增/修改文件是否都属于需求；
-- 有没有临时脚本、debug log、patch、截图、测试输出；
-- 有没有意外修改 lockfile / formatter 全仓重写 / IDE 配置；
-- 有没有被遗忘的生成文件；
-- 有没有 `.orig` / `.rej` / `.bak` / `nohup.out` 等明显残留。
+Remove only confirmed task-owned temporary files/artifacts. Do not purge normal global caches.
 
-**不要用 `git clean -fd`、`git reset --hard` 这类粗暴命令清场。** 它们无法区分用户原有内容和本次任务垃圾。
-
-### B. 临时文件
-
-删除 ledger 中标记 `temporary` 且确认由本任务创建的文件/目录。
-
-如果工具自然产生 cache（例如编译缓存、包管理缓存），只有满足以下条件才需要删：
-
-- 本次任务新建；
-- 位于目标工作区且会污染用户 repo；
-- 不是正常开发流程需要保留的缓存。
-
-不要为了“绝对无缓存”去清全局 npm/pip/browser cache。
-
-### C. 后台进程 / 子进程
-
-停止本次任务启动、且用户没要求保留的：
-
-- server；
-- watcher；
-- browser；
-- worker；
-- MCP；
-- tunnel；
-- background job。
-
-**优先按已记录 PID / job handle / 启动器自己的 stop 命令回收。**
-
-不要用：
+Never use broad destructive cleanup by default, including:
 
 ```text
+git clean -fd
+git reset --hard
 killall node
 pkill python
 taskkill /IM node.exe /F
 ```
 
-这类按进程名全杀的做法，除非用户明确授权且当前环境可证明没有其它同名进程。
+## 4. Processes, Ports, and Configuration
 
-若 PID 已消失，视为已结束；若 PID 仍在但无法确认是否还是本任务原进程，不强杀，报告风险。
+Stop task-started servers/watchers/browsers/workers/MCP/tunnels/background jobs unless persistence was requested. Prefer recorded PID/job handles or the launcher's stop command.
 
-### D. 端口
+- A disappeared PID is already stopped.
+- If ownership cannot be proven, leave it untouched and report it.
+- For temporary listening ports, restore the pre-task baseline; the goal is not necessarily an empty port.
+- Restore task-owned temporary config/permissions such as debug flags, permissive CORS, mocks, proxies, expanded permissions, and temporary runtime arguments unless they are required deliverables.
 
-如果任务临时监听了端口，停止进程后确认该端口不再由**本任务进程**占用。
+## 5. Failure Path
 
-如果端口在开工前已有服务，不能要求最终端口为空；目标是恢复到基线，而不是把机器清成真空。
-
-### E. 临时配置 / 权限
-
-恢复为了调试临时改掉的：
-
-- feature flags；
-- debug mode；
-- permissive CORS；
-- 权限放宽；
-- mock endpoint；
-- proxy；
-- 临时运行参数。
-
-如果这些变化本身就是需求的一部分，则保留并纳入 diff/交付说明。
-
----
-
-## 5. 清场后的最后 smoke
-
-**清理完再做一次最小 smoke。**
-
-原因：很多“能跑”其实依赖着遗留 dev server、临时环境变量、调试文件或后台进程。清掉以后再跑一次，才能确认交付状态本身是完整的。
-
-典型做法：
-
-- import / compile / typecheck；
-- 一个关键 unit test；
-- CLI `--help` / dry-run；
-- 应用最小启动后立刻正常退出；
-- 配置解析检查。
-
-若 smoke 本身又启动临时进程/生成文件，结束后再次回收。
-
----
-
-## 6. 失败 / 中断路径
-
-如果任务没做成，也必须执行能安全执行的 cleanup：
+Failure, abandoned approaches, failed tests, and interruptions still require safe cleanup:
 
 ```text
-实现失败
-→ 停止本次启动的服务
-→ 删除本次临时产物
-→ 恢复临时配置
-→ 保留用户原状态
-→ 报告还剩什么、为什么不能安全处理
+stop task-owned temporary resources
+-> remove task-owned temporary artifacts
+-> restore task-owned temporary configuration
+-> preserve baseline/user state
+-> report anything that cannot be handled safely
 ```
 
-不要因为“反正失败了”就把 watcher、浏览器、测试 server 留在后台。
+## 6. Post-Cleanup Smoke
 
----
+After cleanup, run one minimal check that confirms the deliverable does not depend on removed temporary state, e.g. import/compile/typecheck, one critical test, CLI dry-run, configuration parse, or minimal start/clean exit.
 
-## 7. 交付判定
+Reclaim any new temporary resources created by this smoke.
 
-以下任一情况存在时，不应声称“已完整完成”：
+## 7. Delivery Gate
 
-- 已知有本次任务临时文件未清；
-- 已知有本次任务临时进程仍在跑且用户没要求保留；
-- diff 中有无法解释的改动；
-- 必要回归没跑且没有说明；
-- cleanup 失败但没有向用户披露。
+Do not claim full completion if any known condition remains undisclosed:
 
-允许的例外：
+- task-owned temporary files/processes remain unintentionally;
+- diff/untracked changes are unexplained;
+- required validation/regression was not run;
+- cleanup failed;
+- ownership is uncertain and therefore intentionally left untouched.
 
-- 用户明确要求服务继续运行；
-- 用户要求保留日志/trace/artifact；
-- 某资源无法安全判断归属，选择不动并明确报告。
+User-requested persistent services/logs/artifacts may remain; report them.
 
-最终汇报只需要简洁说明：
-
-```text
-改了什么
-验证了什么
-清理了什么 / 是否有意保留资源
-还有什么风险
-```
-
-不必把整套 checklist 复述给用户，但必须真的执行。
-
----
-
-## 8. 一句话规则
-
-> **像借别人厨房一样干活：可以摊开工具做事，但离开前把自己产生的垃圾、临时锅具和开着的火都收掉；原来就在厨房里的东西不要乱扔。**
+Final report should be concise: what changed, validation, cleanup/intentional retention, unmet requirements, remaining risks.

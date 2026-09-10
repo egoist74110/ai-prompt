@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from local_state import migrate_local_files, read_kind, write_kind
+from local_state import migrate_local_files, update_kind
 from runtime_registry import detect_all, seed_templates
 
 HOME = Path.home()
@@ -37,27 +37,28 @@ def detect_environment() -> dict[str, Any]:
 
 def discover(refresh: bool = False, runtime_name: str | None = None) -> dict[str, Any]:
     migrate_local_files()
-    runtime = read_kind("runtime")
 
-    # Seed only once. After that, the local registry is authoritative and user removals stay removed.
-    seed_templates(runtime, force=False)
+    def mutate(runtime: dict[str, Any]) -> None:
+        # Seed only missing starter entries. The local registry remains authoritative.
+        seed_templates(runtime, force=False)
+        runtime["environment"] = detect_environment()
+        paths = runtime.setdefault("paths", {})
+        paths["home"] = str(HOME)
 
-    runtime["environment"] = detect_environment()
-    paths = runtime.setdefault("paths", {})
-    paths["home"] = str(HOME)
+        detect_all(runtime, refresh=refresh, only=runtime_name)
 
-    detect_all(runtime, refresh=refresh, only=runtime_name)
+        commands = paths.setdefault("commands", {})
+        preferred_python = commands.get("python3") or commands.get("python")
+        if preferred_python:
+            paths["python"] = preferred_python
+        elif refresh:
+            paths["python"] = None
 
-    commands = paths.setdefault("commands", {})
-    preferred_python = commands.get("python3") or commands.get("python")
-    if preferred_python:
-        paths["python"] = preferred_python
-    elif refresh:
-        paths["python"] = None
+        runtime.setdefault("bootstrap", {})["last_discovered"] = datetime.now(timezone.utc).isoformat()
 
-    runtime.setdefault("bootstrap", {})["last_discovered"] = datetime.now(timezone.utc).isoformat()
-    write_kind("runtime", runtime)
-    return runtime
+    # Detection and persistence operate on the latest runtime document under one
+    # transaction, preventing a stale discovery snapshot from overwriting peers.
+    return update_kind("runtime", mutate)
 
 
 def main() -> int:

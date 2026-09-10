@@ -16,7 +16,7 @@ TOOLS = ROOT / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from local_state import migrate_local_files, read_kind, write_kind  # noqa: E402
+from local_state import migrate_local_files, read_kind, update_kind  # noqa: E402
 
 
 def _executable_ok(command: str) -> bool:
@@ -59,16 +59,20 @@ def discover_launcher(runtime: dict) -> list[str]:
     if not launcher:
         raise RuntimeError("没有可用 AnySearch runtime（Python+requests / Node / PowerShell / bash）")
 
-    entry["launcher"] = launcher
-    entry["legacy_runtime_conf"] = str(SKILL_DIR / "runtime.conf") if (SKILL_DIR / "runtime.conf").exists() else None
-    write_kind("runtime", runtime)
+    legacy = str(SKILL_DIR / "runtime.conf") if (SKILL_DIR / "runtime.conf").exists() else None
+
+    def save_launcher(latest: dict) -> None:
+        latest_entry = latest.setdefault("skills", {}).setdefault(SKILL, {})
+        latest_entry["launcher"] = launcher
+        latest_entry["legacy_runtime_conf"] = legacy
+
+    update_kind("runtime", save_launcher)
     return launcher
 
 
 def main() -> int:
     migrate_local_files()
     runtime = read_kind("runtime")
-    state = read_kind("state")
     try:
         launcher = discover_launcher(runtime)
     except RuntimeError as exc:
@@ -76,21 +80,26 @@ def main() -> int:
         return 2
 
     proc = subprocess.run(launcher + sys.argv[1:], cwd=str(SKILL_DIR))
-    skill_state = state.setdefault("skills", {}).setdefault(SKILL, {})
-    if proc.returncode == 0:
-        skill_state.update({
-            "verified": True,
-            "launcher": launcher,
-            "last_verified": datetime.now(timezone.utc).isoformat(),
-        })
-    else:
-        skill_state.update({
-            "verified": False,
-            "last_error_code": proc.returncode,
-            "retry": "invalidate-launcher-if-runtime-error; keep launcher for query/service errors",
-            "last_verified": datetime.now(timezone.utc).isoformat(),
-        })
-    write_kind("state", state)
+    now = datetime.now(timezone.utc).isoformat()
+
+    def save_result(state: dict) -> None:
+        skill_state = state.setdefault("skills", {}).setdefault(SKILL, {})
+        if proc.returncode == 0:
+            skill_state.update({
+                "verified": True,
+                "launcher": launcher,
+                "last_verified": now,
+            })
+            skill_state.pop("last_error_code", None)
+        else:
+            skill_state.update({
+                "verified": False,
+                "last_error_code": proc.returncode,
+                "retry": "invalidate-launcher-if-runtime-error; keep launcher for query/service errors",
+                "last_verified": now,
+            })
+
+    update_kind("state", save_result)
     return proc.returncode
 
 

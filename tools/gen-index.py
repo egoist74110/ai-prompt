@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Generate/check a portable skill discovery index from skills/*/SKILL.md.
+"""Generate/check the AI-facing skill discovery index from skills/*/SKILL.md.
 
-SKILL.md frontmatter is the single metadata source. capabilities/skills.md is only a
-lightweight discovery cache; it must not contain machine-specific absolute paths.
+SKILL.md frontmatter is the single metadata source. capabilities/skills.md is a
+machine-facing discovery cache and therefore must stay concise, English, and portable.
 """
 from __future__ import annotations
 
-import os
 import re
 import sys
 from pathlib import Path
@@ -14,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
 INDEX = ROOT / "capabilities" / "skills.md"
-ENTRY = re.compile(r"^- `([^`]+)`", re.MULTILINE)
+CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
 
 
 def parse_frontmatter(path: Path):
@@ -44,16 +43,15 @@ def collect():
         name, desc = parse_frontmatter(skill_md)
         if not name:
             name = directory.name
-            problems.append(f"{skill_md.relative_to(ROOT)}: 缺 frontmatter name")
+            problems.append(f"{skill_md.relative_to(ROOT)}: missing frontmatter name")
         if name != directory.name:
-            problems.append(
-                f"{skill_md.relative_to(ROOT)}: name `{name}` != 目录名 `{directory.name}`"
-            )
+            problems.append(f"{skill_md.relative_to(ROOT)}: name `{name}` != directory `{directory.name}`")
         if not desc:
-            desc = "（缺 description，请补 SKILL.md frontmatter）"
+            desc = "Missing description; add it to SKILL.md frontmatter."
+            problems.append(f"{skill_md.relative_to(ROOT)}: missing frontmatter description")
         desc = re.sub(r"\s+", " ", desc).strip()
-        if len(desc) > 240:
-            desc = desc[:240] + "…"
+        if CJK.search(desc):
+            problems.append(f"{skill_md.relative_to(ROOT)}: description must be English")
         entries.append((name, directory.name, desc))
     return entries, problems
 
@@ -62,10 +60,10 @@ def render(entries):
     lines = [
         "# Skills Index",
         "",
-        "本文件只负责 **skill 发现**。`skills/<name>/SKILL.md` frontmatter 才是唯一元数据源；",
-        "仓库内路径全部相对 `router.md` 所在目录解析，本索引禁止保存机器绝对路径。",
+        "This file is for skill discovery only. `skills/<name>/SKILL.md` frontmatter is the sole metadata source.",
+        "Resolve repository paths relative to the directory containing `router.md`; never store machine absolute paths here.",
         "",
-        "规则：只有用户点名 skill，或任务明显匹配 description 时，才读取对应 `SKILL.md`；不要全量读取。",
+        "Load a `SKILL.md` only when the user names the skill or the task clearly matches its description. Never load all skills by default.",
         "",
         "## Skills",
         "",
@@ -76,27 +74,28 @@ def render(entries):
         "",
         "## Runtime / Plugin Skills",
         "",
-        "运行时原生或插件提供的 skill/tool 以**当前会话实际暴露**为准，不在本仓库维护固定清单或本机路径。",
+        "Runtime-native or plugin-provided skills/tools are determined by what the current session actually exposes. Do not maintain a fixed central list or machine-local paths here.",
         "",
     ]
     return "\n".join(lines)
 
 
+def normalized(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n") + "\n"
+
+
 def check(entries, problems):
     if not INDEX.is_file():
-        problems.append("capabilities/skills.md 不存在")
+        problems.append("capabilities/skills.md is missing")
         return problems
     text = INDEX.read_text(encoding="utf-8")
-    registered = set(ENTRY.findall(text))
-    expected = {name for name, _, _ in entries}
-    missing = sorted(expected - registered)
-    ghosts = sorted(registered - expected)
-    if missing:
-        problems.append("skills.md 漏登记: " + ", ".join(missing))
-    if ghosts:
-        problems.append("skills.md 幽灵条目: " + ", ".join(ghosts))
+    expected = render(entries)
+    if normalized(text) != normalized(expected):
+        problems.append("capabilities/skills.md differs from generated SKILL.md metadata; run python tools/gen-index.py")
+    if CJK.search(text):
+        problems.append("skills.md contains CJK text; regenerate after translating SKILL frontmatter")
     if re.search(r"(?:/Users/[^/]+|[A-Za-z]:\\\\Users\\\\[^\\]+).*?\.ai-prompt", text):
-        problems.append("skills.md 含机器绝对 ai-prompt 路径，应改成 skills/<name>/... 相对路径")
+        problems.append("skills.md contains a machine absolute ai-prompt path")
     return problems
 
 
@@ -106,17 +105,17 @@ def main():
     if check_only:
         problems = check(entries, problems)
         if problems:
-            print("gen-index --check: 未通过", file=sys.stderr)
+            print("gen-index --check: failed", file=sys.stderr)
             for problem in problems:
                 print(f"  - {problem}", file=sys.stderr)
             return 1
-        print(f"gen-index --check: {len(entries)} 个 skill，发现索引完整")
+        print(f"gen-index --check: {len(entries)} skills; discovery index matches generated metadata")
         return 0
 
-    INDEX.write_text(render(entries), encoding="utf-8")
-    print(f"gen-index: {len(entries)} 个 skill 已生成到 capabilities/skills.md")
+    INDEX.write_text(normalized(render(entries)), encoding="utf-8", newline="\n")
+    print(f"gen-index: generated {len(entries)} skills in capabilities/skills.md")
     if problems:
-        print("gen-index: frontmatter 仍有问题：", file=sys.stderr)
+        print("gen-index: frontmatter problems remain:", file=sys.stderr)
         for problem in problems:
             print(f"  - {problem}", file=sys.stderr)
         return 1

@@ -1,90 +1,90 @@
 ---
 name: figma
-description: 读取 Figma 设计稿（节点结构、样式、图片）。从 Figma URL 解析 file_key + node_id，用 PAT 调 REST API 获取设计数据。命中设计稿链接、Figma、取设计参数等意图时使用。
+description: "Read Figma design files (node structure, styles, images). Parses file_key + node_id from a Figma URL and calls the REST API with a PAT to fetch design data. Use when the intent matches a design link, Figma, or extracting design parameters."
 ---
 
-# figma — Figma 设计稿读取
+# figma — Figma design file reader
 
-目标：用本机 PAT 直接调 Figma REST API 读取设计稿节点数据（结构、样式、色值、间距），不依赖 Figma MCP 或浏览器。
+Goal: read Figma design node data (structure, styles, colors, spacing) by calling the Figma REST API directly with a local PAT, without depending on the Figma MCP or a browser.
 
-## 0. 先复用本机已验证状态
+## 0. Reuse verified local state first
 
-所有仓库内相对路径以 `router.md` 所在目录为根。
+Resolve all repository-relative paths from the directory containing `router.md`.
 
-先看 `.local/runtime.json`：
+Check `.local/runtime.json` first:
 
 - `credentials.figma_pat`
 
-若已缓存且文件存在，**直接用，不要重新探测**。
+If cached and the file exists, **use it directly — do not re-discover**.
 
-只有以下情况才重新 discovery：
+Only re-run discovery when:
 
-1. 本机从未跑过本 skill；
-2. 缓存的文件路径不存在（文件被移动/删除）；
-3. API 调用返回 401/403（token 失效）。
+1. this skill has never run on this machine;
+2. the cached file path no longer exists (file moved/deleted);
+3. the API call returns 401/403 (token invalid).
 
-Discovery 跑通后把 locator 写回 `.local/runtime.json`。禁止把 PAT 明文写入缓存。
+After discovery succeeds, write the locator back to `.local/runtime.json`. Never write the PAT itself into the cache in plaintext.
 
-## 1. PAT 定位
+## 1. Locating the PAT
 
-### 已知来源（按优先级）
+### Known sources (priority order)
 
-1. `.local/runtime.json` → `credentials.figma_pat`（type + path）
-2. 常见路径探测（只读，不打印内容）：
+1. `.local/runtime.json` → `credentials.figma_pat` (type + path)
+2. Common path probing (read-only, never print contents):
    - `/mnt/.config/figma/token`
    - `~/.config/figma/token`
    - `~/.config/figma/pat`
-3. 以上都不存在 → 问用户 PAT 文件路径，拿到后写回 runtime。
+3. If none exist → ask the user for the PAT file path, then write it back to runtime.
 
-### 缓存格式
+### Cache format
 
 ```json
 {
   "figma_pat": {
     "type": "file",
     "path": "<machine-local-path>",
-    "note": "Figma Personal Access Token，纯文本单行；读取后只用于 X-Figma-Token header，禁止打印明文"
+    "note": "Figma Personal Access Token, plain single-line text; once read, use only for the X-Figma-Token header — never print it in plaintext"
   }
 }
 ```
 
-## 2. 从 Figma URL 解析参数
+## 2. Parsing parameters from a Figma URL
 
-Figma URL 格式：
+Figma URL format:
 ```
 https://www.figma.com/design/<file_key>/<file_name>?node-id=<node_id>&...
 https://www.figma.com/file/<file_key>/<file_name>?node-id=<node_id>&...
 ```
 
-解析规则：
-- `file_key`：URL path 第一段（`/design/` 或 `/file/` 后面）
-- `node_id`：query 参数 `node-id`，格式如 `3071-2`，API 调用时 `-` 不变
-- 无 `node-id` 时取整个文件（大，慎用）
+Parsing rules:
+- `file_key`: first path segment after `/design/` or `/file/`
+- `node_id`: the `node-id` query parameter, formatted like `3071-2`; keep the `-` as-is for API calls
+- If `node-id` is absent, the whole file is targeted (large — use with caution)
 
-## 3. API 调用
+## 3. API calls
 
-Base URL：`https://api.figma.com`
-Auth header：`X-Figma-Token: <PAT>`
+Base URL: `https://api.figma.com`
+Auth header: `X-Figma-Token: <PAT>`
 
-### 读指定节点（最常用）
+### Read a specific node (most common)
 
 ```bash
 curl -s -H "X-Figma-Token: <PAT>" \
   "https://api.figma.com/v1/files/<file_key>/nodes?ids=<node_id>&geometry=paths"
 ```
 
-- `ids` 支持多个，逗号分隔：`ids=3071-2,3071-5`
-- `geometry=paths` 返回矢量路径数据（可选，不需要图片渲染时去掉）
-- 响应 JSON：`nodes["<node_id>"].document` 是节点树
+- `ids` supports multiple values, comma-separated: `ids=3071-2,3071-5`
+- `geometry=paths` returns vector path data (optional — omit when image rendering isn't needed)
+- Response JSON: `nodes["<node_id>"].document` is the node tree
 
-### 读整个文件（慎用，大文件很慢）
+### Read the whole file (use with caution, slow for large files)
 
 ```bash
 curl -s -H "X-Figma-Token: <PAT>" \
   "https://api.figma.com/v1/files/<file_key>"
 ```
 
-### 下载节点图片（PNG/SVG）
+### Download node images (PNG/SVG)
 
 ```bash
 curl -s -X POST -H "X-Figma-Token: <PAT>" \
@@ -93,65 +93,65 @@ curl -s -X POST -H "X-Figma-Token: <PAT>" \
   "https://api.figma.com/v1/images/<file_key>"
 ```
 
-响应：`{"images": {"<node_id>": "https://..."}}` — 返回图片 URL，再 curl 下载。
+Response: `{"images": {"<node_id>": "https://..."}}` — returns an image URL; download it with another curl call.
 
-### 读文件元信息（验证 token）
+### Read file metadata (verify the token)
 
 ```bash
 curl -s -H "X-Figma-Token: <PAT>" "https://api.figma.com/v1/me"
 ```
 
-注意：`/v1/me` 返回 403 **不能单独判 PAT 失效**；只有文件读权限的 token 也可能 403。以实际文件读取为准。
+Note: a 403 from `/v1/me` **does not by itself mean the PAT is invalid** — a token scoped to file-read-only can also get 403 there. Trust an actual file read instead.
 
-## 4. 节点树解读
+## 4. Reading the node tree
 
-`document` 字段是 Figma 节点树，关键属性：
+The `document` field is the Figma node tree. Key properties:
 
-| 字段 | 含义 |
+| Field | Meaning |
 |------|------|
-| `type` | FRAME / TEXT / RECTANGLE / VECTOR / GROUP / COMPONENT 等 |
-| `name` | 图层名 |
-| `absoluteBoundingBox` | `{x, y, width, height}` 绝对坐标 |
-| `fills` | 填充（`type: "SOLID"` → `color: {r,g,b,a}` 0-1 范围） |
-| `strokes` | 描边 |
-| `cornerRadius` / `rectangleCornerRadii` | 圆角 |
-| `style` | TEXT 节点的 `fontSize`、`fontWeight`、`letterSpacing`、`lineHeightPx` |
-| `characters` | TEXT 节点的文字内容 |
-| `constraints` | 自动布局约束 |
-| `layoutMode` | HORIZONTAL / VERTICAL / NONE（auto-layout） |
-| `itemSpacing` | auto-layout 间距 |
+| `type` | FRAME / TEXT / RECTANGLE / VECTOR / GROUP / COMPONENT, etc. |
+| `name` | layer name |
+| `absoluteBoundingBox` | `{x, y, width, height}` absolute coordinates |
+| `fills` | fill (`type: "SOLID"` → `color: {r,g,b,a}` in 0-1 range) |
+| `strokes` | stroke |
+| `cornerRadius` / `rectangleCornerRadii` | corner radius |
+| `style` | TEXT node's `fontSize`, `fontWeight`, `letterSpacing`, `lineHeightPx` |
+| `characters` | TEXT node's text content |
+| `constraints` | auto-layout constraints |
+| `layoutMode` | HORIZONTAL / VERTICAL / NONE (auto-layout) |
+| `itemSpacing` | auto-layout spacing |
 | `paddingLeft/Right/Top/Bottom` | auto-layout padding |
-| `children` | 子节点数组 |
+| `children` | array of child nodes |
 
-### 颜色转换
+### Color conversion
 
-Figma 颜色 `r/g/b` 是 0-1 浮点。转 hex：
+Figma colors `r/g/b` are 0-1 floats. Convert to hex:
 ```
 hex = "#{Math.round(r*255).toString(16).padStart(2,'0')}..."
 ```
 
-### 尺寸
+### Sizing
 
-Figma 设计稿尺寸就是 px（移动端 750 设计稿 → 项目用 postcss-pxtorem 自动转 rem，直接写设计稿 px 值即可）。
+Figma design sizes are already in px (for a 750-wide mobile design, the project's postcss-pxtorem converts to rem automatically — just write the design's px value directly).
 
-## 5. 使用流程
+## 5. Workflow
 
-1. 从用户提供的 Figma URL 解析 `file_key` + `node_id`
-2. 从缓存/探测获取 PAT（不打印）
-3. `curl` 调 nodes API 获取节点树
-4. 解析 JSON，提取需要的信息（布局、颜色、字号、间距、文案）
-5. 将设计参数映射到代码实现
-6. 如需视觉参考，调 images API 下载 PNG 截图
+1. Parse `file_key` + `node_id` from the Figma URL the user provided
+2. Get the PAT from cache/discovery (never print it)
+3. `curl` the nodes API to fetch the node tree
+4. Parse the JSON and extract the needed info (layout, colors, font size, spacing, copy)
+5. Map the design parameters onto the code implementation
+6. If a visual reference is needed, call the images API to download a PNG screenshot
 
-## 6. 注意事项
+## 6. Caveats
 
-- PAT 是敏感信息：不打印、不写入 repo、不写入日志
-- 大文件（>100 页）避免读整个 file，只读指定 node
-- `geometry=paths` 会让响应大很多，只在需要矢量路径时加
-- 图片下载 URL 有时效性（通常几小时），需要立即下载
-- 设计稿中的 auto-layout 参数（`layoutMode`、`itemSpacing`、padding）直接对应 CSS flex 属性
+- The PAT is sensitive: never print it, never commit it to the repo, never write it to logs
+- For large files (>100 pages), avoid reading the whole file — read specific nodes only
+- `geometry=paths` makes responses much larger — only add it when vector path data is actually needed
+- Image download URLs are time-limited (usually a few hours) — download immediately
+- A design's auto-layout parameters (`layoutMode`, `itemSpacing`, padding) map directly to CSS flex properties
 
-## 7. 收尾
+## 7. Wrap-up
 
-- 报告读取了哪些节点、提取了哪些设计参数
-- 若首次探测出新的 PAT 路径且验证成功，确认已写回 `.local/runtime.json`
+- Report which nodes were read and which design parameters were extracted
+- If a new PAT path was discovered and verified successfully, confirm it was written back to `.local/runtime.json`

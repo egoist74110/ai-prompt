@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Persistent search backend policy/circuit-breaker state.
 
-The main consumer is the local/self-hosted search policy in capabilities/search.md.
-Configuration lives in .local/runtime.json; health/failure state lives in .local/state.json.
-No secret values are stored here.
+Search execution and backend availability are separate from model hosting. New cloud
+contexts allow configured cross-lane fallback by default, but legacy stored booleans
+remain authoritative because their original source cannot be reconstructed safely.
 """
 from __future__ import annotations
 
@@ -12,13 +12,14 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from local_state import migrate_local_files, read_kind, write_kind
+from local_state import migrate_local_files, read_kind, update_kind
 
 HARD_FAILURES = {"auth", "config", "permission", "unsupported", "missing-credential", "subscription"}
 TRANSIENT_FAILURES = {"transient", "timeout", "network", "server", "rate-limit", "quota"}
 ALL_FAILURES = sorted(HARD_FAILURES | TRANSIENT_FAILURES | {"quality"})
 LANES = {"cloud-native", "local-managed"}
 BACKEND_LANES = LANES | {"both"}
+FALLBACK_POLICY_VERSION = 2
 
 
 def now() -> datetime:
@@ -64,10 +65,6 @@ def backend_roles(cfg: dict[str, Any]) -> list[str]:
 
 
 def role_rank(roles: list[str], requested_role: str | None) -> int | None:
-    """Return lower-is-better rank; None means backend is not eligible for the requested role.
-
-    Old backend configs with no roles remain generic fallbacks for backward compatibility.
-    """
     if not requested_role:
         return 0
     if requested_role in roles:
@@ -95,61 +92,69 @@ def mark_failure(
     entry["last_failure"] = iso()
     entry["reason_code"] = failure_class
     entry["reason"] = reason
-
     if failure_class in HARD_FAILURES:
-        entry.update(
-            {
-                "verified": False,
-                "status": "blocked",
-                "retry": "when-config-changes",
-                "retry_at": None,
-            }
-        )
+        entry.update({"verified": False, "status": "blocked", "retry": "when-config-changes", "retry_at": None})
     elif failure_class in TRANSIENT_FAILURES:
-        minutes = retry_after_minutes if retry_after_minutes is not None else (
-            60 if failure_class in {"rate-limit", "quota"} else 15
-        )
-        entry.update(
-            {
-                "verified": False,
-                "status": "cooldown",
-                "retry": "after-cooldown",
-                "retry_at": iso(now() + timedelta(minutes=max(1, minutes))),
-            }
-        )
-    else:  # quality: transport worked; keep it verified but rank below healthy backends.
-        entry.update(
-            {
-                "verified": True,
-                "status": "degraded",
-                "last_success": entry.get("last_success") or iso(),
-                "retry": "next-query-or-other-backend",
-                "retry_at": None,
-            }
-        )
+        minutes = retry_after_minutes if retry_after_minutes is not None else (60 if failure_class in {"rate-limit", "quota"} else 15)
+        entry.update({
+            "verified": False,
+            "status": "cooldown",
+            "retry": "after-cooldown",
+            "retry_at": iso(now() + timedelta(minutes=max(1, minutes))),
+        })
+    else:
+        entry.update({
+            "verified": True,
+            "status": "degraded",
+            "last_success": entry.get("last_success") or iso(),
+            "retry": "next-query-or-other-backend",
+            "retry_at": None,
+        })
     return entry
 
 
 def mark_success(state: dict[str, Any], backend: str) -> dict[str, Any]:
     entry = backend_state(state, backend)
-    entry.update(
-        {
-            "verified": True,
-            "status": "healthy",
-            "last_success": iso(),
-            "reason_code": None,
-            "reason": None,
-            "retry": None,
-            "retry_at": None,
-            "failure_count": 0,
-        }
-    )
+    entry.update({
+        "verified": True,
+        "status": "healthy",
+        "last_success": iso(),
+        "reason_code": None,
+        "reason": None,
+        "retry": None,
+        "retry_at": None,
+        "failure_count": 0,
+    })
     return entry
 
 
 def reset_backend(state: dict[str, Any], backend: str) -> bool:
     backends = state.setdefault("search", {}).setdefault("backends", {})
     return backends.pop(backend, None) is not None
+
+
+def _resolved_context_lane(entry: dict[str, Any]) -> str | None:
+    lane = entry.get("lane") or derive_lane(entry.get("hosting"))
+    return str(lane) if lane in LANES else None
+
+
+def _current_default_for_lane(lane: str) -> bool:
+    return lane == "cloud-native"
+
+
+def _classify_existing_policy(entry: dict[str, Any]) -> None:
+    """Annotate an existing value without changing its behavior.
+
+    Pre-v2 data cannot distinguish an auto-written boolean from one explicitly chosen
+    by the user. Therefore any existing boolean is preserved and classified as legacy
+    unless there is positive evidence that it came from an explicit v2 setting.
+    """
+    if "cross_lane_policy_source" in entry:
+        return
+    if entry.get("cross_lane_explicit") is True:
+        entry["cross_lane_policy_source"] = "explicit"
+    elif "allow_cross_lane_fallback" in entry:
+        entry["cross_lane_policy_source"] = "legacy-preserved"
 
 
 def set_context(
@@ -166,6 +171,7 @@ def set_context(
     allow_cross_lane_fallback: bool | None,
 ) -> dict[str, Any]:
     contexts = runtime.setdefault("search", {}).setdefault("contexts", {})
+    is_new = context_id not in contexts
     entry = contexts.setdefault(context_id, {})
     resolved_lane = lane or derive_lane(hosting)
 
@@ -179,19 +185,42 @@ def set_context(
     }.items():
         if value is not None:
             entry[key] = value
+
     if preferred_backends is not None:
         entry["preferred_backends"] = preferred_backends
+
     if allow_cross_lane_fallback is not None:
         entry["allow_cross_lane_fallback"] = allow_cross_lane_fallback
-    elif "allow_cross_lane_fallback" not in entry:
-        entry["allow_cross_lane_fallback"] = False
+        entry["cross_lane_policy_source"] = "explicit"
+        entry["cross_lane_explicit"] = True
+    elif is_new and resolved_lane in LANES:
+        entry["allow_cross_lane_fallback"] = _current_default_for_lane(str(resolved_lane))
+        entry["cross_lane_policy_source"] = "default-v2"
+    else:
+        _classify_existing_policy(entry)
 
-    # Compatibility with older local state: lane is now authoritative.
+    entry["fallback_policy_version"] = FALLBACK_POLICY_VERSION
     if resolved_lane == "local-managed":
         entry["native_search_policy"] = "deny"
     elif resolved_lane == "cloud-native":
         entry["native_search_policy"] = "allow"
+    entry["last_updated"] = iso()
+    return entry
 
+
+def adopt_current_fallback_default(runtime: dict[str, Any], context_id: str) -> dict[str, Any]:
+    """Explicitly migrate one existing context to the current lane default."""
+    contexts = runtime.setdefault("search", {}).setdefault("contexts", {})
+    if context_id not in contexts or not isinstance(contexts[context_id], dict):
+        raise KeyError(context_id)
+    entry = contexts[context_id]
+    lane = _resolved_context_lane(entry)
+    if lane is None:
+        raise ValueError("search context has unknown hosting/lane; resolve it before adopting the current fallback default")
+    entry["allow_cross_lane_fallback"] = _current_default_for_lane(lane)
+    entry["cross_lane_policy_source"] = "default-v2"
+    entry["cross_lane_explicit"] = False
+    entry["fallback_policy_version"] = FALLBACK_POLICY_VERSION
     entry["last_updated"] = iso()
     return entry
 
@@ -207,6 +236,13 @@ def is_blocked(entry: dict[str, Any]) -> tuple[bool, str | None]:
     return False, None
 
 
+def _allow_cross(context: dict[str, Any]) -> bool:
+    # A stored boolean is authoritative. For legacy data, changing it automatically
+    # could silently override an explicit user choice made before source metadata
+    # existed. New contexts get the v2 default in set_context().
+    return bool(context.get("allow_cross_lane_fallback", False))
+
+
 def planned_backends(
     runtime: dict[str, Any],
     state: dict[str, Any],
@@ -219,68 +255,58 @@ def planned_backends(
     context = contexts.get(context_id, {}) if isinstance(contexts, dict) else {}
     if not isinstance(context, dict):
         return []
-
-    hosting = str(context.get("hosting", "unknown"))
-    lane = context.get("lane") or derive_lane(hosting)
-    if lane not in LANES:
+    lane = _resolved_context_lane(context)
+    if lane is None:
         return []
 
-    allow_cross = bool(context.get("allow_cross_lane_fallback", False))
+    allow_cross = _allow_cross(context)
     preferred = context.get("preferred_backends", []) or []
     preferred_rank = {name: idx for idx, name in enumerate(preferred)}
     state_backends = state.get("search", {}).get("backends", {})
-
     rows: list[dict[str, Any]] = []
+
     for name, cfg in configured.items():
         if not isinstance(cfg, dict) or cfg.get("enabled", True) is False:
             continue
-
         health = state_backends.get(name, {}) if isinstance(state_backends, dict) else {}
         blocked, block_reason = is_blocked(health if isinstance(health, dict) else {})
         if blocked:
             continue
-
         backend_lane = infer_backend_lane(cfg)
         lane_match = backend_lane in {lane, "both"}
         if not lane_match and not allow_cross:
             continue
-
         roles = backend_roles(cfg)
         current_role_rank = role_rank(roles, requested_role)
         if current_role_rank is None:
             continue
-
         priority = int(cfg.get("priority", 0) or 0)
         degraded = isinstance(health, dict) and health.get("status") == "degraded"
-        rows.append(
-            {
-                "backend": name,
-                "lane": backend_lane,
-                "context_lane": lane,
-                "cross_lane": not lane_match,
-                "roles": roles,
-                "requested_role": requested_role,
-                "role_rank": current_role_rank,
-                "kind": cfg.get("kind"),
-                "priority": priority,
-                "preferred": name in preferred_rank,
-                "status": health.get("status", "unknown") if isinstance(health, dict) else "unknown",
-                "degraded": degraded,
-                "block_reason": block_reason,
-            }
-        )
+        rows.append({
+            "backend": name,
+            "lane": backend_lane,
+            "context_lane": lane,
+            "cross_lane": not lane_match,
+            "roles": roles,
+            "requested_role": requested_role,
+            "role_rank": current_role_rank,
+            "kind": cfg.get("kind"),
+            "priority": priority,
+            "preferred": name in preferred_rank,
+            "status": health.get("status", "unknown") if isinstance(health, dict) else "unknown",
+            "degraded": degraded,
+            "block_reason": block_reason,
+        })
 
-    rows.sort(
-        key=lambda row: (
-            1 if row["cross_lane"] else 0,
-            row["role_rank"],
-            0 if row["preferred"] else 1,
-            preferred_rank.get(row["backend"], 10**6),
-            1 if row["degraded"] else 0,
-            -row["priority"],
-            row["backend"],
-        )
-    )
+    rows.sort(key=lambda row: (
+        1 if row["cross_lane"] else 0,
+        row["role_rank"],
+        0 if row["preferred"] else 1,
+        preferred_rank.get(row["backend"], 10**6),
+        1 if row["degraded"] else 0,
+        -row["priority"],
+        row["backend"],
+    ))
     return rows
 
 
@@ -297,7 +323,7 @@ def main() -> int:
 
     plan = sub.add_parser("plan", help="list eligible backends for one resolved search context")
     plan.add_argument("--context", required=True)
-    plan.add_argument("--role", help="optional task role: repo/general/accurate/precise/fetch/code/research/... ")
+    plan.add_argument("--role")
 
     success = sub.add_parser("success")
     success.add_argument("backend")
@@ -314,7 +340,7 @@ def main() -> int:
     status = sub.add_parser("status")
     status.add_argument("backend", nargs="?")
 
-    context = sub.add_parser("context-set", help="cache model/provider hosting and search lane")
+    context = sub.add_parser("context-set", help="create/update a search context")
     context.add_argument("context_id")
     context.add_argument("--runtime")
     context.add_argument("--provider")
@@ -323,52 +349,69 @@ def main() -> int:
     context.add_argument("--lane", choices=sorted(LANES))
     context.add_argument("--endpoint")
     context.add_argument("--preferred-backends-json")
-    context.add_argument(
-        "--allow-cross-lane-fallback",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="explicitly allow/deny falling back to a backend from the other lane",
+    context.add_argument("--allow-cross-lane-fallback", action=argparse.BooleanOptionalAction, default=None)
+
+    adopt = sub.add_parser(
+        "context-adopt-fallback-default",
+        help="explicitly replace one existing context's stored fallback boolean with the current lane default",
     )
+    adopt.add_argument("context_id")
 
     args = parser.parse_args()
     migrate_local_files()
-    runtime = read_kind("runtime")
-    state = read_kind("state")
 
     if args.cmd == "plan":
-        search_cfg = runtime.get("search", {})
-        contexts = search_cfg.get("contexts", {}) if isinstance(search_cfg, dict) else {}
+        runtime = read_kind("runtime")
+        state = read_kind("state")
+        contexts = runtime.get("search", {}).get("contexts", {})
         if args.context not in contexts:
             parser.error(f"search context is not registered: {args.context}")
-        rows = planned_backends(runtime, state, args.context, requested_role=args.role)
-        context_data = contexts.get(args.context, {})
-        hosting = context_data.get("hosting") if isinstance(context_data, dict) else None
-        lane = context_data.get("lane") if isinstance(context_data, dict) else None
-        lane = lane or derive_lane(hosting)
-        if lane not in LANES:
+        rows = planned_backends(runtime, state, args.context, args.role)
+        lane = _resolved_context_lane(contexts.get(args.context, {}))
+        if lane is None:
             parser.error("search context has unknown hosting/lane; discover and cache it before searching")
         print(json.dumps(rows, ensure_ascii=False, indent=2))
         return 0
+
     if args.cmd == "success":
-        result = mark_success(state, args.backend)
-        write_kind("state", state)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        holder: dict[str, Any] = {}
+        update_kind("state", lambda state: holder.setdefault("result", dict(mark_success(state, args.backend))))
+        print(json.dumps(holder["result"], ensure_ascii=False, indent=2))
         return 0
+
     if args.cmd == "fail":
-        result = mark_failure(state, args.backend, args.failure_class, args.reason, args.retry_after_minutes)
-        write_kind("state", state)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        holder: dict[str, Any] = {}
+        update_kind("state", lambda state: holder.setdefault(
+            "result",
+            dict(mark_failure(state, args.backend, args.failure_class, args.reason, args.retry_after_minutes)),
+        ))
+        print(json.dumps(holder["result"], ensure_ascii=False, indent=2))
         return 0
+
     if args.cmd == "reset":
-        changed = reset_backend(state, args.backend)
-        if changed:
-            write_kind("state", state)
-        return 0 if changed else 2
+        holder = {"changed": False}
+        update_kind("state", lambda state: holder.update(changed=reset_backend(state, args.backend)))
+        return 0 if holder["changed"] else 2
+
     if args.cmd == "status":
-        backends = state.get("search", {}).get("backends", {})
+        backends = read_kind("state").get("search", {}).get("backends", {})
         payload = backends.get(args.backend, {}) if args.backend else backends
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
+
+    if args.cmd == "context-adopt-fallback-default":
+        holder: dict[str, Any] = {}
+        try:
+            update_kind("runtime", lambda runtime: holder.setdefault(
+                "result", dict(adopt_current_fallback_default(runtime, args.context_id))
+            ))
+        except KeyError:
+            parser.error(f"search context is not registered: {args.context_id}")
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(json.dumps(holder["result"], ensure_ascii=False, indent=2))
+        return 0
+
     if args.cmd == "context-set":
         preferred = None
         if args.preferred_backends_json is not None:
@@ -379,21 +422,25 @@ def main() -> int:
         derived = derive_lane(args.hosting)
         if args.lane and derived and args.lane != derived:
             parser.error(f"lane {args.lane} conflicts with hosting {args.hosting}; expected {derived}")
-        result = set_context(
-            runtime,
-            args.context_id,
-            runtime_id=args.runtime,
-            provider=args.provider,
-            model=args.model,
-            hosting=args.hosting,
-            lane=args.lane,
-            endpoint=args.endpoint,
-            preferred_backends=preferred,
-            allow_cross_lane_fallback=args.allow_cross_lane_fallback,
-        )
-        write_kind("runtime", runtime)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        holder: dict[str, Any] = {}
+        update_kind("runtime", lambda runtime: holder.setdefault(
+            "result",
+            dict(set_context(
+                runtime,
+                args.context_id,
+                runtime_id=args.runtime,
+                provider=args.provider,
+                model=args.model,
+                hosting=args.hosting,
+                lane=args.lane,
+                endpoint=args.endpoint,
+                preferred_backends=preferred,
+                allow_cross_lane_fallback=args.allow_cross_lane_fallback,
+            )),
+        ))
+        print(json.dumps(holder["result"], ensure_ascii=False, indent=2))
         return 0
+
     return 1
 
 
