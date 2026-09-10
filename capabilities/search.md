@@ -1,21 +1,19 @@
-# Local / Self-Hosted Web Search Policy
+# Web Search Backend Policy
 
-> **LOCAL-ONLY CAPABILITY.** Load only for confirmed `local` / `self-hosted` models or APIs. If a cloud provider supplies native search, use that search and do not load this file.
+Load this file when backend selection/fallback is needed. Model hosting and search-backend availability are separate facts: a cloud runtime may have no native search and may use an already verified MCP/CLI/fetch backend. If a cloud runtime has usable platform-native search, prefer it and skip this file unless fallback is needed.
 
-This file defines portable local-search policy only. Installed backends, command paths, MCP config, credential locators, provider endpoints, disable flags, and health state belong in `.local/runtime.json` / `.local/state.json`. Never store secrets or machine absolute paths here.
+Installed backends, command paths, MCP config, credential locators, provider endpoints, disable flags, and health state belong in `.local/runtime.json` / `.local/state.json`. Never store secrets or machine absolute paths here.
 
 ## 0. Entry gate
 
-Follow `router.md` Local Search Contract Step 0:
+Follow `router.md` search routing:
 
-1. Check cached `search.contexts`.
-2. If absent, perform minimal read-only discovery. Treat LAN/private-IP endpoints as self-hosted; cloud vendor endpoint + API key as cloud.
-3. If still ambiguous, ask the user. NEVER guess.
-4. Cache the resolved context.
+1. Resolve the current search context from verified cache or minimal read-only discovery; never guess hosting.
+2. Determine whether a usable platform-native search backend actually exists. Tool exposure alone is not proof of usability.
+3. If native search is absent/unusable, select from verified configured backends regardless of model hosting.
+4. Cache verified context/backend facts.
 
-Continue only when hosting is confirmed `local`/`self-hosted`, the endpoint is confirmed local/self-hosted, or `.local/runtime.json.search.contexts.<id>.lane=local-managed`.
-
-A runtime-exposed `web_search`, browser, or provider-native search tool is NOT proof that the tool is usable or belongs to the local-search lane.
+`cloud-native` and `local-managed` are backend-selection lanes, not a prohibition on fallback. Same-lane backends sort first. Cloud contexts may fall back to verified local-managed MCP/CLI/fetch backends; an explicit `allow_cross_lane_fallback=false` disables that behavior.
 
 ## 1. Cache before discovery
 
@@ -24,189 +22,93 @@ Read in order:
 1. `.local/runtime.json.search.contexts.<id>`
 2. `.local/runtime.json.search.backends`
 3. `.local/state.json.search.backends`
-4. Skip `enabled=false`, `blocked`, active cooldown, and non-`local-managed` backends.
-5. Prefer current-context `preferred_backends`.
+4. Skip `enabled=false`, `blocked`, active cooldown, and physically suppressed tools.
+5. Prefer same-lane and current-context `preferred_backends`; then permitted cross-lane fallbacks.
 6. Discover only on missing/stale cache; cache verified results immediately.
 
 Persist blocked/cooldown/degraded state in `.local/state.json.search.backends`; persist verified locators, roles, and priority in `.local/runtime.json.search.backends`.
 
 ```text
-python tools/search_state.py plan --context <context-id>
-python tools/search_state.py plan --context <context-id> --role repo
-python tools/search_state.py plan --context <context-id> --role general
-python tools/search_state.py plan --context <context-id> --role accurate
-python tools/search_state.py plan --context <context-id> --role precise
-python tools/search_state.py plan --context <context-id> --role fetch
+python tools/search_state.py plan --context <context-id> [--role <role>]
 ```
 
 Backends without declared `roles` may remain generic fallbacks for backward compatibility.
 
-## 1.5 Cost ladder
+## 2. Cost and task selection
 
-Escalate one level at a time; external calls spend user resources.
+Escalate one level at a time; external calls spend user resources:
 
-1. **L0 Direct answer:** existing knowledge + fetched context is sufficient → no external call.
-2. **L1 Free direct fetch:** known URL or structured fact such as weather/version/release/exchange rate → use direct fetch or a free public API.
-3. **L2 Free search:** if search is necessary, use a free local-managed backend; query one fact at a time.
-4. **L3 Paid last resort:** use a paid backend only after free options returned empty, irrelevant, or stale results and the fact matters. Briefly state why escalation was needed.
+1. existing knowledge/fetched context sufficient -> no call;
+2. known URL/structured fact -> direct fetch/free public API;
+3. verified free search backend;
+4. paid backend only when cheaper evidence is insufficient and the fact matters.
 
-Do not repeat paid calls for the same small fact. If free search fails and paid search is unavailable, answer from available evidence and disclose uncertainty.
+Select by role:
 
-## 2. Select backend by task
+- repo/release/tag/issue/PR/code -> `repo` / `code`; prefer official repository data;
+- broad web -> `general`;
+- technical/version/date/price/freshness -> `accurate`;
+- `site:` / exact phrase / freshness -> `precise`;
+- known URL -> `fetch` / `crawl` / `extract`, not another search.
 
-- **repo/release/tag/issue/PR/code:** use `repo`/`code`; prefer official GitHub data over general search.
-- **general web:** use `general` for broad low-cost first-pass candidates.
-- **technical/version/date/price/freshness:** use or escalate to `accurate`, but the cost ladder still applies.
-- **`site:`/exact phrase/freshness:** use `precise`.
-- **known URL:** use `fetch`/`crawl`/`extract`; do not search for the URL again.
+Do not repeat paid calls for the same small fact.
 
-Example role mapping:
+## 3. Validate results
 
-| Backend class | Roles | Typical use |
-|---|---|---|
-| GitHub API / `gh` | `repo`, `code`, `precise` | repositories, releases, tags, issues, PRs, code |
-| aggregator | `general`, `fetch` | first-pass web search, crawl/extract |
-| high-accuracy search | `accurate`, `research`, `fetch` | technical/fresh/high-accuracy second pass |
-| precise search | `precise`, `general` | `site:`, quoted phrases, freshness, fallback |
-| other free search | `general`, `fallback` | general fallback |
-| internal/self-hosted | capability-dependent | user-managed search |
+A successful request may still be a bad search. Check:
 
-Product names are examples, never a fixed installation list.
+1. entity/project alignment;
+2. source authority;
+3. topic pollution;
+4. time alignment for freshness-sensitive facts;
+5. backend degradation;
+6. lexical/entity relevance.
 
-## 3. A successful request may still be a bad search
-
-Validate every result set:
-
-1. **Entity alignment:** top results mention the target entity/project or a clear synonym.
-2. **Source quality:** prefer official sites, repositories, releases, and vendor docs for technical facts.
-3. **Topic pollution:** unrelated languages, localhost pages, random mirrors, or same-name products indicate weakness.
-4. **Time alignment:** fresh/version/price/date questions need current dated evidence.
-5. **Backend degradation:** `degraded=true` or degraded engine pools invalidate nominal success.
-6. **Relevance score:** zero/very low lexical or entity alignment indicates weakness.
-
-Mark weak-but-working backends `degraded`, not permanently blocked:
-
-```text
-python tools/search_state.py fail <backend-id> --class quality --reason "top results irrelevant / SEO-heavy / degraded"
-```
+Weak-but-working evidence is `degraded`, not permanently blocked.
 
 ## 4. Two-pass search
 
-### First pass
+First pass: query one fact at a time, use exact entity names, and prefer repository backends for repository facts.
 
-- Query one fact at a time.
-- Avoid long open-ended sentences.
-- Include exact product/project names for technical queries.
-- Prefer repo backends for repository/release facts.
-
-Split broad queries such as:
-
-```text
-TypeScript 7 native Go port release status performance roadmap
-```
-
-into focused queries:
-
-```text
-TypeScript 7 release
-microsoft typescript-go releases
-```
-
-### Second pass
-
-If first-pass evidence is weak, do NOT force an answer. Automatically:
-
-1. quote the core entity;
-2. add `site:` for an official domain;
-3. add repository owner/name;
-4. split multi-fact queries;
-5. switch to `accurate` / `precise`;
-6. fetch official source text when needed.
+If evidence is weak, do not force an answer. Rewrite/narrow the query, add an official `site:` or repository identity when appropriate, switch role/backend, and fetch the authoritative source text when needed.
 
 ## 5. Failure classes and circuit breaker
 
-### Deterministic failure → `blocked`
+Deterministic auth/config/permission/subscription/unsupported failures -> `blocked` until configuration changes.
 
-Missing key, 401/403, missing subscription/config, explicit unsupported:
+Transient timeout/network/5xx/429/quota failures -> `cooldown` and use the next backend.
 
-```text
-python tools/search_state.py fail <backend-id> --class missing-credential --reason "missing search credential"
-```
+Valid success -> `healthy`. Quality failure -> `degraded`.
 
-Skip until configuration changes or state is reset.
+Use `tools/search_state.py fail|success|reset` to persist these facts.
 
-### Transient failure → `cooldown`
+## 6. Physical suppression is local/self-hosted only
 
-Timeout, temporary network error, 5xx, 429:
+Logical backend fallback applies to any hosting context. Physical removal of a broken runtime-native search tool is different and applies only to confirmed local/self-hosted sessions where the runtime supports a reversible narrow disable/unregister operation.
 
-```text
-python tools/search_state.py fail <backend-id> --class timeout --reason "request timed out" --retry-after-minutes 15
-```
-
-Use the next backend during cooldown.
-
-### Valid success → `healthy`
-
-```text
-python tools/search_state.py success <backend-id>
-```
-
-## 6. Deterministically broken runtime-native search must be physically suppressed
-
-`blocked` may not stop runtimes with stable tool registration from injecting a broken tool schema/system prompt into every session.
-
-For confirmed deterministic failures in local/self-hosted sessions:
-
-```text
-first real hard failure
-→ mark backend blocked
-→ if reversible runtime disable/unregister exists
-   → disable only the failed search tool at the narrowest scope
-   → cache suppression locator/strategy
-   → reload/restart/new session
-   → verify the tool is absent
-   → cache verified_absent=true
-→ otherwise cache suppression_status=unsupported and never call it proactively
-```
-
-This minimal, reversible, search-only repair is authorized automatically after deterministic failure. Ask before broader permission/config/capability changes. Never physically suppress transient timeout/429/5xx failures.
-
-See `capabilities/search-runtime-suppression.md`.
+For a deterministic local runtime-native failure: mark blocked, disable only that failed search tool at the narrowest scope when supported, reload, verify absence, and cache the suppression fact. Never physically suppress transient failures. See `capabilities/search-runtime-suppression.md`.
 
 ## 7. MCP / wrapper / discovery
 
-If an MCP/wrapper fails:
+If a wrapper fails, reuse a cached equivalent CLI/locator for the same backend or move to the next verified backend. Do not reinstall an existing capability merely because one wrapper failed.
 
-- reuse a cached equivalent CLI/command locator for the same backend;
-- otherwise switch to the next verified backend;
-- do not reinstall an existing capability merely because one wrapper failed.
-
-Only discover when no local backend is available:
-
-1. inspect local runtime/state;
-2. inspect current runtime MCP config;
-3. inspect PATH/known wrappers;
-4. probe only the most likely one or two candidates;
-5. cache locator + roles + priority + healthy immediately after success;
-6. persist failures as blocked/cooldown.
-
-First-time discovery may take detours. Subsequent sessions MUST NOT rediscover known keys, MCPs, script paths, or retry deterministically obsolete tools.
+Discover only when no verified usable backend remains: inspect runtime/state, current MCP config, PATH/known wrappers, then probe only likely candidates. Cache successful locators and persist failures immediately.
 
 ## 8. Execution summary
 
 ```text
 need external information
-→ cost ladder: direct answer / free direct fetch first
-→ read context + backend cache + circuit breaker
-→ filter blocked/cooldown/physically disabled native tools
-→ choose local-managed backend by role
-→ first pass
-→ validate evidence quality
-   ├─ good → healthy + answer
-   └─ weak → degraded → rewrite query → second backend/pass
-→ hard failure → blocked + physical suppression when supported
-→ transient failure → cooldown
-→ if all local-managed backends fail, report concrete failure reasons
+-> prefer usable platform-native search when present
+-> otherwise read context + backend cache + circuit breaker
+-> select same-lane backend first, then permitted verified fallback
+-> execute focused first pass
+-> validate evidence
+   -> good: healthy + answer
+   -> weak: degraded + rewrite/switch backend
+-> hard failure: blocked
+-> transient failure: cooldown
+-> local runtime-native deterministic failure: optional physical suppression
+-> if all eligible backends fail: report concrete failure reasons
 ```
 
-**Rule:** local search means using verified local-managed backends, automatically retrying weak evidence with a better query/backend, and removing deterministically obsolete runtime-native search tools from model visibility when possible.
+**Rule:** hosting determines runtime behavior; verified backend availability determines how search is executed. Never infer one from the other.
