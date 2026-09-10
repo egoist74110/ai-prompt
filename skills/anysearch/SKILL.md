@@ -15,13 +15,13 @@ Unified search service for normal web search, batch search, vertical/domain sear
 
 ## Project-wide priority
 
-Before activating this Skill, follow `capabilities/search.md`:
+Before activating this Skill, follow `router.md` Fact Priority and `capabilities/search.md` when search strategy is needed:
 
-1. current session native search/tool if already available;
-2. local verified search backend/cache;
-3. discovery only when needed.
+1. use current-session execution facts only when they prove a candidate usable;
+2. honor valid local verified/suppression state, including `blocked`, `cooldown`, `unsupported`, and retry conditions;
+3. discover/probe only when earlier facts are insufficient or retry is permitted.
 
-Do not force AnySearch over a better current-session native search tool.
+A native search tool merely being exposed does not override a still-valid suppression record. Do not force AnySearch over a better verified current-session search path.
 
 ## Portable entrypoint
 
@@ -97,12 +97,12 @@ The local cache may remember only the credential **locator/type**, never the key
 
 ## Fallback
 
-If AnySearch is unavailable because of quota/service/network failure, use the project search strategy and another already-available backend. Do not make the user approve every normal fallback when the user simply asked to search; approval is required for installing/configuring new capabilities or persisting secrets, not for using an already-available search path.
+If AnySearch is unavailable because of quota/service/network failure, record/obey the applicable retry state and use another already-available verified backend. Do not make the user approve every normal fallback when the user simply asked to search; approval is required for installing/configuring new capabilities or persisting secrets, not for using an already-available search path.
 
 ## Guardrails
 
 - launcher/path/runtime facts go to `.local/runtime.json`;
 - verified success/failure goes to `.local/state.json`;
 - API key stays out of both;
-- cached launcher failure → re-discover and refresh cache, not add an OS-specific path to this SKILL;
+- cached launcher failure → re-discover and refresh cache only when the launcher/runtime itself is stale or its retry condition permits it;
 - never assume cwd; all bundled script paths are relative to `<skill_dir>`.
