@@ -4,11 +4,13 @@ MCP configuration remains runtime-owned. Central prompts store only portable usa
 
 ## Priority: session facts > local cache > discovery
 
-When MCP is needed, stop at the first matching level:
+Apply `router.md` Fact Priority before calling or probing MCP. In particular, a tool being exposed in the current session is only a candidate when a still-valid local `blocked`, `cooldown`, or `unsupported` record says not to retry it yet.
 
-1. If the current session already exposes the MCP tool, call it directly. Do not add, authenticate, or restart it.
-2. If `.local/state.json` records a verified runtime/server and its locator/transport is still valid, perform only the minimum connection/start check.
-3. If cache is absent/stale, inspect `<runtime> mcp list` or equivalent runtime configuration.
+When MCP is needed, stop at the first sufficient level:
+
+1. If current-session execution facts prove the exposed MCP tool usable and no valid suppression state blocks it, call it directly. Do not add, authenticate, or restart it.
+2. Otherwise honor verified local state and its retry/invalidation condition. If it records a usable runtime/server and its locator/transport is still valid, perform only the minimum connection/start check.
+3. If cache is absent/stale or its retry condition is met, inspect `<runtime> mcp list` or equivalent runtime configuration.
 4. Configure a missing server only when necessary. Explain impact and obtain user approval before installation, authorization, or persistent config changes.
 5. After first success, cache non-secret machine facts in `.local/`.
 
@@ -38,7 +40,7 @@ Variable local endpoints are machine facts; discover and cache them.
 
 ### `lark`
 
-Lark/Feishu cloud documents and knowledge bases.
+Lark cloud documents and knowledge bases.
 
 - OAuth refresh tokens rotate. Avoid multiple independent stdio processes sharing one refresh token.
 - Prefer one shared HTTP instance; cache its endpoint/port locally after verification.
@@ -107,7 +109,7 @@ Serena supplements source reading/testing; it does not replace them.
 
 ### `node_repl`
 
-Persistent Node REPL for browser/script automation. If the runtime already exposes it, use it directly and do not duplicate configuration.
+Persistent Node REPL for browser/script automation. If the runtime already exposes it and no valid suppression state blocks it, use it directly and do not duplicate configuration.
 
 ### Search MCPs
 
@@ -119,8 +121,8 @@ Cache non-secret facts: configured/verified status, runtime, transport, local en
 
 Never cache access/refresh tokens, PATs, cookies, secret values, one-time OAuth codes, or task-only arguments.
 
-If cached execution fails, trust current output, rediscover, and replace stale local state. Do not add machine exceptions to central prompts.
+If cached execution fails, trust current output and update failure/suppression state. Rediscover only when its retry/invalidation condition permits it or evidence shows the cached locator itself is stale. Do not add machine exceptions to central prompts.
 
 ## Runtime/plugin capabilities
 
-GitHub, Browser, Chrome, Computer Use, Documents, Spreadsheets, Presentations, or similar tools exposed natively by the current runtime are session facts and outrank local cache. Do not install them merely because central documentation mentions them.
+GitHub, Browser, Chrome, Computer Use, Documents, Spreadsheets, Presentations, or similar tools exposed natively by the current runtime are session candidates. Apply router Fact Priority before use; do not install them merely because central documentation mentions them.
