@@ -26,6 +26,9 @@ jobs:
       - name: Check central portability rules
         run: python tools/check_portability.py
 
+      - name: Check AI-facing document language
+        run: python tools/check_prompt_language.py
+
       - name: Check skill discovery index
         run: python tools/gen-index.py --check
 
