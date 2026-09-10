@@ -13,7 +13,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
 INDEX = ROOT / "capabilities" / "skills.md"
-ENTRY = re.compile(r"^- `([^`]+)`", re.MULTILINE)
 CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
 
 
@@ -83,19 +82,18 @@ def render(entries):
     return "\n".join(lines)
 
 
+def normalized(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n") + "\n"
+
+
 def check(entries, problems):
     if not INDEX.is_file():
         problems.append("capabilities/skills.md is missing")
         return problems
     text = INDEX.read_text(encoding="utf-8")
-    registered = set(ENTRY.findall(text))
-    expected = {name for name, _, _ in entries}
-    missing = sorted(expected - registered)
-    ghosts = sorted(registered - expected)
-    if missing:
-        problems.append("skills.md missing entries: " + ", ".join(missing))
-    if ghosts:
-        problems.append("skills.md contains ghost entries: " + ", ".join(ghosts))
+    expected = render(entries)
+    if normalized(text) != normalized(expected):
+        problems.append("capabilities/skills.md differs from generated SKILL.md metadata; run python tools/gen-index.py")
     if CJK.search(text):
         problems.append("skills.md contains CJK text; regenerate after translating SKILL frontmatter")
     if re.search(r"(?:/Users/[^/]+|[A-Za-z]:\\\\Users\\\\[^\\]+).*?\.ai-prompt", text):
@@ -113,10 +111,10 @@ def main():
             for problem in problems:
                 print(f"  - {problem}", file=sys.stderr)
             return 1
-        print(f"gen-index --check: {len(entries)} skills; discovery index is valid")
+        print(f"gen-index --check: {len(entries)} skills; discovery index matches generated metadata")
         return 0
 
-    INDEX.write_text(render(entries), encoding="utf-8", newline="\n")
+    INDEX.write_text(normalized(render(entries)), encoding="utf-8", newline="\n")
     print(f"gen-index: generated {len(entries)} skills in capabilities/skills.md")
     if problems:
         print("gen-index: frontmatter problems remain:", file=sys.stderr)
