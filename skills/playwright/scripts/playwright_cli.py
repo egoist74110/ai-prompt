@@ -15,48 +15,66 @@ TOOLS = ROOT / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from local_state import migrate_local_files, read_kind, write_kind  # noqa: E402
+from local_state import migrate_local_files, read_kind, update_kind  # noqa: E402
 
 
 def executable_exists(value: str) -> bool:
     path = Path(value).expanduser()
-    return path.exists() or shutil.which(value) is not None
+    return path.is_file() or shutil.which(value) is not None
+
+
+def launcher_exists(launcher: list[str]) -> bool:
+    if not launcher or not executable_exists(str(launcher[0])):
+        return False
+    # Windows safe launchers may include a JS entrypoint after node.exe.
+    if len(launcher) > 1 and str(launcher[1]).lower().endswith(".js"):
+        return Path(str(launcher[1])).expanduser().is_file()
+    return True
+
+
+def resolve_npx(npx: str) -> list[str]:
+    if not executable_exists(npx):
+        raise RuntimeError(f"PLAYWRIGHT_NPX/npx launcher does not exist: {npx}")
+    npx_path = Path(npx).expanduser()
+    if os.name == "nt" and npx_path.suffix.lower() in {".cmd", ".bat"}:
+        node = npx_path.parent / "node.exe"
+        npx_cli = npx_path.parent / "node_modules" / "npm" / "bin" / "npx-cli.js"
+        node_cmd = str(node) if node.is_file() else shutil.which("node")
+        if not node_cmd or not npx_cli.is_file():
+            raise RuntimeError(
+                f"Found {npx_path}, but could not resolve a safe Node/npx-cli launch chain; "
+                "set PLAYWRIGHT_NPX to a directly executable npx launcher"
+            )
+        return [node_cmd, str(npx_cli)]
+    return [str(npx)]
+
+
+def cache_launcher(launcher: list[str]) -> None:
+    def mutate(runtime: dict) -> None:
+        runtime.setdefault("skills", {}).setdefault(SKILL, {})["launcher"] = launcher
+    update_kind("runtime", mutate)
 
 
 def discover_launcher() -> list[str]:
     migrate_local_files()
+
+    # Explicit current-session configuration outranks cached machine facts.
+    override = os.environ.get("PLAYWRIGHT_NPX", "").strip()
+    if override:
+        launcher = resolve_npx(override)
+        cache_launcher(launcher)
+        return launcher
+
     runtime = read_kind("runtime")
-    entry = runtime.setdefault("skills", {}).setdefault(SKILL, {})
-    cached = entry.get("launcher")
-    if isinstance(cached, list) and cached and executable_exists(str(cached[0])):
+    cached = runtime.get("skills", {}).get(SKILL, {}).get("launcher")
+    if isinstance(cached, list) and launcher_exists([str(x) for x in cached]):
         return [str(x) for x in cached]
 
-    npx = os.environ.get("PLAYWRIGHT_NPX", "").strip() or shutil.which("npx")
+    npx = shutil.which("npx")
     if not npx:
-        raise RuntimeError("未找到 npx；安装 Node.js/npm 后重试")
-
-    launcher: list[str]
-    npx_path = Path(npx)
-    if os.name == "nt" and npx_path.suffix.lower() in {".cmd", ".bat"}:
-        # Avoid passing user arguments through cmd.exe. Standard Node Windows installs ship
-        # npx.cmd beside node.exe + node_modules/npm/bin/npx-cli.js; call the JS entry directly.
-        node = npx_path.parent / "node.exe"
-        npx_cli = npx_path.parent / "node_modules" / "npm" / "bin" / "npx-cli.js"
-        if node.is_file() and npx_cli.is_file():
-            launcher = [str(node), str(npx_cli)]
-        else:
-            node_cmd = shutil.which("node")
-            if not node_cmd or not npx_cli.is_file():
-                raise RuntimeError(
-                    f"找到 {npx_path}，但无法解析安全的 Node/npx-cli 启动链；"
-                    "可设置 PLAYWRIGHT_NPX 指向可直接执行的 npx launcher"
-                )
-            launcher = [node_cmd, str(npx_cli)]
-    else:
-        launcher = [str(npx)]
-
-    entry["launcher"] = launcher
-    write_kind("runtime", runtime)
+        raise RuntimeError("npx not found; install Node.js/npm and retry")
+    launcher = resolve_npx(npx)
+    cache_launcher(launcher)
     return launcher
 
 
