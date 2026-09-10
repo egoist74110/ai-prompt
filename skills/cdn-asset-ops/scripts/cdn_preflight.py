@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Read-only MinIO/CDN preflight with portable local caching."""
+"""Read-only, cached MinIO/S3 preflight.
+
+No credentials are printed or copied into ai-prompt local state. The cache stores only mc locator,
+alias name and verified endpoint for a host.
+"""
 from __future__ import annotations
 
 import argparse
@@ -14,21 +18,29 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-SKILL = "cdn-asset-ops"
 SKILL_DIR = Path(__file__).resolve().parents[1]
 ROOT = SKILL_DIR.parents[1]
 TOOLS = ROOT / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from local_state import migrate_local_files, read_kind, write_kind  # noqa: E402
+from local_state import migrate_local_files, read_kind, update_kind  # noqa: E402
+
+SKILL = "cdn-asset-ops"
 
 
 def parse_host(value: str) -> tuple[str, int | None, str | None]:
     raw = value.strip()
     parsed = urlparse(raw if "://" in raw else f"//{raw}")
-    host = parsed.hostname or raw.split(":", 1)[0]
-    return host.lower().rstrip("."), parsed.port, parsed.scheme or None
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"无法解析 host: {value}")
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    scheme = parsed.scheme or None
+    return host.lower().rstrip("."), port, scheme
 
 
 def find_alias(mc: str, host: str) -> tuple[str | None, str | None]:
@@ -118,7 +130,6 @@ def main() -> int:
         print("result: 先安装 MinIO mc；安装路径属于本机配置，成功后会缓存")
         return 2
 
-    runtime_entry["mc"] = str(mc)
     alias, alias_url = find_alias(str(mc), host)
     alias_verified = False
     if alias_url:
@@ -139,26 +150,38 @@ def main() -> int:
     else:
         print("probed S3 endpoint: none")
 
-    write_kind("runtime", runtime)
+    def save_runtime(latest: dict) -> None:
+        latest.setdefault("skills", {}).setdefault(SKILL, {})["mc"] = str(mc)
+
+    update_kind("runtime", save_runtime)
+    now = datetime.now(timezone.utc).isoformat()
+
     if endpoint:
-        hosts[host] = {
-            "verified": True,
-            "alias": alias if alias_verified else None,
-            "endpoint": endpoint,
-            "last_verified": datetime.now(timezone.utc).isoformat(),
-        }
-        write_kind("state", state)
+        def save_success(latest: dict) -> None:
+            latest_hosts = latest.setdefault("skills", {}).setdefault(SKILL, {}).setdefault("hosts", {})
+            latest_hosts[host] = {
+                "verified": True,
+                "alias": alias if alias_verified else None,
+                "endpoint": endpoint,
+                "last_verified": now,
+            }
+
+        update_kind("state", save_success)
         print("cache: 已写入 .local；下次先直接复用")
         return 0
 
-    hosts[host] = {
-        "verified": False,
-        "reason": "no verified matching alias or S3 endpoint discovered",
-        "last_verified": datetime.now(timezone.utc).isoformat(),
-    }
-    write_kind("state", state)
-    print("result: no verified S3 endpoint found")
-    return 1
+    def save_failure(latest: dict) -> None:
+        latest_hosts = latest.setdefault("skills", {}).setdefault(SKILL, {}).setdefault("hosts", {})
+        latest_hosts[host] = {
+            "verified": False,
+            "reason": "no verified matching alias or S3 endpoint discovered",
+            "retry": "when-network-or-config-changes",
+            "last_verified": now,
+        }
+
+    update_kind("state", save_failure)
+    print("result: 未确认 S3 endpoint；向用户确认真实 endpoint 后再配置 alias")
+    return 3
 
 
 if __name__ == "__main__":
