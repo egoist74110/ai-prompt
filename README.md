@@ -4,6 +4,8 @@
 
 **权威顺序以 `router.md` 为准**，本文件只是给人看的概览，冲突时信 router。
 
+> **文档约束：给人看的用中文大白话，给 AI 执行的用简洁英文。** 新增或修改 Prompt 前先判断消费者，不要把两类文档混写。完整维护规则见 `CONTRIBUTING.md`。
+
 ## 核心架构
 
 仓库只保存**可移植规则**；机器差异、运行时名单和已验证经验不再写死进 prompt / skill / Python：
@@ -122,6 +124,8 @@ python tools/runtime_state.py show state
 macOS/Linux 只有 `python3` 时使用 `python3`；Windows 可直接使用原生 Python。
 
 ## 维护
+
+修改 Prompt 或文档前先看 `CONTRIBUTING.md`。它规定了人类文档与机器 Prompt 的语言、写法和职责边界。
 
 - `tools/runtime_state.py` — 初始化、迁移、runtime 注册、读取和更新机器本地 runtime/state。
 - `tools/runtime_registry.py` — 数据驱动 runtime registry 核心。
