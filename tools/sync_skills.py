@@ -26,14 +26,17 @@ def resolve_target(entry: dict) -> Path | None:
     return None
 
 
-def _record(state: dict, runtime_name: str, central: Path, target: Path, mode: str) -> None:
-    state.setdefault("skills_sync", {})[runtime_name] = {
+def _record(state: dict, runtime_name: str, central: Path, target: Path, mode: str, managed_names=None) -> None:
+    record = {
         "verified": True,
         "central": str(central),
         "target": str(target),
         "mode": mode,
         "last_verified": datetime.now(timezone.utc).isoformat(),
     }
+    if managed_names is not None:
+        record["managed_names"] = sorted(managed_names)
+    state.setdefault("skills_sync", {})[runtime_name] = record
 
 
 def sync_central_dir(runtime_name: str, entry: dict, central: Path, target: Path, state: dict) -> bool:
@@ -49,13 +52,7 @@ def sync_central_dir(runtime_name: str, entry: dict, central: Path, target: Path
 
     target.parent.mkdir(parents=True, exist_ok=True)
     link_kind = create_dir_link(central, target)
-    entry.update(
-        {
-            "skills_path": str(target),
-            "skills_layout": "central-dir-link",
-            "link_kind": link_kind,
-        }
-    )
+    entry.update({"skills_path": str(target), "skills_layout": "central-dir-link", "link_kind": link_kind})
     _record(state, runtime_name, central, target, "central-dir-link")
     print(f"{runtime_name}: added central skills {link_kind}")
     return True
@@ -73,6 +70,9 @@ def sync_per_skill(runtime_name: str, entry: dict, central: Path, target: Path, 
     changed = False
     link_kind: str | None = None
     central_names = {p.name for p in central.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
+    previous = state.get("skills_sync", {}).get(runtime_name, {})
+    previously_managed = set(previous.get("managed_names", []) or [])
+    managed_now: set[str] = set()
 
     for name in sorted(central_names):
         source = central / name
@@ -81,12 +81,17 @@ def sync_per_skill(runtime_name: str, entry: dict, central: Path, target: Path, 
         if is_linkish(dest):
             current = link_target(dest)
             if current == source.resolve():
+                managed_now.add(name)
                 if link_kind is None:
                     link_kind = "junction" if is_junction(dest) else "symlink"
                 continue
+            if name not in previously_managed:
+                print(f"{runtime_name}: preserve unmanaged link {name}; central skill not synced")
+                continue
             remove_linkish(dest)
             link_kind = create_dir_link(source, dest)
-            print(f"{runtime_name}: fixed {name}")
+            managed_now.add(name)
+            print(f"{runtime_name}: fixed managed {name}")
             changed = True
             continue
 
@@ -95,31 +100,32 @@ def sync_per_skill(runtime_name: str, entry: dict, central: Path, target: Path, 
             backup = dest.with_name(f"{dest.name}.bak-{stamp}")
             shutil.move(str(dest), str(backup))
             link_kind = create_dir_link(source, dest)
+            managed_now.add(name)
             print(f"{runtime_name}: replaced {name} (backup: {backup.name})")
             changed = True
             continue
 
         link_kind = create_dir_link(source, dest)
+        managed_now.add(name)
         print(f"{runtime_name}: added {name}")
         changed = True
 
-    for dest in target.iterdir():
-        if dest.name == ".system" or not is_linkish(dest):
+    # Remove only links this synchronizer previously recorded as managed. Unknown
+    # dangling links may belong to private plugins or temporarily unavailable mounts.
+    for name in sorted(previously_managed - central_names):
+        dest = target / name
+        if not is_linkish(dest):
             continue
-        current = link_target(dest)
-        if current is None or not current.exists():
-            remove_linkish(dest)
-            print(f"{runtime_name}: removed dangling {dest.name}")
-            changed = True
+        remove_linkish(dest)
+        print(f"{runtime_name}: removed obsolete managed {name}")
+        changed = True
 
-    entry.update(
-        {
-            "skills_path": str(target),
-            "skills_layout": "per-skill-link",
-            "link_kind": link_kind or entry.get("link_kind"),
-        }
-    )
-    _record(state, runtime_name, central, target, "per-skill-link")
+    entry.update({
+        "skills_path": str(target),
+        "skills_layout": "per-skill-link",
+        "link_kind": link_kind or entry.get("link_kind"),
+    })
+    _record(state, runtime_name, central, target, "per-skill-link", managed_now)
     print(f"{runtime_name}: skills 同步完成" if changed else f"{runtime_name}: skills 已是最新")
     return changed
 
