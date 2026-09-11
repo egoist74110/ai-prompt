@@ -20,6 +20,7 @@ AI_FILES = [
     ROOT / "skills" / "cdn-asset-ops" / "references" / "operations.md",
 ]
 AI_DIR_PATTERNS = [
+    (ROOT / "response", "*.md"),
     (ROOT / "models", "*.md"),
     (ROOT / "capabilities", "*.md"),
     (ROOT / "skills", "*/SKILL.md"),
