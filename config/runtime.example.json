@@ -13,7 +13,7 @@
   },
   "runtime_registry": {
     "templates_seeded": true,
-    "template_version": 2,
+    "template_version": 3,
     "template_source": "config/runtime-templates.json"
   },
   "probe_commands": [],
@@ -30,6 +30,7 @@
   "runtimes": {
     "<runtime-id>": {
       "display_name": "<human-readable name>",
+      "runtime_identity": "<stable execution identity shared by aliases of the same reviewer>",
       "enabled": true,
       "source": "template|user",
       "command_candidates": ["<command-or-path>"],
