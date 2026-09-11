@@ -41,6 +41,26 @@
         "last_result": null,
         "last_verified": null
       }
+    },
+    "sessions": {
+      "<review-id>": {
+        "review_dir": ".local/reviews/<review-id>",
+        "runtime_id": "<runtime-id>",
+        "runtime_identity": "<stable-runtime-identity>",
+        "repository": "<repo/worktree identity>",
+        "scope": "<review scope>",
+        "session_ref": null,
+        "cache_locator": null,
+        "continuation_strategy": "native-session|persistent-process|cwd-cache|unknown|unsupported",
+        "continuity": "active|broken|closed",
+        "round": 1,
+        "status": "active|passed|blocked|stopped|replaced",
+        "last_reviewed_boundary": null,
+        "last_result": null,
+        "open_findings": [],
+        "last_resumed": null,
+        "last_verified": null
+      }
     }
   },
   "skills_sync": {}
