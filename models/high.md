@@ -1,6 +1,6 @@
 # High Model Prompt
 
-Load only after `router.md` selects the Engineering route.
+Load only after `router.md` selects the Engineering route. If the current request no longer qualifies as Engineering, stop applying Engineering gates and return to `router.md`; already-loaded context may remain available.
 
 ## Role
 
