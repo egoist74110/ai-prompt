@@ -10,12 +10,13 @@ ROOT = Path(__file__).resolve().parents[1]
 AI_DOC_GLOBS = (
     "router.md",
     "common.md",
+    "response/*.md",
     "models/*.md",
     "capabilities/*.md",
     "skills/*/SKILL.md",
 )
 REF_RE = re.compile(
-    r"`(?P<path>(?:router|common)\.md|(?:models|capabilities)/[A-Za-z0-9._/-]+\.md|"
+    r"`(?P<path>(?:router|common)\.md|(?:response|models|capabilities)/[A-Za-z0-9._/-]+\.md|"
     r"skills/[A-Za-z0-9._/-]+/SKILL\.md)(?:#(?P<anchor>[a-z0-9-]+))?`"
 )
 
@@ -114,6 +115,24 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertNotIn("via `models/high.md`", cleanup_line)
         self.assertIn("capabilities/search-runtime-suppression.md", read("capabilities/search.md"))
 
+    def test_response_contract_is_separate_and_cache_driven(self):
+        router = read("router.md")
+        common = read("common.md")
+        response = read("response/default.md")
+        response_layer = section(router, "Response Layer")
+
+        self.assertIn("response/default.md", router)
+        self.assertIn(".local/response-profile.md", response_layer)
+        self.assertIn("Do not infer or select a persona", response_layer)
+        self.assertIn("user-facing", response_layer)
+        self.assertIn("must not change reasoning", response_layer)
+        self.assertNotIn("Simplified Chinese", common)
+        self.assertNotIn("internal reasoning", common)
+        self.assertIn("Simplified Chinese", response)
+        self.assertIn("user-facing output", response)
+        self.assertIn("never to reasoning", response)
+        self.assertTrue((ROOT / "config/response-profile.example.md").is_file())
+
     def test_literal_ai_doc_references_and_anchors_resolve(self):
         for source in docs():
             text = source.read_text(encoding="utf-8")
@@ -143,11 +162,12 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertIn("expanded persistent permission", common)
 
     def test_base_route_prompt_budgets(self):
+        base = ("router.md", "common.md", "response/default.md")
         chains = {
-            "direct": (("router.md", "common.md"), 6000),
-            "scout": (("router.md", "common.md", "models/scout.md"), 8000),
-            "engineering": (("router.md", "common.md", "models/high.md"), 15000),
-            "skill-discovery": (("router.md", "common.md", "capabilities/skills.md"), 15000),
+            "direct": (base, 6500),
+            "scout": (base + ("models/scout.md",), 8500),
+            "engineering": (base + ("models/high.md",), 15500),
+            "skill-discovery": (base + ("capabilities/skills.md",), 15500),
         }
         self.assertNotIn("models/high.md", chains["direct"][0])
         for name, (paths, limit) in chains.items():
