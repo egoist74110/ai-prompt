@@ -1,6 +1,8 @@
 # Regression / Cleanup Gate
 
-Authoritative delivery rules for implementation tasks with file/config/process/build/debug side effects.
+Authoritative ownership and cleanup rules for any route with file/config/process/build/debug side effects. Engineering additionally applies the full regression and delivery rules below.
+
+For non-Engineering routes, apply only the ownership, failure-path, and cleanup rules relevant to task-owned side effects; do not import unrelated Engineering ceremony.
 
 **Complete = required behavior verified + relevant regression passed + task-owned temporary resources reclaimed + final diff/state explainable.**
 
