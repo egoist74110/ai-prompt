@@ -2,6 +2,8 @@
 
 Cross-review requires an execution identity different from the implementer. Runtime registry ids are aliases/configuration keys and are not sufficient proof of isolation.
 
+This capability defines **how review is orchestrated across runtimes**. The canonical method for actually reviewing code lives in `skills/code-review/SKILL.md`.
+
 ## Roles, Identity, and Recursion
 
 - **Review orchestrator:** the current phase owns a review-and-fix workflow. It may inspect the repository, dispatch one isolated reviewer, validate findings, modify code, and coordinate later review rounds. For the cross-review gate it follows implementer rules.
@@ -9,6 +11,7 @@ Cross-review requires an execution identity different from the implementer. Runt
 - **Reviewer/verifier:** the current phase was delegated a bounded review/verification request and must not implement fixes or dispatch another reviewer.
 - A reviewer/verifier MUST NEVER dispatch another cross-review. Implementer/orchestrator self-review is not cross-review.
 - A user request such as "code review mode", "review and fix", or an explicit request to have another AI review the code is an orchestrated workflow unless the user explicitly requests read-only review/no modification.
+- A reviewer performing code review MUST load and follow `skills/code-review/SKILL.md`. Specialized review Skills are loaded only when their own trigger matches.
 
 ## Trigger
 
@@ -67,7 +70,7 @@ Every second or later review round MUST continue the same reviewer conversation 
 - Resume the recorded native `session_ref`, cache, or persistent process instead of starting a fresh conversation.
 - Tell the reviewer what the orchestrator changed since the previous round, which previous findings were fixed/rejected/deferred, and the new diff/commit boundary.
 - Ask the reviewer to verify closure of previous findings first, then inspect regressions/new issues in the changed scope.
-- Preserve finding ids across rounds when referring to the same defect.
+- Preserve finding ids across rounds when referring to the same defect, as required by `skills/code-review/SKILL.md`.
 
 If the recorded reviewer conversation cannot be resumed, do **not** silently start a fresh reviewer and call it round 2/3. Mark continuity `broken`, preserve the existing review artifacts, explain the failure, and obtain user approval before starting a replacement review session. A replacement session receives a compact prior-round packet but is explicitly a new conversation with a new `review_id`.
 
@@ -87,14 +90,17 @@ Changing runtime permissions expands AI access and requires user confirmation. N
 
 ## Review Request
 
-Include:
+For code review, the dispatched request MUST instruct the reviewer to load and follow `skills/code-review/SKILL.md`. Do not duplicate the canonical review checklist or severity rules in this capability.
 
-1. change scope (`git diff` or explicit files; split very large changes);
-2. one-sentence requirement/context;
-3. checklist covering correctness/edge cases, concurrency/failure paths, security, architecture, and resource lifecycle as relevant;
-4. output contract: each finding has a stable finding id, `file:line`, problem, severity (`blocker`/`major`/`minor`), and recommendation, followed by `pass`, `pass after minor fixes`, or `rework required`;
-5. restrictions: review supplied scope only, mark unverifiable claims `unknown`, do not promote style preferences to blockers, and do not modify code unless explicitly requested;
-6. for round 2+, previous finding status plus the exact delta since the prior reviewed boundary.
+The orchestration request supplies only the context needed to execute that Skill correctly:
+
+1. change scope (`git diff`, commit/range, PR, or explicit files; split very large changes);
+2. one-sentence requirement/context and any compatibility constraints known to the orchestrator;
+3. restrictions on scope, permissions, and whether the reviewer is read-only;
+4. repository/worktree facts needed by the dispatched runtime;
+5. for round 2+, previous finding statuses and the exact delta since the prior reviewed boundary.
+
+The reviewer owns evidence collection, review dimensions, finding structure, severity, and overall conclusion through `skills/code-review/SKILL.md`.
 
 Resolve repository paths for the dispatched runtime from current machine facts. Absolute paths are per-run data, never central constants.
 
@@ -102,24 +108,24 @@ Resolve repository paths for the dispatched runtime from current machine facts. 
 
 The orchestrator/implementer MUST load `receiving-code-review` and verify findings individually.
 
-- Track every finding by stable id as `open`, `fixed`, `rejected`, `deferred`, or `blocked`.
+- Track every finding by its stable id as `open`, `fixed`, `rejected`, `deferred`, or `blocked`.
 - Fix and re-verify valid blocker/major findings.
 - Fix valid minor findings when they are safely within the requested scope; otherwise retain them only with a concrete justification and disclose them.
 - Rejected findings require evidence/rationale and must be included in the next resumed reviewer turn so the reviewer can confirm or challenge the rejection.
 - Reviewer conclusions do not replace orchestrator/implementer validation.
 - After fixes, run the smallest sufficient self-validation before offering another review round.
 
-For runtime-only verification, create a self-contained request with repository path, branch/commit, scope, prerequisite state, exact start/entrypoint facts, regression focus, destructive/edge scenarios, and expected report format. The verifier collects evidence and does not fabricate results or modify code unless separately authorized.
+For runtime-only verification that is not a code review, create a self-contained request with repository path, branch/commit, scope, prerequisite state, exact start/entrypoint facts, regression focus, destructive/edge scenarios, and expected report format. The verifier collects evidence and does not fabricate results or modify code unless separately authorized.
 
 ## Iterative Closure
 
 A requested code-review workflow does not end after the first reviewer response if actionable findings were produced.
 
-1. Round 1 reviewer returns findings/conclusion.
+1. Round 1 reviewer returns findings/conclusion under `skills/code-review/SKILL.md`.
 2. Orchestrator verifies and fixes all valid in-scope findings it can safely fix, records exceptions, and self-validates.
 3. If the reviewer returned `pass` with no actionable findings, close the review session and deliver; do not ask for a redundant round.
 4. Otherwise, after fixes/triage, explicitly ask whether the user wants round 2 review unless the user already authorized continuous review-to-pass.
-5. If approved, resume the **same reviewer conversation** and verify previous findings plus regressions/new issues.
+5. If approved, resume the **same reviewer conversation** and perform the Skill's closure-review procedure against previous findings plus regressions/new issues.
 6. Repeat the same rule for round 3 and later. Do not impose an arbitrary three-round maximum.
 7. Close only when the resumed reviewer reports no actionable findings, the user declines another round, or further progress is blocked. Record which condition ended the loop.
 
