@@ -40,7 +40,13 @@
       "auto_sync_skills": false,
       "review": {
         "args": ["<headless-arg>"],
-        "priority": 50
+        "priority": 50,
+        "continuation": {
+          "strategy": "native-session|persistent-process|cwd-cache|unknown|unsupported",
+          "resume_args": ["<verified runtime-specific resume args; may include {session_ref}>"],
+          "session_ref_source": "stdout|stderr|cache-metadata|process|none",
+          "cache_locator": "<verified non-secret cache/session locator or null>"
+        }
       },
       "executable": "<resolved executable after detection>",
       "entry_path": "<resolved entry after detection>",
