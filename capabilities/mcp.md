@@ -4,7 +4,7 @@ MCP configuration remains runtime-owned. Central prompts store only portable usa
 
 ## Priority: session facts > local cache > discovery
 
-Apply `router.md` Fact Priority before calling or probing MCP. In particular, a tool being exposed in the current session is only a candidate when a still-valid local `blocked`, `cooldown`, or `unsupported` record says not to retry it yet.
+The order below mirrors `capabilities/runtime.md#fact-priority`; do not load that file solely to repeat it. In particular, a tool being exposed in the current session is only a candidate when a still-valid local `blocked`, `cooldown`, or `unsupported` record says not to retry it yet.
 
 When MCP is needed, stop at the first sufficient level:
 
@@ -125,4 +125,4 @@ If cached execution fails, trust current output and update failure/suppression s
 
 ## Runtime/plugin capabilities
 
-GitHub, Browser, Chrome, Computer Use, Documents, Spreadsheets, Presentations, or similar tools exposed natively by the current runtime are session candidates. Apply router Fact Priority before use; do not install them merely because central documentation mentions them.
+GitHub, Browser, Chrome, Computer Use, Documents, Spreadsheets, Presentations, or similar tools exposed natively by the current runtime are session candidates. Apply the priority above before use; do not install them merely because central documentation mentions them.
