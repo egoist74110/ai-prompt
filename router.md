@@ -8,13 +8,23 @@ Lightweight entry point for all AI agents and model runtimes.
 
 ## Progressive Loading
 
-Always begin with the lightest sufficient route. Read `common.md` first, then load only what the current request needs.
+Always begin with the lightest sufficient route. Read `common.md` and `response/default.md` first, then load only what the current request needs.
 
 - Do not preload `models/high.md`, Skills, or capabilities.
 - Route by user intent, not keywords. Mentioning code does not make a task Engineering.
 - Reuse still-current prompt material already loaded in this session; do not reread it mechanically.
 - Re-evaluate when intent changes. Load heavier workflow only when the current route lacks required guarantees.
 - Never under-route an explicit request merely to save tokens.
+
+## Response Layer
+
+Presentation is separate from task reasoning.
+
+- If `.local/response-profile.md` exists, read it after `response/default.md`; it is the user-owned persistent presentation cache.
+- Do not infer or select a persona, tone, or style when that cache is absent; use the default contract only.
+- Load only style material explicitly named by that cache. Do not scan for persona files or activate Skills for style alone.
+- Cached style may control only user-facing language, tone, wording, structure, and expression DNA. It must not change reasoning, routing, research, tool use, factual standards, implementation, or review gates.
+- A current explicit user request overrides cached presentation preferences for that response.
 
 ## Routes
 
