@@ -13,7 +13,7 @@ Always begin with the lightest sufficient route. Read `common.md` first, then lo
 - Do not preload `models/high.md`, Skills, or capabilities.
 - Route by user intent, not keywords. Mentioning code does not make a task Engineering.
 - Reuse still-current prompt material already loaded in this session; do not reread it mechanically.
-- Re-evaluate when intent changes. Escalate only when the current route lacks required workflow or guarantees.
+- Re-evaluate when intent changes. Load heavier workflow only when the current route lacks required guarantees.
 - Never under-route an explicit request merely to save tokens.
 
 ## Routes
@@ -38,21 +38,23 @@ Use when the user names a Skill or the request clearly matches Skill metadata.
 Use for repository/project implementation, code/config changes, project debugging, architecture/refactoring, code review, build/deploy changes, or substantial repository analysis/planning.
 
 - Read `models/high.md`.
-- Add matching Skills only when relevant.
+- If central Skill metadata is not already exposed, read `capabilities/skills.md` once before planning so relevant canonical Skills can be matched.
+- Load only matching Skills.
 - Code-related subject matter alone is not enough to select this route.
 
 ### Scout
 
 If this execution is delegated only for context collection, repository scouting, or low-risk mechanical work, read `models/scout.md` instead of `models/high.md`. The primary Engineering agent owns decisions and acceptance.
 
-## Escalation
+## Route Changes
 
 Routes are per current intent, not permanent conversation labels.
 
 - Direct -> Skill-first when a reusable specialized procedure is needed.
 - Direct or Skill-first -> Engineering when project inspection, modification, debugging, review, or engineering guarantees become required.
+- Engineering or Skill-first -> Direct when the new request is ordinary Q&A. Already-loaded material may remain available, but Engineering gates apply only to Engineering work currently in scope.
 - Engineering adds capabilities only when triggered.
-- Mixed requests may escalate only the parts that need a heavier route.
+- Mixed requests may use the lightest sufficient route for each part.
 
 ## On-demand Capabilities
 
@@ -64,7 +66,7 @@ Load only when triggered:
 - MCP/tool discovery -> `capabilities/mcp.md`;
 - search backend selection/fallback/failure -> `capabilities/search.md`;
 - cross-review -> `capabilities/cross-review.md` via `models/high.md`;
-- Engineering side effects/regression/cleanup -> `capabilities/cleanup.md` via `models/high.md`.
+- any route that starts task-owned processes, allocates ports, changes temporary config/permissions, or creates temporary/unrequested files -> `capabilities/cleanup.md` before the first such side effect; Engineering additionally applies its regression/delivery rules.
 
 Do not bulk-read Skills or capabilities.
 
