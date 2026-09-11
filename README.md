@@ -8,6 +8,8 @@
 
 ## 核心架构
 
+> **交互式架构图**：[docs/architecture/ai-prompt-architecture.html](docs/architecture/ai-prompt-architecture.html) —— 一张图看清加载链（router → common → 按需升级）、Skill 发现/加载、tools 工具链与 `.local/` 本机层的关系。支持缩放、深浅色切换和三个分视角（主加载链 / Skill 加载 / .local 本机层）。源文件是同目录的 `ai-prompt-architecture.json`，改完重新生成即可。
+
 仓库只保存**可移植规则**；机器差异、运行时名单和已验证经验不再写死进 prompt / skill / Python：
 
 - `router.md`：轻量统一入口，只负责判断当前请求走 Direct、Skill-first、Engineering 还是 Scout，并按当前意图动态切换。

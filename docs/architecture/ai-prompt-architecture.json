@@ -1,0 +1,420 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "AI Prompt Hub 架构",
+    "output": "ai-prompt-architecture.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1060,
+      544
+    ],
+    "views": [
+      {
+        "id": "main-load",
+        "label": "主加载链",
+        "focus": [
+          "runtime",
+          "router",
+          "common",
+          "high",
+          "scout",
+          "capabilities"
+        ],
+        "note": "先读 router.md，再只读最小 common.md；意图命中时才加载路由 Prompt 与能力模块。"
+      },
+      {
+        "id": "skill-loading",
+        "label": "Skill 加载",
+        "focus": [
+          "router",
+          "skills-idx",
+          "skills",
+          "tools"
+        ],
+        "note": "发现索引由 SKILL.md frontmatter 生成、可重建；命中后再加载对应 SKILL.md。"
+      },
+      {
+        "id": "local-layer",
+        "label": ".local 本机层",
+        "focus": [
+          "tools",
+          "config",
+          "runtime-local",
+          "state-local"
+        ],
+        "note": "init 用 starter 模板播种本机 registry 并统一探测；跑通结果缓存复用，不提交。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "runtime",
+      "type": "external",
+      "label": "AI Agent 运行时",
+      "sublabel": "任意 CLI Agent / 模型运行时",
+      "pos": [
+        40,
+        194
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "router",
+      "type": "backend",
+      "label": "router.md",
+      "sublabel": "路由判断 · 统一入口",
+      "tag": "Direct / Skill / Eng / Scout",
+      "pos": [
+        270,
+        194
+      ],
+      "size": [
+        190,
+        64
+      ]
+    },
+    {
+      "id": "common",
+      "type": "backend",
+      "label": "common.md",
+      "sublabel": "最小公共底线",
+      "pos": [
+        520,
+        194
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "scout",
+      "type": "backend",
+      "label": "models/scout.md",
+      "sublabel": "Scout 路径 · 委派侦查",
+      "pos": [
+        520,
+        64
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "high",
+      "type": "backend",
+      "label": "models/high.md",
+      "sublabel": "Engineering 路径",
+      "pos": [
+        750,
+        64
+      ],
+      "size": [
+        220,
+        64
+      ]
+    },
+    {
+      "id": "capabilities",
+      "type": "backend",
+      "label": "capabilities/",
+      "sublabel": "按需能力模块",
+      "tag": "search · cleanup · runtime · …",
+      "pos": [
+        750,
+        194
+      ],
+      "size": [
+        220,
+        64
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "tools/",
+      "sublabel": "Python 工具链",
+      "tag": "init · sync · doctor",
+      "pos": [
+        40,
+        324
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "skills-idx",
+      "type": "backend",
+      "label": "capabilities/skills.md",
+      "sublabel": "Skill 发现索引（可重建）",
+      "pos": [
+        270,
+        324
+      ],
+      "size": [
+        190,
+        64
+      ]
+    },
+    {
+      "id": "skills",
+      "type": "backend",
+      "label": "skills/<name>/SKILL.md",
+      "sublabel": "专业 Skill 流程",
+      "pos": [
+        520,
+        324
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "config",
+      "type": "database",
+      "label": "config/runtime-templates.json",
+      "sublabel": "starter runtime 模板",
+      "pos": [
+        40,
+        454
+      ],
+      "size": [
+        190,
+        60
+      ]
+    },
+    {
+      "id": "runtime-local",
+      "type": "database",
+      "label": ".local/runtime.json",
+      "sublabel": "本机 registry · 不提交",
+      "pos": [
+        290,
+        454
+      ],
+      "size": [
+        190,
+        60
+      ]
+    },
+    {
+      "id": "state-local",
+      "type": "database",
+      "label": ".local/state.json",
+      "sublabel": "实测跑通缓存 · 不提交",
+      "pos": [
+        520,
+        454
+      ],
+      "size": [
+        190,
+        60
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "中央仓库 · 可移植规则",
+      "wraps": [
+        "router",
+        "common",
+        "scout",
+        "high",
+        "capabilities",
+        "tools",
+        "skills-idx",
+        "skills"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "config/ · starter 数据",
+      "wraps": [
+        "config"
+      ],
+      "pad": 24
+    },
+    {
+      "kind": "region",
+      "label": ".local/ 本机层（不提交）",
+      "wraps": [
+        "runtime-local",
+        "state-local"
+      ],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    {
+      "id": "c-runtime-router",
+      "from": "runtime",
+      "to": "router",
+      "label": "先读",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c-router-common",
+      "from": "router",
+      "to": "common",
+      "label": "必读"
+    },
+    {
+      "id": "c-router-scout",
+      "from": "router",
+      "to": "scout",
+      "label": "Scout 按需",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          365,
+          96
+        ]
+      ]
+    },
+    {
+      "id": "c-common-high",
+      "from": "common",
+      "to": "high",
+      "label": "Engineering 按需",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          605,
+          156
+        ],
+        [
+          860,
+          156
+        ]
+      ]
+    },
+    {
+      "id": "c-common-cap",
+      "from": "common",
+      "to": "capabilities",
+      "label": "能力触发"
+    },
+    {
+      "id": "c-router-idx",
+      "from": "router",
+      "to": "skills-idx",
+      "label": "Skill 发现",
+      "labelAt": [
+        365,
+        291
+      ]
+    },
+    {
+      "id": "c-idx-skills",
+      "from": "skills-idx",
+      "to": "skills",
+      "label": "匹配加载"
+    },
+    {
+      "id": "c-tools-idx",
+      "from": "tools",
+      "to": "skills-idx",
+      "label": "gen-index",
+      "labelAt": [
+        235,
+        356
+      ]
+    },
+    {
+      "id": "c-tools-runtime-local",
+      "from": "tools",
+      "to": "runtime-local",
+      "label": "注册 / 探测",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          20,
+          356
+        ],
+        [
+          20,
+          438
+        ],
+        [
+          385,
+          438
+        ]
+      ],
+      "labelAt": [
+        215,
+        442
+      ]
+    },
+    {
+      "id": "c-config-runtime",
+      "from": "config",
+      "to": "runtime-local",
+      "label": "init 播种",
+      "variant": "dashed"
+    },
+    {
+      "id": "c-tools-state",
+      "from": "tools",
+      "to": "state-local",
+      "label": "写入实测",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          120,
+          428
+        ],
+        [
+          615,
+          428
+        ]
+      ],
+      "labelAt": [
+        520,
+        428
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "加载链",
+      "items": [
+        "router + common 是恒定最小加载，永远从最轻路径开始",
+        "意图命中才升级：high / scout / capabilities 按需加载",
+        "frontmatter 是 Skill 元数据唯一来源，发现索引可随时重建"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": ".local/ 本机层（不提交）",
+      "items": [
+        "runtime.json：动态 runtime registry + credential locator",
+        "state.json：实测跑通的 skill / MCP / search / headless 策略",
+        "优先级：会话事实 > 本地 runtime/state > discovery"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "tools/ 工具链",
+      "items": [
+        "代码只遍历 registry，不按固定产品名写分支",
+        "gen-index 从 frontmatter 重建 capabilities/skills.md",
+        "doctor 跨平台只读体检；sync_skills 按声明跨平台同步"
+      ]
+    }
+  ]
+}
