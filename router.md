@@ -32,19 +32,10 @@ After successful discovery, cache machine locators/config in runtime and verifie
 
 ## Search Routing
 
-Before external search, determine hosting and actual search availability without making a search call:
-
-1. use verified `.local/runtime.json.search.contexts` if available;
-2. otherwise inspect local runtime/config/process facts; private/LAN endpoint implies self-hosted, provider domain + API key implies cloud;
-3. if hosting is still unknown, ask the user; never guess;
-4. separately determine whether a usable platform-native search backend exists; tool exposure alone is not success;
-5. cache verified facts.
-
-- usable platform-native search -> prefer it;
-- no usable native search -> use an already verified eligible MCP/CLI/fetch backend regardless of model hosting;
-- read `capabilities/search.md` whenever backend selection, fallback, or search failure policy is needed.
-
-Hosting and backend availability are independent. Same-lane backends are preferred, but cloud contexts may use verified configured fallbacks when native search is absent. Deterministic runtime-native search failures in local/self-hosted sessions alone may trigger `capabilities/search-runtime-suppression.md`.
+Before external search, resolve hosting and actual backend availability from verified local cache or minimal read-only discovery; never infer usability from tool exposure or guess unknown hosting.
+Prefer usable platform-native search; otherwise use an eligible verified fallback regardless of hosting, preserving cached blocks and explicit fallback policy.
+Load `capabilities/search.md` before backend selection, fallback, or failure handling; cache newly verified facts.
+Physical native-tool suppression is limited to deterministic failures in local/self-hosted contexts; follow `capabilities/search-runtime-suppression.md`.
 
 ## Read Order
 

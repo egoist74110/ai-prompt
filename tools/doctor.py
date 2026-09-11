@@ -51,6 +51,17 @@ def expand_path(value: str) -> Path:
     return Path(os.path.expandvars(value)).expanduser()
 
 
+def executable_available(entry: dict) -> bool:
+    value = entry.get("executable")
+    return isinstance(value, str) and bool(shutil.which(str(expand_path(value))))
+
+
+def check_local_credentials(local: Path) -> None:
+    directory = local / "credentials"
+    if is_linkish(directory) or (directory.is_dir() and any(p.is_file() or is_linkish(p) for p in directory.rglob("*"))):
+        bad(".local/credentials contains files; move credentials outside the repository or into an OS credential store")
+
+
 def run(cmd: list[str], cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
 
@@ -69,10 +80,19 @@ def check_script(label: str, script: str) -> None:
 def check_runtime_entry(name: str, entry: dict, router: Path) -> None:
     label = entry.get("display_name", name)
     executable = entry.get("executable")
-    if executable:
+    if executable_available(entry):
         ok(f"runtime {name} ({label}): {executable}")
     else:
         warn(f"runtime {name} ({label}): 未检测到 executable")
+
+    if "review" in (entry.get("capabilities") or []):
+        identity = entry.get("runtime_identity")
+        if not isinstance(identity, str) or not identity.strip():
+            warn(f"runtime {name}: review requires runtime_identity")
+        review = entry.get("review")
+        args = review.get("args") if isinstance(review, dict) else None
+        if not isinstance(args, list) or not all(isinstance(arg, str) for arg in args):
+            warn(f"runtime {name}: review.args must be a string array (empty is valid)")
 
     entry_path = entry.get("entry_path")
     if entry_path:
@@ -99,6 +119,9 @@ def check_runtime_entry(name: str, entry: dict, router: Path) -> None:
 
 
 def check_runtime_skills(name: str, entry: dict, central: Path, central_names: set[str]) -> None:
+    if not entry.get("enabled", True):
+        return
+    issue = bad if entry.get("auto_sync_skills", False) and executable_available(entry) else warn
     mode = entry.get("skills_sync_mode", "none")
     if mode in (None, "none"):
         return
@@ -109,7 +132,7 @@ def check_runtime_skills(name: str, entry: dict, central: Path, central_names: s
         if candidates:
             raw_target = candidates[0]
     if not raw_target:
-        warn(f"runtime {name}: skills_sync_mode={mode} 但没有 skills path/candidate")
+        issue(f"runtime {name}: skills_sync_mode={mode} 但没有 skills path/candidate")
         return
 
     target = expand_path(str(raw_target))
@@ -117,17 +140,17 @@ def check_runtime_skills(name: str, entry: dict, central: Path, central_names: s
         if points_to(target, central):
             ok(f"runtime {name}: skills → central-dir-link")
         elif target.exists() or is_linkish(target):
-            warn(f"runtime {name}: skills 目标存在但不是中央目录链接: {target}")
+            issue(f"runtime {name}: skills 目标存在但不是中央目录链接: {target}")
         elif entry.get("executable"):
-            warn(f"runtime {name}: skills 尚未部署: {target}")
+            issue(f"runtime {name}: skills 尚未部署: {target}")
         return
 
     if mode != "per-skill-link":
-        warn(f"runtime {name}: 未知 skills_sync_mode={mode}")
+        issue(f"runtime {name}: 未知 skills_sync_mode={mode}")
         return
     if not target.is_dir():
         if entry.get("executable"):
-            warn(f"runtime {name}: skills 目录不存在: {target}")
+            issue(f"runtime {name}: skills 目录不存在: {target}")
         return
 
     missing = []
@@ -148,9 +171,9 @@ def check_runtime_skills(name: str, entry: dict, central: Path, central_names: s
     if not missing and not incorrect:
         ok(f"runtime {name}: central skill links 完整")
     if missing:
-        warn(f"runtime {name}: 缺中央 skill: " + ", ".join(missing))
+        issue(f"runtime {name}: 缺中央 skill: " + ", ".join(missing))
     if incorrect:
-        warn(f"runtime {name}: skill 链接目标不一致: " + ", ".join(incorrect))
+        issue(f"runtime {name}: skill 链接目标不一致: " + ", ".join(incorrect))
     if real_dirs:
         warn(f"runtime {name}: 真实目录（可能是私有/孤儿）: " + ", ".join(sorted(real_dirs)))
 
@@ -160,6 +183,7 @@ def main() -> int:
 
     print("== 0. root / local state ==")
     ok(f"AI_PROMPT_ROOT={ROOT}")
+    check_local_credentials(ROOT / ".local")
     if LOCAL_RUNTIME.is_file() and LOCAL_STATE.is_file():
         try:
             runtime = read_json(LOCAL_RUNTIME)

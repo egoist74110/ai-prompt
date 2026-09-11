@@ -8,6 +8,8 @@ Installed backends, command paths, MCP config, credential locators, provider end
 
 Follow `router.md` search routing:
 
+Resolve hosting without making a search call: use verified `.local/runtime.json.search.contexts` first, then minimal runtime/config/process facts. A private/LAN endpoint indicates self-hosted hosting; a provider domain with an API key indicates cloud hosting. If hosting remains unknown, ask the user before searching.
+
 1. Resolve the current search context from verified cache or minimal read-only discovery; never guess hosting.
 2. Determine whether a usable platform-native search backend actually exists. Tool exposure alone is not proof of usability.
 3. If native search is absent/unusable, select from verified configured backends regardless of model hosting.

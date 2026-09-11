@@ -38,6 +38,9 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q tools skills
 
+      - name: Test deployment and local state behavior
+        run: python -B -m unittest discover -s tests -v
+
       - name: Run cross-platform doctor
         run: python tools/doctor.py
 

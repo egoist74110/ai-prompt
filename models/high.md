@@ -50,8 +50,9 @@ Before review/cleanup, compare original requirements against actual diff/behavio
 From the first write/run operation, distinguish:
 
 - `baseline`: pre-existing dirty files/processes/ports;
-- `task-owned`: changes, temporary artifacts, processes/ports, temporary config created by this task;
-- `deliverable`: resources explicitly requested to remain.
+- `temporary`: task-owned resources not requested to remain; remove/stop/restore;
+- `artifact`: requested deliverables; keep;
+- `unknown`: ownership unclear; never destroy blindly.
 
 Before the first Git modification inspect `git status --short`. Record PID/job/port/purpose for temporary long-lived processes. Do not reconstruct ownership by guesswork at the end. Full rules: `capabilities/cleanup.md`.
 

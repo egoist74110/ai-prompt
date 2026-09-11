@@ -112,7 +112,9 @@ def main():
         print(f"gen-index --check: {len(entries)} skills; discovery index matches generated metadata")
         return 0
 
-    INDEX.write_text(normalized(render(entries)), encoding="utf-8", newline="\n")
+    # Path.write_text() 的 newline 参数需要 Python 3.10+；用 open() 保持 3.9 兼容（hook 可能落在系统 Python 上）
+    with INDEX.open("w", encoding="utf-8", newline="\n") as f:
+        f.write(normalized(render(entries)))
     print(f"gen-index: generated {len(entries)} skills in capabilities/skills.md")
     if problems:
         print("gen-index: frontmatter problems remain:", file=sys.stderr)

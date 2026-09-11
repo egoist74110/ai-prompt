@@ -181,7 +181,10 @@ def unset_value(data: dict[str, Any], key: str) -> bool:
     for part in path[:-1]:
         if not isinstance(cur, dict) or part not in cur: return False
         cur = cur[part]
-    return isinstance(cur, dict) and cur.pop(path[-1], None) is not None
+    if not isinstance(cur, dict) or path[-1] not in cur:
+        return False
+    del cur[path[-1]]
+    return True
 
 
 def merge_defaults(data: dict[str, Any], defaults: dict[str, Any]) -> bool:

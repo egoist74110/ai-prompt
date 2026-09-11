@@ -52,20 +52,20 @@ python tools/runtime_state.py runtime add <runtime-id> \
 - 高级模型处理完整问题时，再读 `models/high.md`。
 - 被要求做侦查、上下文收集、机械执行时，只读 `models/scout.md`，不要再读 `models/high.md`。
 - 需要工具能力时，只读 `capabilities/skills.md`、`capabilities/mcp.md`。
-- 网页搜索按当前 API/provider 分流：
-  - cloud + 平台自带搜索 → 直接使用平台搜索，**不读取 `capabilities/search.md`**；
-  - local/self-hosted → 才读取 `capabilities/search.md`，使用本机已配置搜索后端。
-- 实现任务产生文件/进程/端口/配置副作用时，最终交付前读 `capabilities/cleanup.md`。
+- 网页搜索按实际后端可用性分流：
+  - 有可用的平台原生搜索 → 优先使用；无需选择后端或处理回退时，不必加载搜索策略；
+  - 需要选择后端、回退或处理失败 → 读取 `capabilities/search.md`；云端也可按已验证配置使用回退后端。
+- 任何角色产生文件/进程/端口/配置副作用前，先读 `capabilities/cleanup.md`。
 - 交付前做交叉审查时读 `capabilities/cross-review.md`。
 
 ## Local Search
 
-`capabilities/search.md` 是本地/自托管模型专用的联网策略，不是云端模型的公共搜索 Prompt。
+`capabilities/search.md` 是按需加载的后端选择与失败处理策略；模型 hosting 和后端可用性是独立事实。
 
 核心流程：
 
 ```text
-本地模型需要外部信息
+当前任务需要外部信息
 → 读本地 search context/backend/state
 → 按任务 role 选 repo/general/accurate/precise/fetch 后端
 → 第一轮搜索
@@ -75,7 +75,7 @@ python tools/runtime_state.py runtime add <runtime-id> \
 → 跑通过的本机 locator/roles/priority 以后直接复用
 ```
 
-云端模型不需要为这套本地搜索策略占用上下文 token。
+具有可用原生搜索、且不需要回退的上下文，无需加载这套策略。
 
 ## Regression / Cleanup Gate
 
