@@ -10,8 +10,13 @@
 
 仓库只保存**可移植规则**；机器差异、运行时名单和已验证经验不再写死进 prompt / skill / Python：
 
-- `router.md`：统一入口；仓库内路径全部相对 `router.md` 解析。
-- `skills/` / `capabilities/`：跨机器成立的能力规则和发现索引。
+- `router.md`：轻量统一入口，只负责判断当前请求走 Direct、Skill-first、Engineering 还是 Scout，并按需升级。
+- `common.md`：所有请求真正都需要的最小公共规则，不放工程验证、回归、交付之类的重规则。
+- `models/high.md`：只服务 Engineering 路径；普通问答和单纯 Skill 执行不再默认加载。
+- `models/scout.md`：只用于被委派的上下文收集、仓库侦查和低风险机械任务。
+- `skills/` / `capabilities/`：按触发条件加载的专业流程；禁止为了“可能有用”而全量塞入上下文。
+- `capabilities/runtime.md`：只有需要 runtime registry、本机 discovery、共享 `.local` 状态时才加载。
+- `capabilities/skill-maintenance.md`：只有创建、修改、重命名、删除、部署或同步 Skill 时才加载；正常执行 Skill 不需要它。
 - `config/runtime-templates.json`：首次初始化的 starter runtime data；不是永久支持名单。
 - `.local/runtime.json`：当前机器 OS、路径、**动态 runtime registry**、credential locator、执行侧等本地配置；不提交。
 - `.local/state.json`：当前机器已经实测跑通的 skill/MCP/search/API/headless strategy；不提交。
@@ -21,6 +26,41 @@
 - `tools/sync_skills.py`：按 registry 中的 skills sync 声明做跨平台同步。
 
 统一优先级：**当前会话事实 > 本地 runtime/state > discovery**。第一次跑通后缓存非敏感结果，后续直接复用；缓存失效才重新探测。
+
+## 渐进式提示词加载
+
+新的基本原则是：**永远从足够完成当前请求的最轻路径开始，只有当前能力不足时才升级。**
+
+不是看到“代码”两个字就进入完整工程流程，也不是看到 Skill 会执行命令就自动加载 High。路由判断的是当前用户到底要完成什么，而不是话题属于哪个领域。
+
+```text
+普通问答 / 解释 / 简单代码知识
+router + common
+→ 直接回答
+
+“提取这个 Bilibili 视频字幕”
+router + common
+→ skills index
+→ bilibili-auto-transcript/SKILL.md
+→ 执行
+
+“分析这个仓库为什么登录失败”
+router + common
+→ Engineering
+→ high
+→ 按需 diagnose / MCP / scout
+
+“直接修好，再让另一个 AI 审查”
+已有 Engineering 上下文
+→ implementation
+→ cross-review
+→ fix
+→ re-review（按闭环规则继续）
+```
+
+路由是**按当前意图动态升级**的，不给整段对话永久贴标签。前一轮做过重型工程任务，不代表下一轮一句简单问答还要重新加载 High；反过来，原本只是问问题，后来用户要求“直接改项目”，就立刻升级到 Engineering。
+
+为了防止架构再次退化成“不断往总 Prompt 里堆东西”，测试对固定加载层设有体积预算：`router.md` 和 `common.md` 必须保持轻量。新的专用规则优先进入按需 Skill / capability，而不是继续塞回 Router。
 
 ## Runtime Registry
 
@@ -47,16 +87,15 @@ python tools/runtime_state.py runtime add <runtime-id> \
 
 ## Read Order
 
-- 所有模型先读 `router.md`，再由它进入完整工作流。
-- `router.md` 要求先读 `common.md`。
-- 高级模型处理完整问题时，再读 `models/high.md`。
-- 被要求做侦查、上下文收集、机械执行时，只读 `models/scout.md`，不要再读 `models/high.md`。
-- 需要工具能力时，只读 `capabilities/skills.md`、`capabilities/mcp.md`。
-- 网页搜索按实际后端可用性分流：
-  - 有可用的平台原生搜索 → 优先使用；无需选择后端或处理回退时，不必加载搜索策略；
-  - 需要选择后端、回退或处理失败 → 读取 `capabilities/search.md`；云端也可按已验证配置使用回退后端。
-- 任何角色产生文件/进程/端口/配置副作用前，先读 `capabilities/cleanup.md`。
-- 交付前做交叉审查时读 `capabilities/cross-review.md`。
+- 所有模型先读 `router.md`，然后只读最小 `common.md`。
+- **Direct**：普通问答、解释、总结、翻译、头脑风暴、简单代码/API/语法问题，直接处理；默认不读 `models/high.md`。
+- **Skill-first**：用户点名 Skill 或请求明确命中 Skill metadata 时，只读 `capabilities/skills.md` 做发现，再加载匹配的 `skills/<name>/SKILL.md`；不会因为 Skill 会运行命令或输出文件就自动进入 High。
+- **Engineering**：真正需要仓库/项目工程流程时才读 `models/high.md`，包括实现、代码/配置修改、项目调试、架构/重构、代码审查、构建/部署变更、较重的仓库分析和实现规划。
+- **Scout**：被要求做侦查、上下文收集、机械执行时，只读 `models/scout.md`，不要再读 `models/high.md`。
+- Skill 的创建/修改/部署维护才加载 `capabilities/skill-maintenance.md`；普通 Skill 执行不加载。
+- 需要 runtime registry、本机 discovery 或共享 `.local` 状态时才加载 `capabilities/runtime.md`。
+- MCP、搜索、交叉审查、cleanup 等能力继续按各自 trigger 加载，不做预加载。
+- 网页搜索按实际后端可用性分流：有可用平台原生搜索且无需回退时不必加载搜索策略；需要选择后端、回退或处理失败时读取 `capabilities/search.md`。
 
 ## Local Search
 
@@ -79,9 +118,9 @@ python tools/runtime_state.py runtime add <runtime-id> \
 
 ## Regression / Cleanup Gate
 
-`capabilities/cleanup.md` 定义实现任务最后的“回归 + 清场”闭环。
+`capabilities/cleanup.md` 定义 Engineering 实现任务的“回归 + 清场”闭环。Skill-first 任务优先遵循自己的 Skill 生命周期规则，不因为产生一个正常输出文件就自动加载整套 Engineering cleanup。
 
-任务不是“功能跑通”就结束，而是：
+Engineering 任务不是“功能跑通”就结束，而是：
 
 ```text
 实现
@@ -102,13 +141,15 @@ python tools/runtime_state.py runtime add <runtime-id> \
 
 ## Rule
 
-- 不要每次全量读取 `skills/` 或外部 `SKILL.md`。
+- 不要每次全量读取 `skills/`、capabilities 或外部 `SKILL.md`。
+- 不要把“涉及代码”直接等价为 Engineering；简单代码知识仍然可以 Direct。
+- 不要把“Skill 会执行命令/写文件”直接等价为 Engineering；看用户真实意图和 Skill 自己的流程。
 - 不要在中央文档保存用户名、home、WSL distro、token 文件绝对路径、某台机器 VPN/网络拓扑、当前某 CLI 是否安装等单机事实。
 - 不要在消费者代码里维护固定 runtime 名单、固定优先级或固定 runtime-specific 路径。
 - Token/密码/cookie/私钥正文不得写入 `.local/`；只能缓存 credential locator。
 - Skill/MCP/search/headless runtime 首次成功 discovery 后，应把可复用的机器事实写入 `.local/`，避免后续重复绕路。
 - 失败也可以缓存，但必须说明何时应重试，不能把临时失败写成中央永久规则。
-- **收尾属于任务本身**：本次临时文件、进程、端口、配置、副作用应在交付前恢复到合理 baseline。
+- Engineering 的收尾属于任务本身：本次临时文件、进程、端口、配置、副作用应在交付前恢复到合理 baseline。
 - `skills/<name>/SKILL.md` frontmatter 是 skill 元数据唯一 source of truth；`capabilities/skills.md` 只是可重建发现索引。
 
 ## 本地初始化
