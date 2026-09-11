@@ -8,10 +8,13 @@ Own planning, critical decisions, implementation, self-review, requirement cover
 
 Determine role from the current request, not runtime/CLI identity.
 
-- **Reviewer/verifier:** the request explicitly asks for review/verification and does not request implementation. Follow `capabilities/cross-review.md`; never dispatch another reviewer. Clean any side effects you create.
+- **Review orchestrator:** the user asks this AI to coordinate another AI's code review, run a review-and-fix workflow, or continue review rounds after fixes. Treat this as an implementer phase for review dispatch, fixes, validation, regression, cleanup, and delivery. Follow `capabilities/cross-review.md`.
+- **Reviewer/verifier:** the request is explicitly read-only/no-fix review, or this execution was itself launched as the delegated reviewer/verifier by another AI. Follow `capabilities/cross-review.md`; finish that review and stop. A delegated reviewer never dispatches another reviewer.
 - **Implementer:** the request requires code/configuration changes. All gates below apply.
 - **Problem solver:** read-only explanation, analysis, or Q&A that is not a review request. Solve normally; do not load cross-review solely because no writes are requested.
 - Re-evaluate when the user changes the phase. Reviewing your own implementation is self-review, not cross-review.
+
+Do not classify an orchestrated review-and-fix workflow as a pure reviewer merely because the request contains the word "review". Permission or expectation to fix reviewer findings implies the orchestrator role; explicit no-write/reviewer-only constraints imply the reviewer role.
 
 ## Scout Gate
 
@@ -54,14 +57,16 @@ Before the first Git modification inspect `git status --short`. Record PID/job/p
 
 ## Cross-Review Gate
 
-Applies only to implementers; reviewer selection, runtime identity isolation, dispatch, and feedback handling are authoritative in `capabilities/cross-review.md`.
+Applies to implementers and review orchestrators; reviewer selection, runtime identity isolation, review-session continuity, dispatch, feedback handling, and iterative closure are authoritative in `capabilities/cross-review.md`.
 
 Triggers:
 
-1. User explicitly requests review -> run it after self-review without asking again.
+1. User explicitly requests cross-review, delegated review, or review-and-fix -> run the first round after scope/self-review without asking again.
 2. Otherwise, if the change touches security, critical data flow, multi-step writes/transactions, cross-module refactoring, production readiness, or unresolved uncertainty -> recommend a reviewer/scope/reason and obtain confirmation. In non-interactive headless mode without prior authorization, do not dispatch; report pending confirmation.
 
-Trivial fixes, pure configuration, and one-line changes need no unsolicited cross-review after self-review.
+For orchestrated code-review mode, one reviewer response does not complete the workflow when actionable findings remain. Verify findings, fix valid in-scope issues, self-validate, and follow the iterative closure rules in `capabilities/cross-review.md`. If another round is approved or pre-authorized, continue the same reviewer conversation using its recorded session/cache state.
+
+Trivial fixes, pure configuration, and one-line changes need no unsolicited cross-review after self-review unless the user explicitly requested review.
 
 ## Regression / Cleanup Gate
 
@@ -71,9 +76,10 @@ Do not claim completion if cleanup/validation failed or task-owned residue remai
 
 ## Execution Discipline
 
-- Request concrete evidence from scouts/reviewers: `file:line`, source text, call sites, command results, unknowns.
+- Request concrete evidence from scouts/reviewers: stable finding id, `file:line`, source text, call sites, command results, unknowns.
 - Personally verify critical code, signatures, configuration, errors, and facts that can change the implementation approach.
 - Scouts collect facts; they do not replace your critical analysis, synthesis, or acceptance decision.
+- Keep one finding ledger across review rounds and preserve finding ids/status when the same reviewer conversation is resumed.
 
 ## Fallback
 
