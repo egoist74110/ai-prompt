@@ -31,7 +31,9 @@ command -v "$PY" >/dev/null 2>&1 || {
 
 # --- 3. 工作树 vs 暂存快照 ---
 worktree_skills=$(ls -d skills/*/SKILL.md 2>/dev/null | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)
-staged_skills=$(git ls-files --cached -- 'skills/*/SKILL.md' | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)
+# 必须与上面 ls 一样只看第一层：git 默认 pathspec 的 * 会跨目录，
+# 嵌套的 SKILL.md（如 skills/<name>/examples/*/SKILL.md）会误入暂存集合。
+staged_skills=$(git ls-files --cached -- ':(glob)skills/*/SKILL.md' | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)
 if [ "$worktree_skills" != "$staged_skills" ]; then
   echo "pre-commit: 工作树与暂存区的 skill 集合不一致，已中止。" >&2
   echo "  只在工作树、未暂存：" >&2
