@@ -11,6 +11,7 @@
 - 当前 OS / shell / 是否处于 WSL
 - home、WSL distro、Python/CLI 可执行文件路径
 - 动态 runtime registry：任意 AI CLI / Agent 的 command、entry、skills、capabilities、review invocation
+- reviewer 的已验证 continuation strategy / resume args / native cache locator
 - credential locator（去哪里取，不保存 secret）
 - 某个服务从 Windows/WSL/macOS 哪一侧执行
 - Search/MCP/headless 后端的命令或配置 locator
@@ -28,9 +29,62 @@
 - 搜索后端 healthy/degraded/cooldown/blocked、失败原因、重试条件
 - runtime-native 搜索工具的 suppression 是否 pending/verified/unsupported
 - headless review 是否跑通
+- cross-review 的 review session、round、session ref/cache locator、finding ledger 与 continuation 状态
 - 网络/API/编码/字段等环境实测事实
 
 它不是永久真理。**新的实际执行结果**可以刷新缓存；“tool 被暴露”本身不算成功事实，不能覆盖已经验证的 blocked 状态。
+
+## Review Session / Conversation Continuity
+
+代码审核是可持续的多轮会话，不是每一轮重新调用一个失忆 reviewer。
+
+每次新的跨 AI 审核创建稳定 `review_id`，并在仓库内建立：
+
+```text
+.local/reviews/<review_id>/
+```
+
+这里保存非敏感的审核请求/响应快照、finding ledger、round metadata 和 continuation notes。索引状态写入：
+
+```text
+.local/state.json -> cross_review.sessions.<review_id>
+```
+
+至少记录：
+
+- `runtime_id` / `runtime_identity`
+- repository/worktree + scope
+- `session_ref`
+- `cache_locator`
+- `continuation_strategy`
+- `continuity`
+- `round`
+- `last_reviewed_boundary`
+- `last_result`
+- `open_findings`
+
+Reviewer 自己的原生 conversation cache 可以位于 CLI/runtime 的默认目录；不要为了统一目录复制 opaque cache。只记录实际验证过、能够恢复该会话的非敏感 locator/session id。
+
+Runtime registry 中 `review.continuation` 是**机器事实**，建议结构：
+
+```text
+review.continuation.strategy = native-session|persistent-process|cwd-cache|unknown|unsupported
+review.continuation.resume_args = [<runtime-specific verified args; may contain {session_ref}>]
+review.continuation.session_ref_source = stdout|stderr|cache-metadata|process|none
+review.continuation.cache_locator = <non-secret verified locator or null>
+```
+
+这些值不得靠中央文档猜测。第一次需要多轮 review 时，对当前 runtime 做最小 discovery，验证后写入本地 runtime/state。产品版本升级、cache 被清理或 resume 失败时，应重新验证。
+
+第二轮及以后必须：
+
+1. 使用相同 `review_id` 与 `runtime_identity`；
+2. resume 同一个 native reviewer conversation；
+3. 先让 reviewer 复核上一轮 finding 的关闭状态；
+4. 再检查修复造成的 regression / 新问题；
+5. 复用同一 finding id 表示同一缺陷。
+
+如果原会话无法恢复，不能静默启动新会话并称为“二审”。将 `continuity=broken`，保留旧审核记录，并由用户决定是否开一个新的 review session。详细行为以 `capabilities/cross-review.md` 为准。
 
 ## Runtime Registry：模板不是名单
 
