@@ -15,7 +15,7 @@ Unified search service for normal web search, batch search, vertical/domain sear
 
 ## Project-wide priority
 
-Before activating this Skill, follow `router.md` Fact Priority and `capabilities/search.md` when search strategy is needed:
+The order below mirrors `capabilities/runtime.md#fact-priority`; do not load that file solely to repeat it. Load `capabilities/search.md` only when search strategy/backend selection is needed:
 
 1. use current-session execution facts only when they prove a candidate usable;
 2. honor valid local verified/suppression state, including `blocked`, `cooldown`, `unsupported`, and retry conditions;
