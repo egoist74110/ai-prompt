@@ -1,78 +1,73 @@
 # AI Prompt Router
 
-Unified entry point for all AI agents and model runtimes.
+Unified lightweight entry point for all AI agents and model runtimes.
 
-## Root / Local State
+## Root
 
 - `AI_PROMPT_ROOT` = directory containing this file. Resolve repository-relative paths from it; never assume a machine-specific home path.
-- `.local/runtime.json`: machine facts (OS, paths, runtime registry, capability/credential locators).
-- `.local/state.json`: verified experience (availability, strategy, failures, retry/invalidation conditions).
-- Never commit `.local/` or store secret contents there; store credential locators only.
-- If `.local/` is absent and Python is available, run `python tools/runtime_state.py init` (`python3` if required).
 
-## Runtime Registry
+## Progressive Loading
 
-Runtime names are local data, not central constants.
+Always begin with the lightest sufficient route. Read `common.md` first, then load only the prompt material required by the current request.
 
-- `config/runtime-templates.json` is bootstrap data only; `.local/runtime.json.runtimes` is authoritative after initialization.
-- Bootstrap, doctor, Skill sync, review, and other consumers MUST iterate the registry. Never add product-name branches to central code.
-- Users may register arbitrary runtimes; central Python must not require edits for each new runtime.
-- Full schema: `config/README.md`.
+- Do not preload `models/high.md`, Skills, or capabilities.
+- Do not select a heavy route from topic keywords alone. A request can mention code without being an engineering task.
+- Reuse prompt material already loaded in the current session when it is still current; do not reread it mechanically.
+- Re-evaluate the route when user intent changes. Escalate only when the current route lacks required workflow or guarantees.
+- A previous heavy turn does not make later lightweight requests engineering tasks automatically.
+- Never under-route an explicit request merely to save tokens.
 
-### Fact Priority
+## Routes
 
-For Skills, MCP, search, APIs, headless runtimes, and local tools, stop at the first sufficient layer:
+### 1. Direct
 
-1. current-session execution facts;
-2. verified `.local/runtime.json` / `.local/state.json` facts, including valid `blocked`, `cooldown`, and `unsupported` state;
-3. exposed tools are candidates only, not proof that they should be retried;
-4. discover/probe only if earlier layers cannot resolve the need or cached state requires retry.
+Use for ordinary Q&A, explanation, summarization, translation, brainstorming, simple code/API/syntax questions, and other work that does not need a specialized workflow or repository/project engineering guarantees.
 
-After successful discovery, cache machine locators/config in runtime and verified strategy/result/retry state in state. Current execution overrides stale cache, but merely exposing a previously blocked tool does not invalidate its retry condition.
+Load only `common.md` plus any capability that the task itself actually requires. Do **not** load `models/high.md` for Direct requests.
 
-## Search Routing
+### 2. Skill-first
 
-Before external search, resolve hosting and actual backend availability from verified local cache or minimal read-only discovery; never infer usability from tool exposure or guess unknown hosting.
-Prefer usable platform-native search; otherwise use an eligible verified fallback regardless of hosting, preserving cached blocks and explicit fallback policy.
-Load `capabilities/search.md` before backend selection, fallback, or failure handling; cache newly verified facts.
-Physical native-tool suppression is limited to deterministic failures in local/self-hosted contexts; follow `capabilities/search-runtime-suppression.md`.
+Use when the user names a Skill or the request clearly matches reusable Skill metadata.
 
-## Read Order
+- If central Skill metadata is not already exposed in the session, read `capabilities/skills.md` once for discovery.
+- Load only the matching `skills/<name>/SKILL.md` file(s).
+- A matching Skill does not by itself require `models/high.md`; Skill execution may run commands or create requested artifacts while remaining Skill-first.
+- If the underlying task is repository/project engineering, use the Engineering route and add the matching Skill there instead.
 
-1. Always read `common.md`.
-2. Complete problem solving/implementation -> read `models/high.md`.
-3. Scout/context collection/mechanical execution only -> read `models/scout.md`, not `models/high.md`.
-4. If the current session does not already expose the central Skill metadata, read `capabilities/skills.md` once before planning implementation/review work; load only matching `skills/<name>/SKILL.md` files.
-5. Load other capabilities only when triggered:
-   - MCP/tool discovery -> `capabilities/mcp.md`;
-   - cross-review -> `capabilities/cross-review.md` when triggered by `models/high.md`;
-   - search strategy -> `capabilities/search.md` when required by the routing rules above;
-   - any role that will create file/config/process/build/debug side effects -> read `capabilities/cleanup.md` before the first side effect and follow its applicable cleanup rules on success, failure, and early exit.
+### 3. Engineering
 
-Do not bulk-read Skills/capabilities.
+Use when the request needs repository/project engineering workflow or guarantees: implementation, code/config changes, project debugging, architecture/refactoring, code review, build/deploy changes, or substantial repository analysis/planning.
 
-## Capability Rules
+- Read `models/high.md`.
+- Load Skill metadata and matching Skills only when relevant.
+- Code-related subject matter alone is not enough to select this route.
 
-- Load a capability only when named by the user or clearly matched by its metadata/task trigger.
-- Respect verified local `blocked`, `cooldown`, or `unsupported` state until its retry condition is met.
-- Before installing/enabling a plugin, MCP, connector, or expanded permission, explain reason/impact and obtain confirmation.
-- Cache machine-specific facts locally after first verification; keep only cross-machine rules in central docs.
+### 4. Scout
 
-## Skill Contract
+If this execution is delegated only for context collection, repository scouting, or low-risk mechanical work, read `models/scout.md` instead of `models/high.md`. The primary Engineering agent remains responsible for decisions and acceptance.
 
-`skills/` is canonical; `capabilities/skills.md` is only its discovery index.
+## Escalation
 
-- Use an existing canonical Skill directly; do not maintain runtime-private forks.
-- Move newly created reusable Skills into `skills/<name>/` in the same task.
-- Update the canonical copy when it exists.
-- `SKILL.md` frontmatter is the metadata source of truth. Regenerate the index with `tools/gen-index.py` after add/delete/rename/description changes.
-- Resolve Skill-internal paths relative to that Skill, not cwd or a runtime home path.
-- Runtime Skill layout is machine-specific; use registry facts and verification.
-- `tools/doctor.py` is the canonical cross-platform health check.
+Routes are per current intent, not permanent conversation labels.
 
-## Side Effects / Delivery
+- Direct -> Skill-first when a reusable specialized procedure is needed.
+- Direct or Skill-first -> Engineering when the user asks for project inspection, modification, debugging, review, or engineering-level guarantees.
+- Engineering adds capabilities only when their trigger becomes active.
+- If a request mixes routes, use the lightest route that fully covers each required part; escalate only the parts that need it.
 
-`capabilities/cleanup.md` is authoritative for ownership, regression scope, process/port/config cleanup, failure paths, and post-cleanup smoke. The trigger above applies to every role, not only implementers.
+## On-demand Capabilities
+
+Load only when triggered:
+
+- Skill discovery -> `capabilities/skills.md`;
+- Skill creation/update/rename/delete/deployment maintenance -> `capabilities/skill-maintenance.md`;
+- runtime registry, machine discovery, or shared local runtime/state work -> `capabilities/runtime.md`;
+- MCP/tool discovery -> `capabilities/mcp.md`;
+- search backend selection, fallback, or failure handling -> `capabilities/search.md`;
+- cross-review -> `capabilities/cross-review.md` as directed by `models/high.md`;
+- Engineering side effects/regression/cleanup -> `capabilities/cleanup.md` as directed by `models/high.md`.
+
+Do not bulk-read Skills or capabilities.
 
 ## Native Entrypoints
 
