@@ -1,0 +1,25 @@
+# Worldbook authoring
+
+These are the user's preferred writing conventions. Adapt them to the requested book and existing style rather than treating every count or format as a validity rule.
+
+## Structure and activation
+
+- For a setting book, use a short always-on overview for core rules when needed. Put people, places, factions, items, and events in keyword-triggered detail entries so irrelevant text stays out of the prompt.
+- Choose 1–3 distinctive entity-name triggers, often two or fewer. Avoid broad common words that activate unrelated entries. Relationship entries can use both parties' names.
+- Use short noun-phrase `comment` titles, usually 2–6 Chinese characters for Chinese entries. Keep meaningful names in other languages intact. Avoid redundant hierarchy prefixes.
+- Mind the token budget: each `constant` entry is considered every turn; higher `order` entries get budget priority. Do not inflate `order` merely to control visual placement.
+
+## Content
+
+- Prefer concise key-value facts and lists. One sentence should carry one idea. Use exact numbers, measurements, times, and names when the source supports them; do not invent precision.
+- Describe setting rules, mechanisms, tendencies, and possibilities. For events, record time, cause, outcome, and impact as reference information rather than a scene.
+- Keep characters and future events open where appropriate: express common behavior and plausible exceptions rather than fixing every future action.
+- Edit each sentence by asking: Does it change understanding? Is it information or decoration? Would a list be clearer? Can it stand alone without the source text?
+- Detail entries often need a few hundred dense characters, but let the amount of useful information set the length.
+
+## Special cases
+
+- Character entry: give identity, traits with observable behavior, capabilities, and relationships. Split long entries when retrieval or budget benefits; if several entries share a trigger, set `order` for the desired budget priority. A compact PList-style form can help: `[name: 身份, 底色:特质(行为), has(能力), 关系: 与XX是YY]`.
+- Relationship entry: specify relation type and a concrete interaction or historical event; avoid bare labels such as “关系很好”.
+- Output-format or control entry: put instructions in a dedicated entry, choose an appropriate `position`, and delimit examples clearly. The fact-entry preference above does not prohibit instructions in entries whose purpose is control.
+- Mod pack: define its scope and activation controls in a lean overview when needed. Keep optional subsystems disabled by default when the user should choose them, use specific triggers for each subsystem, and avoid activating mutually exclusive variants together. Decide the actual semantics of a new loader or switch panel with the user before writing it.
