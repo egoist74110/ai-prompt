@@ -8,7 +8,7 @@ For non-Engineering routes, apply only the ownership, failure-path, and cleanup 
 
 ## 1. Baseline and Ownership
 
-Before the first side effect, establish only the relevant baseline.
+Before the first side effect of each kind (write, process, port, config change, temp file — including one created outside the repo, e.g. a scratch file), establish or refresh only the relevant baseline. Re-check this gate whenever a new kind of side effect appears later in the task; a single check at task start does not cover kinds that only show up in a later phase.
 
 For Git workspaces run at least:
 

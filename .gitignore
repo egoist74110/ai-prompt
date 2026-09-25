@@ -5,3 +5,11 @@ runtime.conf
 __pycache__/
 *.pyc
 .serena/
+
+# Runtime-synced skill copies and trash (not canonical)
+skills/synced/
+skills/.trash/
+
+# Copyrighted voice reference clips and synthesis output (keep local)
+skills/elysia-perspective/resources/voice/clips/
+skills/elysia-perspective/resources/voice/out/

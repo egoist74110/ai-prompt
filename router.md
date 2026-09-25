@@ -20,7 +20,8 @@ Always begin with the lightest sufficient route. Read `common.md` and `response/
 
 Presentation is separate from task reasoning.
 
-- If `.local/response-profile.md` exists, read it after `response/default.md`; it is the user-owned persistent presentation cache.
+- Read `.local/response-profile.md` directly with the read tool after `response/default.md`; it is the user-owned persistent presentation cache. A failed read (not found) means the cache is absent — continue with the default contract.
+- Never probe that file's existence via glob or directory listing (hidden-directory gaps make such probes unreliable); only a direct read result — content, or a not-found error — decides whether the cache applies.
 - Do not infer or select a persona, tone, or style when that cache is absent; use the default contract only.
 - Load only style material explicitly named by that cache. Do not scan for persona files or activate Skills for style alone.
 - Cached style may control only user-facing language, tone, wording, structure, and expression DNA. It must not change reasoning, routing, research, tool use, factual standards, implementation, or review gates.
@@ -76,7 +77,7 @@ Load only when triggered:
 - MCP/tool discovery -> `capabilities/mcp.md`;
 - search backend selection/fallback/failure -> `capabilities/search.md`;
 - cross-review -> `capabilities/cross-review.md` via `models/high.md`;
-- any route that starts task-owned processes, allocates ports, changes temporary config/permissions, or creates temporary/unrequested files -> `capabilities/cleanup.md` before the first such side effect; Engineering additionally applies its regression/delivery rules.
+- any route that starts task-owned processes, allocates ports, changes temporary config/permissions, or creates temporary/unrequested files (repo-local or not, e.g. scratch files) -> `capabilities/cleanup.md` before the first side effect of each such kind, even if it first appears in a later phase of an already-running task; Engineering additionally applies its regression/delivery rules.
 
 Do not bulk-read Skills or capabilities.
 

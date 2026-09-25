@@ -55,9 +55,9 @@ Before review/cleanup, compare original requirements against actual diff/behavio
 
 ## Side-Effect / Cleanup Gate
 
-Before the first Engineering write, process start, port allocation, build/debug run, or temporary config change, read `capabilities/cleanup.md` and apply it throughout the task.
+Before the first side effect of each such kind — Engineering write, process start, port allocation, build/debug run, or temporary config/file change, including one outside the repo (e.g. scratch files) — read `capabilities/cleanup.md` if not already loaded this task. A multi-phase task (investigate -> implement -> dispatch review -> ...) commonly introduces new kinds of side effects at later phases; re-apply the gate each time a new kind appears, not only once at task start.
 
-From the first side effect, distinguish:
+From the first side effect of each kind, distinguish:
 
 - `baseline`: pre-existing dirty files/processes/ports;
 - `temporary`: task-owned resources not requested to remain; remove/stop/restore;
