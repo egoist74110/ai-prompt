@@ -1,7 +1,17 @@
 .env
 runtime.conf
 .local/
+# 本机公共密钥库（值明文，禁止上传）
+secrets/
 .DS_Store
 __pycache__/
 *.pyc
 .serena/
+
+# Runtime-synced skill copies and trash (not canonical)
+skills/synced/
+skills/.trash/
+
+# Copyrighted voice reference clips and synthesis output (keep local)
+skills/elysia-perspective/resources/voice/clips/
+skills/elysia-perspective/resources/voice/out/
