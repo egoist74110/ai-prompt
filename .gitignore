@@ -1,6 +1,8 @@
 .env
 runtime.conf
 .local/
+# 本机公共密钥库（值明文，禁止上传）
+secrets/
 .DS_Store
 __pycache__/
 *.pyc

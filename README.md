@@ -163,6 +163,7 @@ Engineering 任务不是“功能跑通”就结束，而是：
 - 不要在中央文档保存用户名、home、WSL distro、token 文件绝对路径、某台机器 VPN/网络拓扑、当前某 CLI 是否安装等单机事实。
 - 不要在消费者代码里维护固定 runtime 名单、固定优先级或固定 runtime-specific 路径。
 - Token/密码/cookie/私钥正文不得写入 `.local/`；只能缓存 credential locator。
+- 密钥正文统一放本机密钥库 `secrets/secrets.json`（已 gitignore，pre-commit 拦截；权限仅当前用户：POSIX 为 700/600，Windows 为 icacls 专属 ACL），每条带索引名 + 用途说明；用 `python tools/secrets_store.py list|set|get|describe|remove` 管理（按本机可用解释器用 `python`/`python3`/`py`），locator 写作 `secrets:<索引名>`。
 - Skill/MCP/search/headless runtime 首次成功 discovery 后，应把可复用的机器事实写入 `.local/`，避免后续重复绕路。
 - 失败也可以缓存，但必须说明何时应重试，不能把临时失败写成中央永久规则。
 - 任何路由的 task-owned 临时副作用都应在任务结束或失败路径中恢复到合理 baseline；Engineering 额外执行完整回归/交付闭环。

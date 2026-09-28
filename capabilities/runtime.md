@@ -8,6 +8,7 @@ Load this file only when the task needs runtime-registry operations, machine-spe
 - `.local/runtime.json`: machine facts such as OS, paths, runtime registry, capability locators, and credential locators.
 - `.local/state.json`: verified experience such as availability, strategy, failures, and retry/invalidation conditions.
 - Never commit `.local/` or store secret contents there; store credential locators only.
+- Secret values live in the git-ignored local store `secrets/secrets.json` (indexed name + description + value). Manage it only via `python tools/secrets_store.py` (`python3`/`py` as available; the tool handles POSIX chmod and Windows icacls itself) (`list` / `set` / `get` / `describe` / `remove`); never pass a value on the command line, never echo values into chat/logs, and use `secrets:<name>` as the credential locator.
 - If `.local/` is required but absent and Python is available, run `python tools/runtime_state.py init` (`python3` if required).
 
 ## Runtime Registry
