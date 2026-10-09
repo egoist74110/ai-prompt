@@ -2,10 +2,12 @@
   "repo": "tt-a1i/archify",
   "path": "archify",
   "ref": "main",
-  "commit": "28b2a61f0a2d7eaa5fcb8f657e4e5b85097d411e",
+  "commit": "bb990b17b886e83d633e273221615eb259a92c78",
   "synced_at": "2026-10-09",
-  "local_changes": "auto-detected; modified: SKILL.md, assets/template.html, bin/archify.mjs, bin/open-artifact.mjs, bin/preview.mjs, bin/visual-check.mjs, delta/architecture-delta.mjs, examples/agent-run.lifecycle.json (+58); not vendored: bin/delivery-update.mjs, bin/finalize.mjs, bin/recover-output.mjs, examples/holiday-planning.workflow.json, examples/locales/de.json, examples/locales/es.json, examples/locales/fr.json, examples/locales/fr.partial.json (+225)",
-  "exclude": [],
-  "note": "Upstream also ships its own release channel (skill-release.json updateManifestUrl, scripts/update-contract.mjs). Local copy is 2.17.0-dev.1; upstream stable is 3.x, so expect a large update.",
-  "index_description": "Build validated architecture, workflow, sequence, data-flow, and state diagrams as interactive standalone HTML with themes and export; also converts or beautifies Mermaid. Use to visualize systems, pipelines, API flows, or state machines."
+  "local_changes": "none; upstream test/ not vendored",
+  "exclude": [
+    "test/*"
+  ],
+  "index_description": "Build validated architecture, workflow, sequence, data-flow, and state diagrams as interactive standalone HTML with themes and export; also converts or beautifies Mermaid. Use to visualize systems, pipelines, API flows, or state machines.",
+  "note": "Upstream also ships its own release channel (skill-release.json, scripts/update-contract.mjs); this repo tracks it through UPSTREAM.json instead."
 }

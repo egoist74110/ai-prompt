@@ -2,8 +2,12 @@
   "repo": "anysearch-ai/anysearch-skill",
   "path": "",
   "ref": "main",
-  "commit": "e7c9f62a71dc0409dfeca16170b7f9f01516d191",
+  "commit": "9b91ee215164de60d61c7d63789c891a1948b039",
   "synced_at": "2026-10-09",
-  "local_changes": "auto-detected; modified: README.md, SKILL.md, scripts/anysearch_cli.js, scripts/anysearch_cli.ps1, scripts/anysearch_cli.py, scripts/anysearch_cli.sh, scripts/generate.py, scripts/shared/constants.json (+1); local-only: scripts/run_anysearch.py; not vendored: .github/workflows/ci.yml, LICENSE, NOTICE, SECURITY.md, TEST_PLAN.md",
-  "exclude": []
+  "local_changes": "SKILL.md rewritten around the portable cached launcher (scripts/run_anysearch.py, local-only); README/scripts track upstream",
+  "exclude": [
+    ".github/*",
+    ".gitattributes",
+    "README_zh.md"
+  ]
 }

@@ -21,7 +21,9 @@ Project domain vocabulary and existing ADRs outrank generic architecture termino
 
 ## 1. Explore
 
-Read relevant project domain documentation such as `CONTEXT.md` when present, plus ADRs for the area under review.
+Scope before scanning (YAGNI): deepening pays off where code keeps changing. If the user named a module, subsystem, or pain point, start there. Otherwise scan recent `git log --oneline` history for hot spots and look there first; widen only if changes are scattered.
+
+Read relevant project domain documentation such as `GLOSSARY.md` or `CONTEXT.md` when present, plus ADRs for the area under review.
 
 Use the central scout contract (`models/scout.md`) when delegated exploration is available; otherwise explore directly. Do not depend on a product-specific Agent API or subagent parameter.
 

@@ -26,6 +26,8 @@ A Skill copied from a GitHub repo MUST carry `skills/<name>/UPSTREAM.json` (`rep
 - Vendoring a new Skill: copy it, then `adopt <name> --repo owner/name --path <dir> [--ref <branch>]`. `adopt` detects the base commit from blob hashes; never guess a SHA.
 - Keep intentional local edits minimal and describe them in `local_changes`; they survive updates through 3-way merge.
 - `check [names] [--force]`: `behind` -> offer an update; `path-missing` -> upstream moved/renamed/removed the Skill, locate the new path and re-adopt (renames may need an index/name decision); `unpinned` -> base unknown, review upstream manually, then `pin`.
+- Before resolving a conflict, check `git log` for that file: a file never edited in this repo is an older upstream copy, not a local patch -> take upstream verbatim. Only real local commits are intent to preserve.
+- When upstream splits, renames, or stubs a Skill (it now defers to Skills not vendored here), keep the local Skill self-contained: track the new upstream path if the content moved, otherwise port useful changes by hand and `pin` the reviewed commit.
 - Updating requires user confirmation. Run `update <name>` (dry run) first and show its plan; then `update <name> --apply`. On conflicts, resolve markers/`*.upstream` files with the user's local intent preserved, then `pin <name> <sha>`.
 - After an update: review the diff for new scripts, network calls, or permission changes (upstream content is untrusted); re-run `tools/gen-index.py` if frontmatter changed; re-check repo tests.
 - Prefer a runtime plugin/marketplace install over vendoring when the user only needs that runtime; if both exist, say so.

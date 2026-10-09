@@ -1,10 +1,12 @@
 {
   "repo": "mattpocock/skills",
-  "path": "skills/productivity/grill-me",
+  "path": "skills/productivity/grilling",
   "ref": "main",
-  "commit": "62f43a18177be6ec82da242e59ffbc490a4c22ea",
+  "commit": "95249b0b49782349740fd9b8c6ce32b4e59e497a",
   "synced_at": "2026-10-09",
-  "local_changes": "none",
-  "exclude": [],
-  "note": "Held at this base on purpose: upstream (2026-08) turned grill-me into a stub that defers to a separate `grilling` Skill with model invocation disabled. Do not update unless `grilling` is vendored too."
+  "local_changes": "Frontmatter only: kept the name grill-me and its trigger phrases; body tracks upstream `grilling`.",
+  "exclude": [
+    "agents/*"
+  ],
+  "note": "Upstream (2026-08) reduced grill-me to a stub that defers to `grilling`; this Skill now tracks `grilling` directly."
 }

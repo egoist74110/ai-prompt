@@ -2,9 +2,8 @@
   "repo": "obra/superpowers",
   "path": "skills/receiving-code-review",
   "ref": "main",
-  "commit": null,
+  "commit": "3fb75974186ea7fada621d8ab77b3b02169baf57",
   "synced_at": "2026-10-09",
-  "local_changes": "base unknown: no upstream revision in the scanned history shares files with the local copy",
-  "exclude": [],
-  "note": "Local copy is a condensed rewrite of obra/superpowers receiving-code-review; no upstream revision matches. Review upstream changes manually, then pin."
+  "local_changes": "Condensed runtime-neutral rewrite of upstream; covers verify-before-implement, pushback, YAGNI, unclear-feedback handling, and GitHub thread replies. Upstream reviewed through this commit; merge future changes by hand.",
+  "exclude": []
 }

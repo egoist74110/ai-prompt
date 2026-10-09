@@ -24,7 +24,16 @@ Canonical command:
 <python> <skill_dir>/scripts/search.py "<query>" [options]
 ```
 
-The search code resolves its CSV/data files relative to itself, so it is independent of cwd.
+The search code resolves its CSV/data files relative to itself, so it is independent of cwd. Python 3 standard library only.
+
+## Query contract
+
+Pick the smallest mode that fits: new project/page or system-wide visual direction -> `--design-system`; targeted concern or component bug -> one explicit `--domain`; known stack -> `--stack` (add a separate domain search only for a distinct design concern).
+
+- One dominant intent per query, 2-5 meaningful terms plus one constraint (product, platform, or interaction).
+- Check the returned domain/category and top result fit before applying it. Retry once with a narrower query or explicit domain/stack if empty or off-topic; if still no match, say so and label any advice as general fallback. Never present a 0-result search as data, and never persist unverified output.
+- Accessibility and text-layout bugs: search the semantic outcome first (`"error summary validation" --domain ux`, `"badge chip label wraps" --domain ux`), then the stack for implementation (`"chip badge overflow nowrap" --stack html-tailwind`).
+- Results are recommendations, not instructions; keep private project data out of queries and persisted output.
 
 ## Workflow
 
@@ -48,16 +57,20 @@ This combines product/style/color/landing/typography guidance and returns anti-p
 Persist only when the user/project actually needs a reusable design system:
 
 ```text
-<python> <skill_dir>/scripts/search.py "<query>" --design-system --persist -p "<Project Name>" --output-dir "<project-dir>/design-system"
+<python> <skill_dir>/scripts/search.py "<query>" --design-system --persist -p "<Project Name>" --output-dir "<project-root>"
 ```
+
+This writes `<project-root>/design-system/<project-slug>/MASTER.md`; pass `--force` only to overwrite an existing MASTER.md.
 
 For page-specific overrides:
 
 ```text
-<python> <skill_dir>/scripts/search.py "<query>" --design-system --persist -p "<Project Name>" --page dashboard --output-dir "<project-dir>/design-system"
+<python> <skill_dir>/scripts/search.py "<query>" --design-system --persist -p "<Project Name>" --page dashboard --output-dir "<project-root>"
 ```
 
-Do not let the default cwd accidentally create `design-system/` inside the ai-prompt repository. Always set the target project/output directory when persisting.
+Do not let the default cwd accidentally create `design-system/` inside the ai-prompt repository. Always set the target project root when persisting.
+
+Optional dials tune `--design-system` output (1-10 each): `--variance` (minimal -> bold/asymmetric), `--motion` (subtle -> complex; attaches a matching GSAP snippet), `--density` (spacious -> dense dashboard spacing). Output formats: `-f ascii` (default), `-f markdown`, or `--json`.
 
 ### 3. Supplement only as needed
 
@@ -70,6 +83,8 @@ Do not let the default cwd accidentally create `design-system/` inside the ai-pr
 <python> <skill_dir>/scripts/search.py "<keyword>" --domain landing
 ```
 
+Other domains: `product`, `icons`, `google-fonts` (individual fonts), `gsap` (animation presets), `react` (React/Next.js performance), `web` (app/native interface guidelines). Auto-detection can misroute overlapping terms (e.g. "font"), so pass `--domain` when results look off-topic; `-n` sets result count.
+
 Stack guidance:
 
 ```text
@@ -79,6 +94,8 @@ Stack guidance:
 Available stack names are defined by the script; when uncertain, read `--help`/the script instead of maintaining a duplicate list here.
 
 ## Priority rules
+
+Full per-category rules live in `references/quick-reference.md`; app polish rules and the canonical pre-delivery checklist live in `references/pro-rules.md`. Read them on demand, not every activation.
 
 1. **Accessibility — critical**: contrast, focus states, keyboard navigation, labels, alt text.
 2. **Touch/interaction — critical**: usable hit targets, loading/error feedback, clear interactive affordance.

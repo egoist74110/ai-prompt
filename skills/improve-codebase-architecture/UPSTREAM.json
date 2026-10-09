@@ -2,8 +2,10 @@
   "repo": "mattpocock/skills",
   "path": "skills/engineering/improve-codebase-architecture",
   "ref": "main",
-  "commit": "a36584e09eaee067c425938fd66bc7ccddf089e2",
+  "commit": "d80fa0f4ebe0c5714af0adf8670336065233ecc6",
   "synced_at": "2026-10-09",
-  "local_changes": "auto-detected; modified: SKILL.md",
-  "exclude": []
+  "local_changes": "Self-contained, runtime-neutral rewrite: keeps LANGUAGE.md/INTERFACE-DESIGN.md/DEEPENING.md instead of upstream's split into codebase-design/grilling/domain-modeling Skills; agents/ excluded (upstream disables implicit invocation). Upstream changes reviewed through this commit.",
+  "exclude": [
+    "agents/*"
+  ]
 }
