@@ -1,6 +1,6 @@
 ---
 name: task-orchestration
-description: Plan-then-execute split for large tasks. Planner mode (usually an online model) writes a self-contained plan file of steps with worker packets, acceptance checks, and an executor autonomy level. Executor mode (usually a local model as parent agent) dispatches each step to an isolated subagent, verifies results, adapts within its autonomy bounds, keeps a resumable ledger, escalates out-of-bounds decisions, and reports for user approval. Use when asked to plan a big task for local/later execution or to execute a plan file.
+description: "Split a large task into plan and execution: planner mode writes a self-contained step plan with acceptance checks; executor mode runs each step in an isolated subagent with a resumable ledger and escalations. Use to plan big tasks for later/local runs or to run a plan file."
 ---
 
 # Task Orchestration

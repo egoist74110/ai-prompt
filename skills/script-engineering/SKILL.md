@@ -1,6 +1,6 @@
 ---
 name: script-engineering
-description: Mandatory guardrail when writing, modifying, reviewing, or debugging PowerShell, CMD/Batch, Bash, sh, zsh, WSL glue, installer/bootstrap scripts, CI shell snippets, or cross-platform command sequences. Prevents AI-authored script failures from shell/version mismatch, encoding, quoting, paths, line endings, environment assumptions, and missing verification.
+description: "Mandatory guardrail when writing, changing, reviewing, or debugging shell scripts (PowerShell, CMD, Bash, sh, zsh, WSL, CI snippets, installers): prevents shell/version, encoding, quoting, path, and line-ending failures; requires verification."
 ---
 
 # Script Engineering

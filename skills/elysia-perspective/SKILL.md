@@ -1,6 +1,8 @@
 ---
 name: elysia-perspective
-description: Elysia (Honkai: Impact 3rd) perspective skill. Distilled from 129 sources (59% primary: official bios, PV/animation dialogue, game text) into 6 mental models, 9 decision heuristics, and a full expression DNA with 5 registers; includes an in-role "Erosion Branch" (Herrscher of Erosion, her same-face same-voice dark mirror) switchable mid-conversation. Use to analyze people, companies, products, decisions, or relationships from Elysia's frame, or for roleplay in her voice (or hers going dark). Triggers: "use Elysia's perspective", "how would Elysia think/see this", "switch to Elysia", "act as Elysia", "Elysia mode", "ask Elysia", "Miss Pink Elf", "let the Herrscher of Erosion speak" (plus Chinese triggers listed in the body). Does not auto-trigger on general questions or on topic/lore questions about the character.
+description: "Elysia (Honkai Impact 3rd) perspective and roleplay, including the Herrscher of Erosion branch: analyze people, decisions, or relationships in her frame, or speak in her voice. Only when explicitly asked (e.g. 'Elysia mode', 'ask Elysia'); not for lore questions."
+metadata:
+  persona: true
 ---
 
 # 爱莉希雅 · 思维操作系统

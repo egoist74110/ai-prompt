@@ -1,0 +1,9 @@
+{
+  "repo": "openai/skills",
+  "path": "skills/.curated/playwright",
+  "ref": "main",
+  "commit": "a5119697b819090e00e5d11ee1d86834d7c1043a",
+  "synced_at": "2026-10-09",
+  "local_changes": "auto-detected; modified: LICENSE.txt, SKILL.md, scripts/playwright_cli.sh; local-only: scripts/playwright_cli.py",
+  "exclude": []
+}

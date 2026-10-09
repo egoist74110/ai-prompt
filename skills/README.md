@@ -10,3 +10,4 @@
 - Secret 正文不进 `.local`；只允许缓存 credential locator。
 - 第一次 discovery 跑通后应缓存，后续直接复用；缓存失效才重新探测。
 - 运行时私有 skills 目录只是部署入口，不是第二份 source of truth。
+- 从 GitHub 引入的 Skill 必须带 `UPSTREAM.json`，用 `tools/skill_upstream.py adopt` 登记、`check`/`update` 跟进上游；不要手改 `commit` 字段。

@@ -165,8 +165,8 @@ class PromptRoutingTests(unittest.TestCase):
     def test_base_route_prompt_budgets(self):
         base = ("router.md", "common.md", "response/default.md")
         chains = {
-            "direct": (base, 6500),
-            "scout": (base + ("models/scout.md",), 8500),
+            "direct": (base, 8000),  # includes the always-on Skill Offers rule
+            "scout": (base + ("models/scout.md",), 9500),
             "engineering": (base + ("models/high.md",), 15500),
             "skill-discovery": (base + ("capabilities/skills.md",), 15500),
         }

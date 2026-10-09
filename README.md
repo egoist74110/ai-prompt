@@ -106,6 +106,37 @@ python tools/runtime_state.py runtime add <runtime-id> \
 - 任何路由如果会启动任务自有进程、占用端口、修改临时配置/权限或产生临时/非请求文件，在首次副作用前加载 `capabilities/cleanup.md`；非 Engineering 只应用必要的 ownership/cleanup，Engineering 再执行完整回归与交付。
 - 网页搜索按实际后端可用性分流：有可用平台原生搜索且无需回退时不必加载搜索策略；需要选择后端、回退或处理失败时读取 `capabilities/search.md`。
 
+## Skill 主动推荐
+
+以前只有用户点名 Skill 才会用；现在 `router.md` 的 **Skill Offers** 规则让 AI 在开始“实质性任务”（规划、设计、开发、排查、审查、产出文件）前，先对照 Skill 索引，命中就**用一句话问你要不要用**，你同意后才加载。例如：
+
+```text
+你：帮我规划一下导出功能
+AI：这个任务可以用 html-plan（交互式方案页）或 grill-me（先逐条追问需求），要用哪个吗？
+```
+
+- 不问、直接用的情况：你已经点名、用了 Skill 描述里的触发词、`user_prefs` 里已有偏好、Skill 本身是强制护栏（如 `script-engineering`），或者任务只能靠这个 Skill 的工具完成（如 B 站转录）。
+- 你拒绝后，同一任务不再重复推荐；无人值守模式下不等回复，只在最终报告里提一句。
+- 普通问答不触发推荐。
+
+## 上游 Skill 更新
+
+从 GitHub 拿来的 Skill 在目录里放一个 `UPSTREAM.json`，记录来源仓库、子目录、跟踪分支、**本地副本基于哪个上游 commit**，以及本地改过什么。统一用 `tools/skill_upstream.py` 管：
+
+```text
+python3 tools/skill_upstream.py list                 # 看哪些 Skill 有上游
+python3 tools/skill_upstream.py check --force        # 查是否落后（结果缓存 7 天）
+python3 tools/skill_upstream.py update tdd           # 预演：列出要增/改/删/冲突的文件
+python3 tools/skill_upstream.py update tdd --apply   # 真正合并
+python3 tools/skill_upstream.py adopt <name> --repo owner/repo --path <子目录>   # 新引入时登记
+```
+
+- `update` 做的是**三方合并**（上游旧版 / 上游新版 / 本地），本地有意改动会保留；冲突时文件里留冲突标记（二进制文件放 `*.upstream`），解决后用 `pin` 记下新基线。
+- `adopt` 通过文件 blob hash 自动找出本地副本对应的上游 commit，不靠猜。
+- AI 每次会话第一次加载带 `UPSTREAM.json` 的 Skill 时会跑一次 `check --quiet`（有缓存，几乎不耗时）；发现落后只提醒一句，**更新必须你确认**。
+- `path-missing` 表示上游把这个 Skill 挪走/改名/删了（例如 mattpocock 把 `diagnose` 改成了 `diagnosing-bugs`），需要人工决定是否跟进。
+- 上游内容一律当不可信数据：只下载、比对、合并，不执行；合并后要看一眼新增脚本和网络调用。
+
 ## Local Search
 
 `capabilities/search.md` 是按需加载的后端选择与失败处理策略；模型 hosting 和后端可用性是独立事实。
@@ -193,6 +224,7 @@ macOS/Linux 只有 `python3` 时使用 `python3`；Windows 可直接使用原生
 - `tools/sync_skills.py --runtime <runtime-id>` — 同步指定 registry runtime。
 - `tools/sync_skills.py --all --auto-only` — 同步所有声明自动同步的 registry runtime。
 - `tools/install-hooks.sh` — 安装 Git pre-commit hook；Git for Windows 环境可直接运行。
+- `tools/skill_upstream.py` — 跟踪/检查/三方合并 GitHub 来源 Skill 的上游更新（`UPSTREAM.json`）。
 - `tools/gen-index.py` — 从 `skills/*/SKILL.md` frontmatter 生成 `capabilities/skills.md`；`--check` 校验漏项、幽灵项、name/目录名和机器绝对路径。
 
 ## 设计边界

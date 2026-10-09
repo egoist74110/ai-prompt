@@ -1,6 +1,6 @@
 ---
 name: release-announcement
-description: "Draft the customer-facing back-office version-update announcement (customer release-notes template) from real work items and verified project code. Per-project: works only in repositories registered in the local cache, each with its own cached template. Hard gates: refuses without a work-item number or outside a registered project (asks the user). Use when the user asks, in any language, to write release notes, update notes, a version-update announcement, or a back-office announcement, including a bare request like 'write update notes for work item <id>'; always outputs the fixed announcement template, never free prose. Also supports the customer-service variant."
+description: Draft the customer-facing back-office version-update announcement (release/update notes) from work items and verified code, always in the project's fixed template; customer-service variant too. Needs a work-item number and a registered project, else asks.
 ---
 
 # release-announcement — Customer Version-Update Announcement

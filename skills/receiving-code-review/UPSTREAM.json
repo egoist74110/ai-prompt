@@ -1,0 +1,10 @@
+{
+  "repo": "obra/superpowers",
+  "path": "skills/receiving-code-review",
+  "ref": "main",
+  "commit": null,
+  "synced_at": "2026-10-09",
+  "local_changes": "base unknown: no upstream revision in the scanned history shares files with the local copy",
+  "exclude": [],
+  "note": "Local copy is a condensed rewrite of obra/superpowers receiving-code-review; no upstream revision matches. Review upstream changes manually, then pin."
+}

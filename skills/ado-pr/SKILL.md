@@ -1,6 +1,6 @@
 ---
 name: ado-pr
-description: "Unified interface for self-hosted Azure DevOps Server (*.cg1alias.com, not dev.azure.com): read work items, read/list PRs, create PRs, and link work items. Use for work-item/PR/create-publish/merge-to-main-or-master intent. Reuse verified local strategy first; discover credentials, execution side, and API paths only on first use or stale cache."
+description: "Self-hosted Azure DevOps Server (*.cg1alias.com, not dev.azure.com): read work items, read/list/create PRs, link work items, merge to main/master. Reuse the cached local strategy; rediscover only on first use or stale cache."
 ---
 
 # ado-pr — Azure DevOps Server Operations

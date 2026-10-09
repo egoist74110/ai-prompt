@@ -1,6 +1,6 @@
 ---
 name: backend-business-safety
-description: Use when designing or changing backend business logic with jobs, workers, publish/deploy/sync/import/export flows, cancellation, retry, timeout, locks, registries, caches, external APIs, or long-running stateful tasks. Focuses on lifecycle invariants, cleanup, idempotency, and failure paths before implementation.
+description: "Use when designing or changing backend logic with jobs, workers, publish/deploy/sync/import/export, retry, cancellation, timeouts, locks, caches, or external APIs: check lifecycle invariants, cleanup, idempotency, and failure paths before coding."
 ---
 
 # Backend Business Safety

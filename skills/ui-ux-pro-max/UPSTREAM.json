@@ -1,0 +1,9 @@
+{
+  "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
+  "path": ".claude/skills/ui-ux-pro-max",
+  "ref": "main",
+  "commit": "b266aec441c87320a0f5cfc86705e9a05e0d3010",
+  "synced_at": "2026-10-09",
+  "local_changes": "auto-detected; modified: SKILL.md, data/charts.csv, data/colors.csv, data/icons.csv, data/landing.csv, data/styles.csv, data/typography.csv, scripts/core.py (+1); local-only: data/stacks/astro.csv; not vendored: data/prompts.csv",
+  "exclude": []
+}

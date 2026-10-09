@@ -6,6 +6,7 @@ machine-facing discovery cache and therefore must stay concise, English, and por
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -49,6 +50,13 @@ def collect():
         if not desc:
             desc = "Missing description; add it to SKILL.md frontmatter."
             problems.append(f"{skill_md.relative_to(ROOT)}: missing frontmatter description")
+        sidecar = directory / "UPSTREAM.json"
+        if sidecar.is_file():
+            # Vendored Skills keep upstream SKILL.md untouched; a short index text lives in the sidecar.
+            try:
+                desc = json.loads(sidecar.read_text(encoding="utf-8")).get("index_description") or desc
+            except (OSError, ValueError):
+                problems.append(f"{sidecar.relative_to(ROOT)}: invalid JSON")
         desc = re.sub(r"\s+", " ", desc).strip()
         if CJK.search(desc):
             problems.append(f"{skill_md.relative_to(ROOT)}: description must be English")
@@ -60,16 +68,16 @@ def render(entries):
     lines = [
         "# Skills Index",
         "",
-        "This file is for skill discovery only. `skills/<name>/SKILL.md` frontmatter is the sole metadata source.",
+        "This file is for skill discovery only. Each entry is `skills/<name>/SKILL.md`; its frontmatter (or `index_description` in a vendored Skill's `UPSTREAM.json`) is the metadata source.",
         "Resolve repository paths relative to the directory containing `router.md`; never store machine absolute paths here.",
         "",
-        "Load a `SKILL.md` only when the user names the skill or the task clearly matches its description. Never load all skills by default.",
+        "Match and offer Skills per `router.md` Skill Offers; load a `SKILL.md` only when that rule allows it. Never load all skills by default.",
         "",
         "## Skills",
         "",
     ]
     for name, directory, desc in entries:
-        lines.append(f"- `{name}` — `skills/{directory}/SKILL.md` — {desc}")
+        lines.append(f"- `{name}` — {desc}")
     lines += [
         "",
         "## Runtime / Plugin Skills",

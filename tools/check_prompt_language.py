@@ -31,6 +31,13 @@ AI_DIR_PATTERNS = [
 CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
 
 
+def is_persona(path: Path) -> bool:
+    if path.name != "SKILL.md":
+        return False
+    match = re.match(r"\A---\s*\n(.*?)\n---\s*\n", path.read_text(encoding="utf-8"), re.DOTALL)
+    return bool(match and re.search(r"^\s+persona:\s*true\s*$", match.group(1), re.MULTILINE))
+
+
 def iter_ai_files():
     seen: set[Path] = set()
     for path in AI_FILES:
@@ -41,6 +48,10 @@ def iter_ai_files():
         if not base.is_dir():
             continue
         for path in sorted(base.glob(pattern)):
+            # Vendored Skills (UPSTREAM.json) stay byte-identical to upstream; persona/roleplay Skills
+            # (frontmatter `metadata: persona: true`) keep their native voice, which translation would distort.
+            if (path.parent / "UPSTREAM.json").is_file() or is_persona(path):
+                continue
             if path.is_file() and path not in seen:
                 seen.add(path)
                 yield path

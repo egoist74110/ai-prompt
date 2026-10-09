@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: General code-review protocol for diffs, commits, PRs, implementations, and closure rounds. Use when acting as a reviewer or when another AI is delegated to review code; produce evidence-backed findings with stable ids and verify prior findings before regressions on later rounds.
+description: "Code-review protocol for diffs, commits, PRs, and follow-up rounds, as reviewer or for a delegated reviewer: evidence-backed findings with stable ids; re-verify prior findings each round."
 ---
 
 # Code Review

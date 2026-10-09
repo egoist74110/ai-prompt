@@ -1,0 +1,10 @@
+{
+  "repo": "openai/skills",
+  "path": "skills/.curated/security-best-practices",
+  "ref": "main",
+  "commit": "5c8f1e26803bcfaffeceef1e7accbcf7e388417a",
+  "synced_at": "2026-10-09",
+  "local_changes": "auto-detected; modified: SKILL.md; local-only: agents/default.yaml; not vendored: agents/openai.yaml",
+  "exclude": [],
+  "index_description": "Language/framework-specific security best-practice review for Python, JS/TS, and Go. Only when a security review or secure-by-default guidance is explicitly requested."
+}

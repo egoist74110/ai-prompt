@@ -1,0 +1,10 @@
+{
+  "repo": "mattpocock/skills",
+  "path": "skills/productivity/grill-me",
+  "ref": "main",
+  "commit": "62f43a18177be6ec82da242e59ffbc490a4c22ea",
+  "synced_at": "2026-10-09",
+  "local_changes": "none",
+  "exclude": [],
+  "note": "Held at this base on purpose: upstream (2026-08) turned grill-me into a stub that defers to a separate `grilling` Skill with model invocation disabled. Do not update unless `grilling` is vendored too."
+}

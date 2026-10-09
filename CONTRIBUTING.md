@@ -88,6 +88,8 @@ SKILL.md / capabilities/*.md / models/*.md
 ## 5. 不允许的做法
 
 - 不允许新增中文 AI 指令并长期留在机器 Prompt 中。
+  - 例外 1：从 GitHub 拿来的 Skill（带 `UPSTREAM.json`）保持上游原样，不翻译，语言检查自动跳过。
+  - 例外 2：角色扮演/人格类 Skill 的台词和说话风格翻译会变味，在 frontmatter 里加 `metadata:` → `persona: true`，语言检查自动跳过。
 - 不允许为了“统一英文”把面向维护者的 README 也改成生硬英文。
 - 不允许只改 README 就认为 AI 行为已经改变。
 - 不允许同一条完整规则在人类文档和多个 AI Prompt 中反复复制；人类文档解释，AI 文档执行。

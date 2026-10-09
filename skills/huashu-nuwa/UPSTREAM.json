@@ -1,0 +1,21 @@
+{
+  "repo": "alchaincyf/nuwa-skill",
+  "path": "",
+  "ref": "main",
+  "commit": "fe0374687037c4cc51a65c1e0c145afe2981dc69",
+  "synced_at": "2026-10-09",
+  "local_changes": "auto-detected; modified: SKILL.md, examples/sun-yuchen-perspective/references/research/01-writings.md, examples/trump-perspective/references/research/03-expression-dna.md, examples/trump-perspective/references/research/05-decisions.md, examples/trump-perspective/references/research/06-timeline.md",
+  "exclude": [
+    ".github/*",
+    ".gitignore",
+    "*.png",
+    "*.jpg",
+    "COMMUNITY.md",
+    "CONTRIBUTING.md",
+    "README_*.md",
+    "x-thread-en.md",
+    "promo/*",
+    "assets/*"
+  ],
+  "index_description": "Distill a person or theme into a runnable perspective Skill via multi-agent research and mental-model extraction. Use for 'distill [person]', 'nuwa', or 'how does [person] think'."
+}

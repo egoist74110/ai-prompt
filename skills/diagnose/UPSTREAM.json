@@ -1,0 +1,11 @@
+{
+  "repo": "mattpocock/skills",
+  "path": "skills/engineering/diagnose",
+  "ref": "main",
+  "commit": "7afa86d3a5dd96edde06ffa014e16c64e733681e",
+  "synced_at": "2026-10-09",
+  "local_changes": "none",
+  "exclude": [],
+  "note": "Upstream renamed this Skill to skills/engineering/diagnosing-bugs (2026-06). Decide whether to follow the rename, then re-adopt with the new path.",
+  "index_description": "Disciplined loop for hard bugs and performance regressions: reproduce, minimise, hypothesise, instrument, fix, regression-test. Use when something is broken, failing, or slow."
+}

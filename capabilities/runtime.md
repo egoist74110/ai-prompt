@@ -32,3 +32,13 @@ Stop at the first sufficient layer:
 After successful discovery, cache machine locators/config in runtime and verified strategy/result/retry state in state. Current execution overrides stale cache, but merely exposing a previously blocked tool does not invalidate its retry condition.
 
 Before installing/enabling a plugin, MCP, connector, or expanded permission, explain reason/impact and obtain confirmation.
+
+## Native Entrypoints
+
+Runtime-specific entry files should stay thin:
+
+```text
+Read <current-ai-prompt-root>/router.md first, then follow it.
+```
+
+Entrypoint paths may use runtime-supported variables or verified local paths. Central docs must not define fixed product-specific locations.
