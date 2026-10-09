@@ -200,3 +200,121 @@ def migrate_local_files() -> None:
     for kind, defaults in (("runtime", default_runtime()), ("state", default_state())):
         def migrate(data: dict[str, Any], defaults=defaults) -> None: merge_defaults(data, defaults)
         update_kind(kind, migrate)
+
+
+# --- document diagnostics -------------------------------------------------
+# A malformed `.local` document is invisible until something writes: read_kind()
+# raises on it, every tool built on it dies, and nothing reports it at rest. These
+# helpers let a routine check catch it instead of the next write.
+
+def _content_quote_spans(text: str) -> list[tuple[int, str]]:
+    """Offsets of unescaped quotes sitting INSIDE a string value.
+
+    While inside a string, a quote ends it only when the next non-space character
+    is structural (, } ] :). Anything else means prose swallowed a real quote
+    character -- the classic way these documents go bad. Valid JSON yields [].
+    """
+    spans: list[tuple[int, str]] = []
+    i, n, in_str = 0, len(text), False
+    while i < n:
+        ch = text[i]
+        if not in_str:
+            if ch == '"':
+                in_str = True
+            i += 1
+            continue
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == '"':
+            j = i + 1
+            while j < n and text[j] in " \t\r\n":
+                j += 1
+            if j < n and text[j] in ",}]:":
+                in_str = False
+            else:
+                spans.append((i, text[max(0, i - 50):i + 50]))
+            i += 1
+            continue
+        i += 1
+    return spans
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    fd, tmp_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(text.encode("utf-8")); handle.flush(); os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    finally:
+        try: tmp.unlink()
+        except FileNotFoundError: pass
+
+
+def diagnose(kind: str) -> list[str]:
+    """Report what is wrong with one local document; [] means healthy."""
+    if kind not in FILES: raise KeyError(kind)
+    path = FILES[kind]
+    if not path.is_file(): return [f"{kind}: {path.name} is missing ({path})"]
+    try: text = path.read_bytes().decode("utf-8")
+    except OSError as exc: return [f"{kind}: unreadable ({exc})"]
+    except UnicodeDecodeError as exc: return [f"{kind}: not valid UTF-8 ({exc})"]
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        problems = [f"{kind}: invalid JSON at line {exc.lineno} column {exc.colno}: {exc.msg}"]
+        spans = _content_quote_spans(text)
+        if spans:
+            problems.append(f"{kind}: {len(spans)} unescaped quote(s) inside a string value -- escape each as a backslash-escaped quote or use CJK quotes")
+            for pos, ctx in spans[:5]: problems.append(f"{kind}:   offset {pos}: ...{ctx.strip()}...")
+            if len(spans) > 5: problems.append(f"{kind}:   (+{len(spans) - 5} more)")
+            problems.append(f"{kind}: repair with: python tools/runtime_state.py check --fix-quotes")
+        return problems
+    if not isinstance(data, dict): return [f"{kind}: root must be a JSON object, found {type(data).__name__}"]
+    return []
+
+
+def repair_content_quotes(kind: str) -> tuple[bool, str]:
+    """Escape content quotes in one document. Returns (changed, message)."""
+    if kind not in FILES: raise KeyError(kind)
+    path = FILES[kind]
+    try: text = path.read_bytes().decode("utf-8")
+    except OSError as exc: return False, f"unreadable ({exc})"
+    spans = _content_quote_spans(text)
+    if not spans: return False, "no unescaped quotes found"
+    try:
+        json.loads(text)
+        return False, "document already parses; left untouched"
+    except json.JSONDecodeError:
+        pass
+    out: list[str] = []
+    i, n, in_str = 0, len(text), False
+    while i < n:
+        ch = text[i]
+        if not in_str:
+            out.append(ch)
+            if ch == '"': in_str = True
+            i += 1
+            continue
+        if ch == "\\":
+            out.append(text[i:i + 2]); i += 2; continue
+        if ch == '"':
+            j = i + 1
+            while j < n and text[j] in " \t\r\n": j += 1
+            if j < n and text[j] in ",}]:":
+                out.append('"'); in_str = False
+            else:
+                out.append('\\"')
+            i += 1
+            continue
+        out.append(ch); i += 1
+    fixed = "".join(out)
+    try:
+        json.loads(fixed)
+    except json.JSONDecodeError as exc:
+        return False, f"repair would still be invalid JSON ({exc}); left untouched"
+    backup = path.with_name(path.name + ".bak-" + time.strftime("%Y%m%d-%H%M%S") + "-jsonquote")
+    shutil.copy2(path, backup)
+    with _file_lock(path): _atomic_write_text(path, fixed)
+    return True, f"escaped {len(spans)} quote(s); backup -> {backup.name}"

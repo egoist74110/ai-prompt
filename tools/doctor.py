@@ -62,6 +62,24 @@ def check_local_credentials(local: Path) -> None:
         bad(".local/credentials contains files; move credentials outside the repository or into an OS credential store")
 
 
+def check_local_documents() -> list[str]:
+    """Validate .local documents with location-aware findings, not just "invalid"."""
+    from local_state import FILES, diagnose
+
+    problems: list[str] = []
+    for kind in FILES:
+        found = diagnose(kind)
+        if not found:
+            continue
+        problems.extend(found)
+        bad(found[0])
+        for extra in found[1:]:
+            print(f"      {extra}")
+    if not problems:
+        ok(".local runtime/state documents valid")
+    return problems
+
+
 def run(cmd: list[str], cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
 
@@ -184,18 +202,18 @@ def main() -> int:
     print("== 0. root / local state ==")
     ok(f"AI_PROMPT_ROOT={ROOT}")
     check_local_credentials(ROOT / ".local")
-    if LOCAL_RUNTIME.is_file() and LOCAL_STATE.is_file():
+    local_problems = check_local_documents()
+    if LOCAL_RUNTIME.is_file() and LOCAL_STATE.is_file() and not local_problems:
         try:
             runtime = read_json(LOCAL_RUNTIME)
             read_json(LOCAL_STATE)
-            ok(".local runtime/state JSON 有效")
             if runtime.get("bootstrap", {}).get("last_discovered"):
                 ok("bootstrap machine discovery 已运行")
             else:
                 warn("local runtime 尚无 bootstrap 记录 → 可运行 runtime_state.py detect")
         except RuntimeError as exc:
             bad(str(exc))
-    else:
+    elif not LOCAL_RUNTIME.is_file() or not LOCAL_STATE.is_file():
         warn(".local 尚未初始化；运行 tools/runtime_state.py init 可初始化 registry 并探测本机能力")
 
     print("== 1. router 引用文件 ==")

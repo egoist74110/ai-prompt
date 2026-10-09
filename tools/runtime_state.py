@@ -5,7 +5,26 @@ from __future__ import annotations
 import argparse
 import json
 
-from local_state import FILES, LOCAL, ensure_files, get_value, migrate_local_files, read_kind, set_value, unset_value, update_kind
+from local_state import FILES, LOCAL, diagnose, ensure_files, get_value, migrate_local_files, read_kind, repair_content_quotes, set_value, unset_value, update_kind
+
+
+def cmd_check(args: argparse.Namespace) -> int:
+    """Validate (and optionally repair) the .local documents: 0 ok, 1 problems."""
+    kinds = args.kind or list(FILES)
+    failed = False
+    for kind in kinds:
+        if args.fix_quotes:
+            changed, message = repair_content_quotes(kind)
+            print(f"{kind}: {message}")
+        problems = diagnose(kind)
+        if problems:
+            failed = True
+            for problem in problems:
+                print(f"  {problem}" if args.fix_quotes else problem)
+        elif not args.fix_quotes:
+            print(f"{kind}: OK")
+    print("check: .local documents valid" if not failed else "check: .local documents need attention")
+    return 1 if failed else 0
 
 
 def _json_list(value: str, parser: argparse.ArgumentParser, label: str) -> list[str]:
@@ -27,6 +46,9 @@ def main() -> int:
     get = sub.add_parser("get"); get.add_argument("kind", choices=FILES); get.add_argument("key")
     setp = sub.add_parser("set"); setp.add_argument("kind", choices=FILES); setp.add_argument("key"); setp.add_argument("value", help="JSON value; strings need JSON quotes")
     unset = sub.add_parser("unset"); unset.add_argument("kind", choices=FILES); unset.add_argument("key")
+    check = sub.add_parser("check", help="validate the .local documents; --fix-quotes repairs unescaped quotes")
+    check.add_argument("--kind", choices=FILES, action="append", help="limit to one document (repeatable); default is every document")
+    check.add_argument("--fix-quotes", action="store_true", help="escape bare quotes inside string values (backup written first)")
     runtime_cmd = sub.add_parser("runtime", help="manage locally registered AI runtimes"); runtime_sub = runtime_cmd.add_subparsers(dest="runtime_cmd", required=True); runtime_sub.add_parser("list")
     seed = runtime_sub.add_parser("seed"); seed.add_argument("--refresh-templates", action="store_true")
     add = runtime_sub.add_parser("add", help="add or patch any local AI runtime")
@@ -91,6 +113,7 @@ def main() -> int:
             print("runtime discovery complete"); return 0
         return 1
 
+    if args.cmd == "check": return cmd_check(args)
     if args.cmd == "show": print(json.dumps(read_kind(args.kind), ensure_ascii=False, indent=2)); return 0
     if args.cmd == "get":
         try: value = get_value(read_kind(args.kind), args.key)
