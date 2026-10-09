@@ -165,6 +165,8 @@ def download_subtree(repo: str, commit: str, path: str, dest: Path) -> dict[str,
             target = dest.joinpath(*rel.parts)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(handle.read())
+            if member.mode & 0o111:
+                target.chmod(target.stat().st_mode | 0o755)
             modes[rel.as_posix()] = member.mode
     return modes
 
