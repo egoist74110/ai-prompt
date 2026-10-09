@@ -2,6 +2,19 @@
 
 These are the user's preferred writing conventions. Adapt them to the requested book and existing style rather than treating every count or format as a validity rule.
 
+## Practical creation workflow
+
+1. Decide the deliverable: a few entry drafts, a standalone World Info JSON, or a change to a live local book. Use the matching output format; standalone World Info entries use the keyed `entries` object described in the operations reference, not the Character Card V2 embedded `character_book` shape.
+2. Gather the source material that actually defines the canon. For a new or substantial setting, build a compact inventory of core rules, people, places, groups, objects, events, and unresolved questions. Confirm material gaps or conflicting facts before expanding the inventory. For a small, clear request, skip the ceremony and draft directly.
+3. Sketch the book at the requested scale. Start with only the categories relevant to the roleplay; separate always-needed rules from conditional details. Do not force every common category or invent a target entry count.
+4. Draft entries as standalone context: each content body should make sense without its title or trigger keywords. Add distinctive natural aliases as keys; use secondary keys only where a real AND/NOT condition improves precision.
+5. Audit the whole book: entries that cannot trigger, ineffective secondary keys, generic or colliding triggers, duplicated coverage, contradictions, excessive always-on content, and unnecessary recursive chains. Fix deterministic mechanical defects directly; use judgment and preserve alternatives for subjective edits.
+6. Review a representative activation path: what user/chat text activates each important entry, what else activates with it, and whether recursion adds useful context or noise. When the user can test in SillyTavern, suggest trying a few real prompts and adjusting keys before growing the book further.
+
+When editing an existing book, present or apply changes as targeted edits, preserve unrelated entries and schema fields, and compare before/after where practical. For large books, work in batches or by category and checkpoint accepted entries so later edits do not overwrite them.
+
+For community examples behind these patterns and their limits, see [community-patterns.md](community-patterns.md).
+
 ## Structure and activation
 
 - For a setting book, use a short always-on overview for core rules when needed. Put people, places, factions, items, and events in keyword-triggered detail entries so irrelevant text stays out of the prompt.

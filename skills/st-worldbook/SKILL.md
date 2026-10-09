@@ -1,14 +1,17 @@
 ---
 name: st-worldbook
-description: "Author SillyTavern worldbook entries and inspect or edit books in a local SillyTavern instance. Use for lorebook structure, entry fields, triggers, enabled books, and CSRF-aware worldinfo API operations."
+description: "Create, expand, repair, or audit SillyTavern World Info/lorebooks, and inspect or edit books in a local instance. Use for planning lore structure, writing entries, trigger design, importable JSON, or World Info operations."
 ---
 
 # SillyTavern Worldbooks
 
-Use this skill for either entry authoring or local book operations. Read only the relevant reference:
+Use this skill to plan and write World Info/lorebook entries, produce standalone importable books, improve existing books, or operate on books in a local SillyTavern instance. Read only the relevant references:
 
-- For worldbook writing, titles, triggers, and mod packs, read [references/authoring.md](references/authoring.md).
+- For writing, planning, trigger design, audit, or mod packs, read [references/authoring.md](references/authoring.md).
+- For community-derived creation and repair patterns, especially larger or existing books, read [references/community-patterns.md](references/community-patterns.md).
 - For the API, disk layout, entry schema, or any live book change, read [references/operations.md](references/operations.md).
+
+Clarify whether the user wants entry drafts, a standalone World Info JSON, or a live local book change when that affects the output. For large or canon-heavy projects, first assemble a compact source-backed inventory and resolve material gaps or contradictions before generating many entries; small, clear requests can proceed directly. Keep supplied canon distinct from suggestions, and do not silently fill unknown facts as established canon. For an existing book, preserve its schema and metadata, review proposed edits, and audit trigger and budget behavior before delivery. Never mutate a live book unless the user requested that operation.
 
 Machine facts belong in `.local/directory-index.md`. Use the current session's verified facts first, then the current OS's index if it still matches observation. If missing or stale, discover and update only that OS section. Keep install paths, ports, user directories, and inventory out of this portable file. The index is local and gitignored; do not sync it between machines or copy full entry content into it.
 
