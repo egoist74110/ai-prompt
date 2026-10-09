@@ -83,6 +83,5 @@ Load only when triggered:
 - MCP/tool discovery -> `capabilities/mcp.md`;
 - search backend selection/fallback/failure -> `capabilities/search.md`;
 - cross-review -> `capabilities/cross-review.md` via `models/high.md`;
+- browser control/page checks -> `capabilities/browser.md`;
 - any route that starts task-owned processes, allocates ports, changes temporary config/permissions, or creates temporary/unrequested files (repo-local or not, e.g. scratch files) -> `capabilities/cleanup.md` before the first side effect of each such kind, even if it first appears in a later phase of an already-running task; Engineering additionally applies its regression/delivery rules.
-
-Do not bulk-read Skills or capabilities.
