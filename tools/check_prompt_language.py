@@ -18,6 +18,8 @@ AI_FILES = [
     ROOT / "common.md",
     ROOT / "skills" / "cdn-asset-ops" / "references" / "setup.md",
     ROOT / "skills" / "cdn-asset-ops" / "references" / "operations.md",
+    ROOT / "skills" / "task-orchestration" / "references" / "planner.md",
+    ROOT / "skills" / "task-orchestration" / "references" / "executor.md",
 ]
 AI_DIR_PATTERNS = [
     (ROOT / "response", "*.md"),
