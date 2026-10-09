@@ -1,6 +1,6 @@
 # Local Response Profile
 
-Copy this file to `.local/response-profile.md` only when a persistent custom presentation style is wanted. The `.local/` copy is machine-local and must not be committed.
+Copy this file to `.local/response-profile.md` only when a persistent custom presentation style is wanted, then register it by setting `user_prefs.response_profile` to `.local/response-profile.md` in `.local/state.json`. Without that index entry the file is never read. The `.local/` copy is machine-local and must not be committed.
 
 ## Scope
 

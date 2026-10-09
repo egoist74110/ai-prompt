@@ -20,8 +20,8 @@ Always begin with the lightest sufficient route. Read `common.md` and `response/
 
 Presentation is separate from task reasoning.
 
-- Read `.local/response-profile.md` directly with the read tool after `response/default.md`; it is the user-owned persistent presentation cache. A failed read (not found) means the cache is absent — continue with the default contract.
-- Never probe that file's existence via glob or directory listing (hidden-directory gaps make such probes unreliable); only a direct read result — content, or a not-found error — decides whether the cache applies.
+- The presentation cache is indexed by `.local/state.json` → `user_prefs.response_profile` (path relative to this directory). Read it only when that index entry exists.
+- No index entry = no cache: use the default contract and do not read, probe, glob, or guess any profile file. If an indexed file is missing, treat the cache as absent; do not retry.
 - Do not infer or select a persona, tone, or style when that cache is absent; use the default contract only.
 - Load only style material explicitly named by that cache. Do not scan for persona files or activate Skills for style alone.
 - Cached style may control only user-facing language, tone, wording, structure, and expression DNA. It must not change reasoning, routing, research, tool use, factual standards, implementation, or review gates.
