@@ -24,6 +24,7 @@ Do not classify an orchestrated review-and-fix workflow as a pure reviewer merel
 - Never silently skip or downgrade a requirement.
 - Continue unaffected work when one item is blocked, but disclose incomplete, blocked, partial, or deviated requirements.
 - Perform task-appropriate validation. If required validation cannot run, state why and do not claim it passed.
+- UI, page, or animation changes: before delivery, open the result in a real browser or the target runtime (pick the browser line via `capabilities/browser.md`) and check the key screens/states; when screenshots are possible, take them and inspect them yourself. Screenshots are visual evidence, not a substitute for functional tests. If inspection is impossible, say why. Screenshots are temporary files under `capabilities/cleanup.md`.
 - Final delivery must state what changed, validation performed, material unmet/deviated requirements, intentional retained artifacts, and remaining risks when any exist.
 
 ## Scout Gate
