@@ -10,8 +10,7 @@ The repository separates portable rules from machine-specific runtime facts. Sta
 
 The system starts with the lightest prompt path that can handle the current request, and loads specialized guidance only when needed. Routing follows the user's current intent, not a keyword or the topic alone.
 
-- **`router.md`** — Routes requests to Direct, Skill-first, Engineering, or Scout.
-- **`common.md`** — Small set of safeguards shared by every route.
+- **`router.md`** — The only always-loaded file. Routes requests to Direct, Skill-first, Engineering, or Scout, and contains the safeguards shared by every route plus the response-language rules (reply in the user's language by default; lasting language, tone, or persona preferences live in the machine-local `.local/response-profile.md` cache).
 - **`models/high.md`** — Engineering workflow, loaded only for actual project work.
 - **`models/scout.md`** — Delegated context gathering and low-risk mechanical work.
 - **`capabilities/` and `skills/`** — On-demand, specialized workflows.
@@ -24,7 +23,7 @@ An already loaded prompt may remain in context, but its gates apply only while t
 
 | Route | Typical requests | Load |
 | --- | --- | --- |
-| **Direct** | Questions, explanations, summaries, translations, brainstorming, simple code or API questions | `router.md` + `common.md` |
+| **Direct** | Questions, explanations, summaries, translations, brainstorming, simple code or API questions | `router.md` |
 | **Skill-first** | A named Skill or a request matching Skill metadata | Skill discovery guidance, then the matched `SKILL.md` |
 | **Engineering** | Implementations, project debugging, code/config changes, architecture, refactoring, reviews, build/deployment changes, substantial repository analysis | `models/high.md` plus only the relevant capabilities and Skills |
 | **Scout** | Delegated reconnaissance, context gathering, or low-risk mechanical tasks | `models/scout.md` |

@@ -9,14 +9,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 AI_DOC_GLOBS = (
     "router.md",
-    "common.md",
-    "response/*.md",
     "models/*.md",
     "capabilities/*.md",
     "skills/*/SKILL.md",
 )
 REF_RE = re.compile(
-    r"`(?P<path>(?:router|common)\.md|(?:response|models|capabilities)/[A-Za-z0-9._/-]+\.md|"
+    r"`(?P<path>router\.md|(?:models|capabilities)/[A-Za-z0-9._/-]+\.md|"
     r"skills/[A-Za-z0-9._/-]+/SKILL\.md)(?:#(?P<anchor>[a-z0-9-]+))?`"
 )
 
@@ -117,21 +115,19 @@ class PromptRoutingTests(unittest.TestCase):
 
     def test_response_contract_is_separate_and_cache_driven(self):
         router = read("router.md")
-        common = read("common.md")
-        response = read("response/default.md")
+        base_rules = section(router, "Base Rules")
         response_layer = section(router, "Response Layer")
 
-        self.assertIn("response/default.md", router)
         self.assertIn("user_prefs.response_profile", response_layer)
         self.assertIn("do not read, probe", response_layer)
         self.assertIn("Do not infer or select a persona", response_layer)
         self.assertIn("user-facing", response_layer)
         self.assertIn("must not change reasoning", response_layer)
-        self.assertNotIn("Simplified Chinese", common)
-        self.assertNotIn("internal reasoning", common)
-        self.assertIn("Simplified Chinese", response)
-        self.assertIn("user-facing output", response)
-        self.assertIn("never to reasoning", response)
+        self.assertNotIn("Simplified Chinese", router)
+        self.assertIn("language of the user's current message", response_layer)
+        self.assertIn("never reasoning", response_layer)
+        self.assertIn("Persist lasting preferences", response_layer)
+        self.assertNotIn("language", base_rules.lower())
         self.assertTrue((ROOT / "config/response-profile.example.md").is_file())
 
     def test_literal_ai_doc_references_and_anchors_resolve(self):
@@ -151,8 +147,8 @@ class PromptRoutingTests(unittest.TestCase):
         for source in docs():
             self.assertNotIn("`router.md` Fact Priority", source.read_text(encoding="utf-8"))
 
-    def test_common_keeps_only_route_independent_guards(self):
-        common = read("common.md")
+    def test_base_rules_keep_only_route_independent_guards(self):
+        common = section(read("router.md"), "Base Rules")
         for engineering_policy in (
             "models/high.md",
             "capabilities/cross-review.md",
@@ -163,7 +159,7 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertIn("expanded persistent permission", common)
 
     def test_base_route_prompt_budgets(self):
-        base = ("router.md", "common.md", "response/default.md")
+        base = ("router.md",)
         # Hard ceilings guard the layered design; over budget -> move rules to an on-demand capability.
         chains = {
             "direct": (base, 10000),  # includes the always-on Skill Offers rule

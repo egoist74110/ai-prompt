@@ -21,7 +21,7 @@
           "scout",
           "capabilities"
         ],
-        "note": "先读 router.md，再只读最小 common.md；意图命中时才加载路由 Prompt 与能力模块。"
+        "note": "router.md 是唯一常驻必读（内含基础底线与回复规则）；意图命中时才加载路由 Prompt 与能力模块。"
       },
       {
         "id": "skill-loading",
@@ -80,8 +80,8 @@
     {
       "id": "common",
       "type": "backend",
-      "label": "common.md",
-      "sublabel": "最小公共底线",
+      "label": "Base Rules",
+      "sublabel": "router.md 内置底线",
       "pos": [
         520,
         194
@@ -265,7 +265,7 @@
       "id": "c-router-common",
       "from": "router",
       "to": "common",
-      "label": "必读"
+      "label": "内含"
     },
     {
       "id": "c-router-scout",
@@ -393,7 +393,7 @@
       "dot": "cyan",
       "title": "加载链",
       "items": [
-        "router + common 是恒定最小加载，永远从最轻路径开始",
+        "router.md（内含基础底线）是恒定最小加载，永远从最轻路径开始",
         "意图命中才升级：high / scout / capabilities 按需加载",
         "frontmatter 是 Skill 元数据唯一来源，发现索引可随时重建"
       ]

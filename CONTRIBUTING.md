@@ -28,7 +28,6 @@
 典型位置：
 
 - `router.md`
-- `common.md`
 - `models/*.md`
 - `capabilities/*.md`
 - `skills/*/SKILL.md`
@@ -41,7 +40,7 @@
 - 用稳定的命令式约束，例如 `MUST` / `MUST NOT` / `ONLY` / `IF ... THEN ...`，但只在确实需要硬约束时使用。
 - 一个规则只保留一个权威位置；其它机器文档尽量引用它，不复制长段内容。
 - 保留行为语义，不做为了“英文更短”而产生的规则降级。
-- 面向用户的最终输出语言仍由 `common.md` 等运行规则决定；“机器文档写英文”不等于要求 AI 对用户说英文。
+- 面向用户的最终输出语言由 `router.md` 的 Response Layer 决定（默认跟随用户语言，长期偏好走本机缓存）；“机器文档写英文”不等于要求 AI 对用户说英文。
 
 ## 2. 混合内容怎么处理
 
@@ -61,7 +60,7 @@ SKILL.md / capabilities/*.md / models/*.md
 
 ## 3. 修改提示词时的流程
 
-1. **定位权威规则。** 先确认应该修改 `common`、`router`、某个 model、capability 还是 skill，避免到处追加同义规则。
+1. **定位权威规则。** 先确认应该修改 `router`、某个 model、capability 还是 skill，避免到处追加同义规则。
 2. **判断受众。** 人类说明写中文；模型执行规则写英文。
 3. **最小修改。** 不顺手重写无关 Prompt，不扩大行为范围。
 4. **检查重复和冲突。** 新规则若与已有规则重叠，优先合并或引用，而不是再复制一份。
@@ -76,7 +75,7 @@ SKILL.md / capabilities/*.md / models/*.md
 | 类型 | 默认语言 | 目标 |
 | --- | --- | --- |
 | README / CONTRIBUTING | 简体中文 | 人容易理解和维护 |
-| Router / common / model prompt | English | AI 低 token、明确执行 |
+| Router / model prompt | English | AI 低 token、明确执行 |
 | Capability instruction | English | AI 执行规则 |
 | `SKILL.md` | English | AI 技能工作流 |
 | Reference / design doc | 看主要消费者 | 人读则中文，AI 加载则英文 |

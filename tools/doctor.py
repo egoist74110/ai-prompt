@@ -218,7 +218,6 @@ def main() -> int:
 
     print("== 1. router 引用文件 ==")
     required = [
-        "common.md",
         "models/high.md",
         "models/scout.md",
         "capabilities/skills.md",

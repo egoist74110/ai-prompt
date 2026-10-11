@@ -10,12 +10,12 @@
 
 ## 核心架构
 
-> **交互式架构图**：[docs/architecture/ai-prompt-architecture.html](docs/architecture/ai-prompt-architecture.html) —— 一张图看清加载链（router → common → 按需升级）、Skill 发现/加载、tools 工具链与 `.local/` 本机层的关系。支持缩放、深浅色切换和三个分视角（主加载链 / Skill 加载 / .local 本机层）。源文件是同目录的 `ai-prompt-architecture.json`，改完重新生成即可。
+> **交互式架构图**：[docs/architecture/ai-prompt-architecture.html](docs/architecture/ai-prompt-architecture.html) —— 一张图看清加载链（router → 按需升级）、Skill 发现/加载、tools 工具链与 `.local/` 本机层的关系。支持缩放、深浅色切换和三个分视角（主加载链 / Skill 加载 / .local 本机层）。源文件是同目录的 `ai-prompt-architecture.json`，改完重新生成即可。
 
 仓库只保存**可移植规则**；机器差异、运行时名单和已验证经验不再写死进 prompt / skill / Python：
 
-- `router.md`：轻量统一入口，只负责判断当前请求走 Direct、Skill-first、Engineering 还是 Scout，并按当前意图动态切换。
-- `common.md`：所有请求真正都需要的最小公共规则，不放工程验证、回归、交付之类的重规则；只保留跨路由都必须成立的安全/真实性底线。
+- `router.md`：轻量统一入口，也是唯一的常驻必读文件。它负责判断当前请求走 Direct、Skill-first、Engineering 还是 Scout，并按当前意图动态切换；同时内含所有路由都要遵守的基础底线（Base Rules）和回复语言/风格规则（Response Layer）。以前拆在 `common.md`、`response/default.md` 里，模型经常只读 router 就开工、漏读这两个文件，所以合并进来，一次读全。
+- 回复语言：默认跟随用户当前消息的语言，不再写死中文。长期的语言/语气/扮演偏好写进本机缓存 `.local/response-profile.md`，并在 `.local/state.json` 的 `user_prefs.response_profile` 登记（模板见 `config/response-profile.example.md`）。
 - `models/high.md`：只服务 Engineering 路径；普通问答和单纯 Skill 执行不再默认加载。
 - `models/scout.md`：只用于被委派的上下文收集、仓库侦查和低风险机械任务；超出委派范围后回到 router 重新选路，而不是默认跳 High。
 - `skills/` / `capabilities/`：按触发条件加载的专业流程；禁止为了“可能有用”而全量塞入上下文。
@@ -40,17 +40,17 @@
 
 ```text
 普通问答 / 解释 / 简单代码知识
-router + common
+router
 → 直接回答
 
 “提取这个 Bilibili 视频字幕”
-router + common
+router
 → skills index
 → bilibili-auto-transcript/SKILL.md
 → 执行
 
 “分析这个仓库为什么登录失败”
-router + common
+router
 → Engineering
 → high
 → 按需 skills index / diagnose / MCP / scout
@@ -97,7 +97,7 @@ python tools/runtime_state.py runtime add <runtime-id> \
 
 ## Read Order
 
-- 所有模型先读 `router.md`，然后只读最小 `common.md`。
+- 所有模型先读 `router.md`（唯一常驻必读文件，已包含基础底线和回复规则）。
 - **Direct**：普通问答、解释、总结、翻译、头脑风暴、简单代码/API/语法问题，直接处理；默认不读 `models/high.md`。
 - **Skill-first**：用户点名 Skill 或请求明确命中 Skill metadata 时，只读 `capabilities/skills.md` 做发现，再加载匹配的 `skills/<name>/SKILL.md`；不会因为 Skill 会运行命令或输出文件就自动进入 High。
 - **Engineering**：真正需要仓库/项目工程流程时才读 `models/high.md`，包括实现、代码/配置修改、项目调试、架构/重构、代码审查、构建/部署变更、较重的仓库分析和实现规划。当前 runtime 没有直接暴露中央 Skill metadata 时，规划前读一次 `capabilities/skills.md`，避免 canonical Skill 静默失效。

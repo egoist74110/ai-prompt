@@ -15,14 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 AI_FILES = [
     ROOT / "router.md",
-    ROOT / "common.md",
     ROOT / "skills" / "cdn-asset-ops" / "references" / "setup.md",
     ROOT / "skills" / "cdn-asset-ops" / "references" / "operations.md",
     ROOT / "skills" / "task-orchestration" / "references" / "planner.md",
     ROOT / "skills" / "task-orchestration" / "references" / "executor.md",
 ]
 AI_DIR_PATTERNS = [
-    (ROOT / "response", "*.md"),
     (ROOT / "models", "*.md"),
     (ROOT / "capabilities", "*.md"),
     (ROOT / "skills", "*/SKILL.md"),
