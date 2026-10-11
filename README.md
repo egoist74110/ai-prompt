@@ -1,5 +1,7 @@
 # AI Prompt Hub
 
+[简体中文](README.md) · [English](README.en.md)
+
 本目录是不同 AI Agent / 模型运行时共享的统一提示词入口。
 
 **权威顺序以 `router.md` 为准**，本文件只是给人看的概览，冲突时信 router。
