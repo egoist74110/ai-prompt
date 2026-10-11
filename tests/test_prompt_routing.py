@@ -157,6 +157,7 @@ class PromptRoutingTests(unittest.TestCase):
         ):
             self.assertNotIn(engineering_policy, common)
         self.assertIn("expanded persistent permission", common)
+        self.assertIn("runtime_state.py get <state|runtime> <key>", common)
 
     def test_base_route_prompt_budgets(self):
         base = ("router.md",)
