@@ -78,14 +78,13 @@ def _file_lock(path: Path) -> Iterator[None]:
     The lock file is persistent; ownership is held by the OS file lock, not by file
     age. A crashed process releases ownership automatically, so another process can
     never steal a live lock or delete a successor's lock.
+
+    Never write to the lock file: Windows byte locks are mandatory, so a write racing
+    another process's held lock fails with PermissionError. Locking past EOF is valid.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     lock = path.with_suffix(path.suffix + ".lock")
     handle = open(lock, "a+b")
-    handle.seek(0, os.SEEK_END)
-    if handle.tell() == 0:
-        handle.write(b"0")
-        handle.flush()
     deadline = time.monotonic() + LOCK_TIMEOUT
     acquired = False
     try:

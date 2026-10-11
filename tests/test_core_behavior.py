@@ -141,6 +141,22 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertEqual(data, {"nested": {}})
         self.assertFalse(local_state.unset_value(data, "nested.value"))
 
+    def test_contended_empty_lock_file_waits_instead_of_writing(self):
+        target = self.root / "state.json"
+        lock = self.root / "state.json.lock"
+        lock.touch()
+        with open(lock, "a+b") as holder:
+            self.assertTrue(local_state._try_lock(holder))
+            try:
+                with patch.object(local_state, "LOCK_TIMEOUT", 0.2):
+                    with self.assertRaises(TimeoutError):
+                        with local_state._file_lock(target):
+                            pass
+            finally:
+                local_state._unlock(holder)
+        with local_state._file_lock(target):
+            pass
+
     def test_cross_process_updates(self):
         directory = self.root / "local state"
         ctx = multiprocessing.get_context("spawn")
