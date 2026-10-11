@@ -15,7 +15,7 @@
 仓库只保存**可移植规则**；机器差异、运行时名单和已验证经验不再写死进 prompt / skill / Python：
 
 - `router.md`：轻量统一入口，也是唯一的常驻必读文件。它负责判断当前请求走 Direct、Skill-first、Engineering 还是 Scout，并按当前意图动态切换；同时内含所有路由都要遵守的基础底线（Base Rules）和回复语言/风格规则（Response Layer）。以前拆在 `common.md`、`response/default.md` 里，模型经常只读 router 就开工、漏读这两个文件，所以合并进来，一次读全。
-- 回复语言：默认跟随用户当前消息的语言，不再写死中文。长期的语言/语气/扮演偏好写进本机缓存 `.local/response-profile.md`，并在 `.local/state.json` 的 `user_prefs.response_profile` 登记（模板见 `config/response-profile.example.md`）。
+- 回复语言：默认跟随用户当前消息的语言，不再写死中文。长期的语言/语气/扮演偏好写进本机缓存 `.local/response-profile.md`，并在 `.local/prefs.json` 的 `response_profile` 登记（模板见 `config/response-profile.example.md`）。`prefs.json` 是专门给偏好用的小文件，每个会话开头都会读；以前偏好放在 30 KB 的 `state.json` 里，模型一读就把大量无关运行时缓存带进上下文，所以单独拆出来。
 - `models/high.md`：只服务 Engineering 路径；普通问答和单纯 Skill 执行不再默认加载。
 - `models/scout.md`：只用于被委派的上下文收集、仓库侦查和低风险机械任务；超出委派范围后回到 router 重新选路，而不是默认跳 High。
 - `skills/` / `capabilities/`：按触发条件加载的专业流程；禁止为了“可能有用”而全量塞入上下文。
@@ -25,6 +25,7 @@
 - `config/runtime-templates.json`：首次初始化的 starter runtime data；不是永久支持名单。
 - `.local/runtime.json`：当前机器 OS、路径、**动态 runtime registry**、credential locator、执行侧等本地配置；不提交。
 - `.local/state.json`：当前机器已经实测跑通的 skill/MCP/search/API/headless strategy；不提交。
+- `.local/prefs.json`：只放用户偏好（如 `response_profile`），每个会话开头都会读，所以必须保持很小；不放运行时事实和经验缓存。不提交。
 - `tools/runtime_registry.py`：runtime seed/register/discovery 通用数据层，不认识具体产品名。
 - `tools/runtime_state.py`：本地状态 + runtime registry CLI。
 - `tools/doctor.py`：遍历本地 registry 做跨平台只读体检。
@@ -117,7 +118,7 @@ python tools/runtime_state.py runtime add <runtime-id> \
 AI：这个任务可以用 html-plan（交互式方案页）或 grill-me（先逐条追问需求），要用哪个吗？
 ```
 
-- 不问、直接用的情况：你已经点名、用了 Skill 描述里的触发词、`user_prefs` 里已有偏好、Skill 本身是强制护栏（如 `script-engineering`），或者任务只能靠这个 Skill 的工具完成（如 B 站转录）。
+- 不问、直接用的情况：你已经点名、用了 Skill 描述里的触发词、`.local/prefs.json` 里已有偏好、Skill 本身是强制护栏（如 `script-engineering`），或者任务只能靠这个 Skill 的工具完成（如 B 站转录）。
 - 你拒绝后，同一任务不再重复推荐；无人值守模式下不等回复，只在最终报告里提一句。
 - 普通问答不触发推荐。
 

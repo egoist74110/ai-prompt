@@ -141,6 +141,18 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertEqual(data, {"nested": {}})
         self.assertFalse(local_state.unset_value(data, "nested.value"))
 
+    def test_migrate_moves_legacy_user_prefs_out_of_state(self):
+        directory = self.root / "local"
+        files = {kind: directory / f"{kind}.json" for kind in ("runtime", "state", "prefs")}
+        with patch.object(local_state, "LOCAL", directory), patch.object(local_state, "FILES", files):
+            local_state.ensure_files()
+            local_state.update_kind("state", lambda data: data.update(user_prefs={"response_profile": "p.md"}))
+            local_state.migrate_local_files()
+            self.assertEqual(local_state.read_kind("prefs"), {"response_profile": "p.md"})
+            self.assertNotIn("user_prefs", local_state.read_kind("state"))
+            local_state.migrate_local_files()
+            self.assertEqual(local_state.read_kind("prefs"), {"response_profile": "p.md"})
+
     def test_contended_empty_lock_file_waits_instead_of_writing(self):
         target = self.root / "state.json"
         lock = self.root / "state.json.lock"

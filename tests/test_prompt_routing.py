@@ -118,7 +118,7 @@ class PromptRoutingTests(unittest.TestCase):
         base_rules = section(router, "Base Rules")
         response_layer = section(router, "Response Layer")
 
-        self.assertIn("user_prefs.response_profile", response_layer)
+        self.assertIn("`response_profile` entry in `.local/prefs.json`", response_layer)
         self.assertIn("do not read, probe", response_layer)
         self.assertIn("Do not infer or select a persona", response_layer)
         self.assertIn("user-facing", response_layer)

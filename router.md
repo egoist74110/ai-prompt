@@ -14,7 +14,7 @@ Lightweight entry point for all AI agents and model runtimes. This file is the c
 - Do only what the user requested; do not add unrelated work.
 - Before installing/enabling a new external tool, plugin, connector, or expanded persistent permission, explain reason/impact and obtain user confirmation.
 - Never hide a material limitation. If the requested result is incomplete, blocked, partial, or intentionally deviated, say so and explain why.
-- Local preferences: once per session, if `.local/state.json` exists, read its `user_prefs` (path relative to this directory). Absent or null = none; never guess paths or probe further. Entries are this machine's defaults for the named skill/area; read files they index only when the entry exists. The user's in-session declaration always takes precedence.
+- Local preferences: once per session, if `.local/prefs.json` exists, read it (path relative to this directory); it holds only this machine's preference entries, e.g. `response_profile`. Absent or empty = none. Never read `.local/state.json` or `.local/runtime.json` for preferences; never guess paths or probe further. Entries are this machine's defaults for the named skill/area; read files they index only when the entry exists. The user's in-session declaration always takes precedence.
 
 ## Progressive Loading
 
@@ -32,10 +32,10 @@ Presentation is separate from task reasoning. These rules govern only user-facin
 
 - Language: reply in the language of the user's current message unless the cached profile or a current explicit request says otherwise. Loaded prompts, sources, code, or docs being in another language do not change it.
 - Preserve code, commands, identifiers, paths, API names, error text, and technical terms when translation would reduce precision.
-- Presentation cache: `user_prefs.response_profile`. When that entry exists, read it and only the style material it names.
+- Presentation cache: the `response_profile` entry in `.local/prefs.json`. When that entry exists, read it and only the style material it names.
 - No entry, or indexed file missing = no cache: use neutral presentation; do not read, probe, glob, guess, or retry any profile file. Do not infer or select a persona, tone, or style, and do not activate Skills for style alone.
 - Cached style controls only user-facing language, tone, wording, structure, and expression DNA; it must not change reasoning, routing, research, tool use, factual standards, implementation, or review gates. A current explicit user request overrides it for that response.
-- Persist lasting preferences: when the user states a language, tone, or persona preference meant beyond the current response, record it in the cache — create/update `.local/response-profile.md` from `config/response-profile.example.md`, register it with `tools/runtime_state.py set state user_prefs.response_profile <value>` (value is the JSON string `".local/response-profile.md"`; quote per current shell), and say so in one line. `.local/` is never committed.
+- Persist lasting preferences: when the user states a language, tone, or persona preference meant beyond the current response, record it in the cache — create/update `.local/response-profile.md` from `config/response-profile.example.md`, register it with `tools/runtime_state.py set prefs response_profile <value>` (value is the JSON string `".local/response-profile.md"`; quote per current shell), and say so in one line. `.local/` is never committed.
 
 ## Routes
 
@@ -81,7 +81,7 @@ Routes are per current intent, not permanent conversation labels.
 Applies on every route: surface fitting Skills proactively; the user decides.
 
 - Before substantive work (plan, design, build, debug, review, produce an artifact), match the request against Skill metadata the runtime exposes, else read `capabilities/skills.md` once per task. Skip for ordinary Q&A.
-- Use without asking when the user named the Skill or used a trigger phrase listed in its description, `user_prefs` or an in-session instruction already chose it, the Skill declares itself a mandatory guardrail/gate, or the request can only be done through that Skill's tooling (e.g. a Bilibili transcript).
+- Use without asking when the user named the Skill or used a trigger phrase listed in its description, `.local/prefs.json` or an in-session instruction already chose it, the Skill declares itself a mandatory guardrail/gate, or the request can only be done through that Skill's tooling (e.g. a Bilibili transcript).
 - Otherwise offer before starting: one short line naming at most 3 candidates with a few-word reason each, asking whether to use them (bundle with any needed clarifying question). Do not load an offered `SKILL.md` until the user agrees.
 - Declined -> do not re-offer it for the same task. Headless/non-interactive -> proceed without it and name the candidate in the final report.
 - Loading a Skill whose directory has `UPSTREAM.json` -> once per session run `tools/skill_upstream.py check <name> --quiet` from this root with `python3`/`python`/`py` (TTL-cached). If it prints a status, mention it in one line and offer `update` after the current task; never update without confirmation. On error, continue.

@@ -17,7 +17,8 @@ from typing import Any, Callable, Iterator
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / ".local"
-FILES = {"runtime": LOCAL / "runtime.json", "state": LOCAL / "state.json"}
+# prefs stays tiny on purpose: every session reads it before routing.
+FILES = {"runtime": LOCAL / "runtime.json", "state": LOCAL / "state.json", "prefs": LOCAL / "prefs.json"}
 LOCK_TIMEOUT = 10.0
 
 
@@ -41,6 +42,10 @@ def default_runtime() -> dict[str, Any]:
 
 def default_state() -> dict[str, Any]:
     return {"version": 1, "skills": {}, "mcp": {}, "services": {}, "search": {"backends": {}}, "cross_review": {"runtimes": {}}, "skills_sync": {}}
+
+
+def default_prefs() -> dict[str, Any]:
+    return {}
 
 
 def _try_lock(handle) -> bool:
@@ -117,7 +122,7 @@ def _atomic_write(path: Path, data: dict[str, Any]) -> None:
 
 def ensure_files() -> None:
     LOCAL.mkdir(parents=True, exist_ok=True)
-    defaults = {"runtime": default_runtime(), "state": default_state()}
+    defaults = {"runtime": default_runtime(), "state": default_state(), "prefs": default_prefs()}
     for kind, path in FILES.items():
         if path.exists(): continue
         with _file_lock(path):
@@ -199,6 +204,12 @@ def migrate_local_files() -> None:
     for kind, defaults in (("runtime", default_runtime()), ("state", default_state())):
         def migrate(data: dict[str, Any], defaults=defaults) -> None: merge_defaults(data, defaults)
         update_kind(kind, migrate)
+    # Legacy: user_prefs lived inside the large state.json. Copy first, then drop, so a crash loses nothing.
+    legacy = read_kind("state").get("user_prefs")
+    if isinstance(legacy, dict) and legacy:
+        update_kind("prefs", lambda prefs: [prefs.setdefault(key, value) for key, value in legacy.items()])
+    if "user_prefs" in read_kind("state"):
+        update_kind("state", lambda state: state.pop("user_prefs", None))
 
 
 # --- document diagnostics -------------------------------------------------

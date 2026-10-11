@@ -20,6 +20,10 @@
 
 **禁止保存 token、密码、cookie、私钥正文。** 只允许保存 locator，例如文件路径、keychain service/account、环境变量名或读取命令。
 
+### `.local/prefs.json`
+
+只保存用户偏好条目（例如 `response_profile` 指向的回复语言/风格缓存）。每个会话开头都会被读取，所以必须保持很小；运行时事实放 `runtime.json`，实测经验放 `state.json`。旧版放在 `state.json` 的 `user_prefs` 会由 `python tools/runtime_state.py migrate` 自动搬过来。
+
 ### `.local/state.json`
 
 保存“这台机器已经实测过什么”的经验缓存，例如：

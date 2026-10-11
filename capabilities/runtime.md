@@ -7,6 +7,7 @@ Load this file only when the task needs runtime-registry operations, machine-spe
 - `AI_PROMPT_ROOT` = directory containing `router.md`. Resolve repository-relative paths from it; never assume a machine-specific home path.
 - `.local/runtime.json`: machine facts such as OS, paths, runtime registry, capability locators, and credential locators.
 - `.local/state.json`: verified experience such as availability, strategy, failures, and retry/invalidation conditions.
+- `.local/prefs.json`: user preference entries only (e.g. `response_profile`), read every session; keep it tiny and never put runtime facts or experience there.
 - Never commit `.local/` or store secret contents there; store credential locators only.
 - Secret values live in the git-ignored local store `secrets/secrets.json` (indexed name + description + value). Manage it only via `python tools/secrets_store.py` (`python3`/`py` as available; the tool handles POSIX chmod and Windows icacls itself) (`list` / `set` / `get` / `describe` / `remove`); never pass a value on the command line, never echo values into chat/logs, and use `secrets:<name>` as the credential locator.
 - If `.local/` is required but absent and Python is available, run `python tools/runtime_state.py init` (`python3` if required).
