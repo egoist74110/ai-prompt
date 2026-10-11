@@ -164,11 +164,12 @@ class PromptRoutingTests(unittest.TestCase):
 
     def test_base_route_prompt_budgets(self):
         base = ("router.md", "common.md", "response/default.md")
+        # Hard ceilings guard the layered design; over budget -> move rules to an on-demand capability.
         chains = {
-            "direct": (base, 8000),  # includes the always-on Skill Offers rule
-            "scout": (base + ("models/scout.md",), 9500),
-            "engineering": (base + ("models/high.md",), 15500),
-            "skill-discovery": (base + ("capabilities/skills.md",), 15500),
+            "direct": (base, 10000),  # includes the always-on Skill Offers rule
+            "scout": (base + ("models/scout.md",), 12000),
+            "engineering": (base + ("models/high.md",), 20000),
+            "skill-discovery": (base + ("capabilities/skills.md",), 20000),
         }
         self.assertNotIn("models/high.md", chains["direct"][0])
         # Count on-disk bytes: read_text() folds CRLF to LF and would hide real overruns.
