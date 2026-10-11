@@ -171,8 +171,12 @@ class PromptRoutingTests(unittest.TestCase):
             "skill-discovery": (base + ("capabilities/skills.md",), 15500),
         }
         self.assertNotIn("models/high.md", chains["direct"][0])
+        # Count on-disk bytes: read_text() folds CRLF to LF and would hide real overruns.
+        raw = {path: (ROOT / path).read_bytes() for paths, _ in chains.values() for path in paths}
+        for path, data in raw.items():
+            self.assertFalse(b"\r\n" in data, f"{path} has CRLF; re-checkout per .gitattributes (eol=lf)")
         for name, (paths, limit) in chains.items():
-            total = sum(len(read(path).encode("utf-8")) for path in paths)
+            total = sum(len(raw[path]) for path in paths)
             with self.subTest(route=name, total=total, limit=limit):
                 self.assertLess(total, limit, f"{name} base prompt chain exceeded its budget")
 
