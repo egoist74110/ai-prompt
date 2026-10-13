@@ -29,6 +29,9 @@ Match and offer Skills per `router.md` Skill Offers; load a `SKILL.md` only when
 - `production-readiness-review` — Pre-ship ops checklist for backend features — timeout, retry, circuit breaker, idempotency, monitoring, and failure recovery. Run before declaring a backend feature production-ready.
 - `receiving-code-review` — Use when receiving code review feedback before implementing suggestions; verify each finding against codebase reality and never apply external feedback blindly.
 - `release-announcement` — Draft the customer-facing back-office version-update announcement (release/update notes) from work items and verified code, always in the project's fixed template; customer-service variant too. Needs a work-item number and a registered project, else asks.
+- `remotion-best-practices` — Router for all Remotion skills
+- `remotion-create` — Create a new Remotion video
+- `remotion-markup` — Content, animation and effects best practices
 - `resource-lifecycle-audit` — Audit every resource opened in an implementation for a matching close/kill/unsubscribe. The most common silent killer in vibe-coded backends. Run after implementation, before claiming done.
 - `script-engineering` — Mandatory guardrail when writing, changing, reviewing, or debugging shell scripts (PowerShell, CMD, Bash, sh, zsh, WSL, CI snippets, installers): prevents shell/version, encoding, quoting, path, and line-ending failures; requires verification.
 - `security-best-practices` — Language/framework-specific security best-practice review for Python, JS/TS, and Go. Only when a security review or secure-by-default guidance is explicitly requested.
