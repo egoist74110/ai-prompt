@@ -40,6 +40,7 @@ Match and offer Skills per `router.md` Skill Offers; load a `SKILL.md` only when
 - `tdd` — Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests.
 - `ui-ux-pro-max` — UI/UX design intelligence: styles, palettes, typography, UX rules, charts and stack guidance. Use for UI design/implementation/review/refactor. Resolve scripts from this skill directory; do not assume repo cwd or a specific OS Python command.
 - `verification-before-completion` — Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
+- `video-publisher` — Prepare a local video, title and cover as verified drafts for Xiaohongshu, Douyin, Bilibili, WeChat Channels or YouTube, with account config, resumable upload and draft checks. Use when asked to prepare or manage publishing drafts; stops before the final publish button by default, and publishes the verified current content to named platforms only on explicit request. Not for video editing, cover design, WeChat official-account articles or general platform advice.
 
 ## Runtime / Plugin Skills
 

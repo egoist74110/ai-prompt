@@ -1,0 +1,9 @@
+{
+  "repo": "oil-oil/video-publisher-skill",
+  "path": "video-publisher",
+  "ref": "main",
+  "commit": "b615eacfbd41dde0e268e7e2a52fe6bd69011409",
+  "synced_at": "2026-10-13",
+  "local_changes": "SKILL.md frontmatter description translated to English (gen-index requires English)",
+  "exclude": []
+}
