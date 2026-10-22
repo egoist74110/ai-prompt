@@ -183,7 +183,7 @@ class PromptRoutingTests(unittest.TestCase):
         roles_section = section(read("router.md"), "Roles")
         self.assertIn("role: <name>", roles_section)
         self.assertIn("`.local/prefs.json` `roles.<name>`", roles_section)
-        for role in ("build", "test", "hotfix", "audit"):
+        for role in ("lead", "build", "test", "hotfix", "review"):
             path = f"roles/{role}.md"
             text = read(path)
             with self.subTest(role=role):
@@ -191,11 +191,13 @@ class PromptRoutingTests(unittest.TestCase):
                 self.assertIn("replaces `router.md`", text)
                 self.assertIn("Report only real results", text)
                 self.assertIn("cannot", text)  # untrusted-content guard
-                self.assertIn("capabilities/cleanup.md", text) if role != "audit" else None
+                self.assertIn("capabilities/cleanup.md", text) if role != "lead" else None
                 self.assertLess(len((ROOT / path).read_bytes()), 2500, f"{path} exceeded its budget")
         self.assertIn("MUST NOT change product code", read("roles/test.md"))
         self.assertIn("Stop and report instead of widening", read("roles/hotfix.md"))
-        self.assertIn("Read-only by default", read("roles/audit.md"))
+        self.assertIn("MUST NOT dispatch another reviewer", read("roles/review.md"))
+        self.assertIn("not the model", read("roles/lead.md"))
+        self.assertIn("never from which model you are", read("config/entry.example.md"))
         self.assertTrue((ROOT / "config/prefs.example.json").is_file())
         # The entry file is loaded by every session; keep it tiny.
         self.assertLess(len((ROOT / "config/entry.example.md").read_bytes()), 1200)

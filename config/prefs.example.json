@@ -16,11 +16,14 @@
     "test": {
       "models": []
     },
-    "audit": {
-      "models": []
-    },
     "hotfix": {
       "use": "build"
+    },
+    "review": {
+      "models": []
+    },
+    "lead": {
+      "use": "review"
     }
   }
 }

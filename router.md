@@ -64,7 +64,7 @@ If this execution is delegated only for context collection, repository scouting,
 
 ## Roles
 
-A declared `role: <name>` (`build`/`test`/`hotfix`/`audit` -> `roles/<name>.md`, `scout` -> `models/scout.md`) overrides routing: follow only that file. When dispatching one, start the prompt with `role: <name>` and take model/effort from `.local/prefs.json` `roles.<name>` (same-runtime candidate first; `use` = another role's list).
+A declared `role: <name>` (`lead`/`build`/`test`/`hotfix`/`review` -> `roles/<name>.md`, `scout` -> `models/scout.md`) overrides routing: follow only that file. Roles follow the task, never the model identity. When dispatching one, start the prompt with `role: <name>` and take model/effort from `.local/prefs.json` `roles.<name>` (same-runtime candidate first; `use` = another role's list).
 
 ## Route Changes
 

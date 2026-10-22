@@ -27,7 +27,7 @@ An already loaded prompt may remain in context, but its gates apply only while t
 | **Skill-first** | A named Skill or a request matching Skill metadata | Skill discovery guidance, then the matched `SKILL.md` |
 | **Engineering** | Implementations, project debugging, code/config changes, architecture, refactoring, reviews, build/deployment changes, substantial repository analysis | `models/high.md` plus only the relevant capabilities and Skills |
 | **Scout** | Delegated reconnaissance, context gathering, or low-risk mechanical tasks | `models/scout.md` |
-| **Role entry** | First line `role: build\|test\|hotfix\|audit` — skips the router | `roles/<name>.md` |
+| **Role entry** | First line `role: lead\|build\|test\|hotfix\|review` — skips the router | `roles/<name>.md` |
 
 A Skill that runs a command or writes a requested output does not automatically turn a Skill-first request into Engineering. Load `capabilities/cleanup.md` before the first task-owned side effect (such as a temporary file, process, port, or configuration change); Engineering tasks also follow its full regression and delivery gates.
 
