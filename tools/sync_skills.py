@@ -10,6 +10,8 @@ from platform_fs import create_dir_link, is_junction, is_linkish, link_target, p
 
 def _expand(value: str) -> Path: return Path(os.path.expandvars(value)).expanduser()
 def _norm(path: Path) -> str: return str(path.expanduser().resolve(strict=False))
+def _owned_by(current: Path|None,expected: str|None) -> bool:
+    return bool(expected) and current is not None and expected in (str(current),_norm(current))
 def resolve_target(entry: dict) -> Path | None:
     if entry.get("skills_path"): return _expand(str(entry["skills_path"]))
     candidates=entry.get("skills_candidates",[]) or []; return _expand(str(candidates[0])) if candidates else None
@@ -35,28 +37,33 @@ def sync_per_skill(runtime_name,entry,central,target,previous):
             return False,{},_record(central,target,"per-skill-link",status="skipped")
         target.mkdir(parents=True,exist_ok=True)
     if not target.is_dir(): raise RuntimeError(f"{runtime_name}: skills target is not a directory: {target}")
-    changed=False; link_kind=None; conflicts=[]; central_sources={p.name:p.resolve() for p in central.iterdir() if p.is_dir() and (p/"SKILL.md").is_file()}; owned=_previous_ownership(previous,central,target,"per-skill-link"); managed={}
+    changed=False; link_kind=None; conflicts=[]; central_sources={}; stable=set()
+    for p in central.iterdir():
+        if not (p.is_dir() and (p/"SKILL.md").is_file()): continue
+        # A symlinked central skill is a machine-local install (e.g. pointing at an app's
+        # active version); link to the symlink itself so upgrades do not break the runtime link.
+        if p.is_symlink(): central_sources[p.name]=central.resolve()/p.name; stable.add(p.name)
+        else: central_sources[p.name]=p.resolve()
+    owned=_previous_ownership(previous,central,target,"per-skill-link"); managed={}
     for name,source in sorted(central_sources.items()):
-        dest=target/name
+        dest=target/name; keep=name in stable; key=str(source) if keep else _norm(source)
         if is_linkish(dest):
-            current=link_target(dest)
+            current=link_target(dest,resolve=not keep)
             if current==source:
-                managed[name]=_norm(source); link_kind=link_kind or ("junction" if is_junction(dest) else "symlink"); continue
-            expected=owned.get(name)
-            if expected and current is not None and _norm(current)==expected:
-                remove_linkish(dest); link_kind=create_dir_link(source,dest); managed[name]=_norm(source); changed=True; print(f"{runtime_name}: updated managed {name}"); continue
+                managed[name]=key; link_kind=link_kind or ("junction" if is_junction(dest) else "symlink"); continue
+            if _owned_by(link_target(dest,resolve=False),owned.get(name)) or _owned_by(current,owned.get(name)):
+                remove_linkish(dest); link_kind=create_dir_link(source,dest,resolve=not keep); managed[name]=key; changed=True; print(f"{runtime_name}: updated managed {name}"); continue
             conflicts.append(name); print(f"{runtime_name}: preserve unmanaged/repointed link {name}; central skill not synced"); continue
         if dest.exists():
             conflicts.append(name); print(f"{runtime_name}: preserve unmanaged path {name}; central skill not synced"); continue
-        link_kind=create_dir_link(source,dest); managed[name]=_norm(source); changed=True; print(f"{runtime_name}: added {name}")
+        link_kind=create_dir_link(source,dest,resolve=not keep); managed[name]=key; changed=True; print(f"{runtime_name}: added {name}")
     # Delete obsolete entries only when this exact target/central manifest owned the
     # name and the current link still points to the recorded source.
     for name,expected in sorted(owned.items()):
         if name in central_sources: continue
         dest=target/name
         if not is_linkish(dest): continue
-        current=link_target(dest)
-        if current is None or _norm(current)!=expected:
+        if not (_owned_by(link_target(dest,resolve=False),expected) or _owned_by(link_target(dest),expected)):
             print(f"{runtime_name}: preserve repointed obsolete link {name}"); continue
         remove_linkish(dest); changed=True; print(f"{runtime_name}: removed obsolete managed {name}")
     patch={"skills_path":str(target),"skills_layout":"per-skill-link","link_kind":link_kind or entry.get("link_kind")}; record=_record(central,target,"per-skill-link",managed,conflicts)

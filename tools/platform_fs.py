@@ -33,14 +33,15 @@ def is_linkish(path: Path) -> bool:
     return path.is_symlink() or is_junction(path)
 
 
-def link_target(path: Path) -> Path | None:
+def link_target(path: Path, resolve: bool = True) -> Path | None:
+    """Return the link's target; resolve=False keeps intermediate symlinks (symlinks only)."""
     try:
         if path.is_symlink():
             raw = os.readlink(path)
             target = Path(raw)
             if not target.is_absolute():
                 target = path.parent / target
-            return target.resolve()
+            return target.resolve() if resolve else Path(os.path.abspath(target))
         if is_junction(path):
             return path.resolve()
     except OSError:
@@ -67,12 +68,14 @@ def remove_linkish(path: Path) -> None:
         raise RuntimeError(f"not a symlink/junction: {path}")
 
 
-def create_dir_link(target: Path, link: Path) -> str:
+def create_dir_link(target: Path, link: Path, resolve: bool = True) -> str:
     """Create a directory link without requiring Windows symlink privilege.
 
     Windows uses an NTFS junction. Unix-like systems use a regular directory symlink.
+    resolve=False links to the given path as-is so a stable symlink in it is not
+    replaced by its current (possibly versioned) destination.
     """
-    target = target.resolve()
+    target = target.resolve() if resolve else Path(os.path.abspath(target))
     if os.name == "nt":
         command = f'mklink /J "{link}" "{target}"'
         # shell 字符串而非 argv list：Windows 下 list 形式会经 list2cmdline

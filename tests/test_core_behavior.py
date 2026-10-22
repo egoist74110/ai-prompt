@@ -2,6 +2,7 @@
 import contextlib
 import io
 import multiprocessing
+import os
 import sys
 import tempfile
 import unittest
@@ -11,7 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import doctor
 import local_state
-from platform_fs import create_dir_link, points_to, remove_linkish
+from platform_fs import create_dir_link, is_linkish, points_to, remove_linkish
 from sync_skills import sync_central_dir, sync_per_skill
 
 
@@ -75,6 +76,35 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertTrue(points_to(self.target / "second", external))
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "user data")
         self.assertTrue(external.is_dir())
+
+    def test_symlinked_skill_links_through_stable_path(self):
+        # A machine-local skill: central/<name> -> stable alias -> versioned install.
+        versions = self.root / "app"
+        for version in ("1.0", "2.0"):
+            (versions / version / "local").mkdir(parents=True)
+            (versions / version / "local" / "SKILL.md").write_text(version, encoding="utf-8")
+        alias = self.root / "active"
+        alias.symlink_to(versions / "1.0" / "local", target_is_directory=True)
+        (self.central / "local").symlink_to(alias, target_is_directory=True)
+        self.target.mkdir()
+        # Legacy state: the runtime link was created against the resolved versioned path.
+        legacy = versions / "1.0" / "local"
+        create_dir_link(legacy, self.target / "local")
+        previous = {"central": str(self.central.resolve()), "target": str(self.target.resolve()),
+                    "mode": "per-skill-link", "managed": {"local": str(legacy.resolve())}}
+        changed, _, record = sync_per_skill("sample", self.entry, self.central, self.target, previous)
+        self.assertTrue(changed)
+        stable = self.central.resolve() / "local"
+        self.assertEqual(Path(os.readlink(self.target / "local")), stable)
+        alias.unlink()
+        alias.symlink_to(versions / "2.0" / "local", target_is_directory=True)
+        changed, _, record = sync_per_skill("sample", self.entry, self.central, self.target, record)
+        self.assertFalse(changed)
+        self.assertEqual((self.target / "local" / "SKILL.md").read_text(encoding="utf-8"), "2.0")
+        (self.central / "local").unlink()
+        changed, _, _ = sync_per_skill("sample", self.entry, self.central, self.target, record)
+        self.assertTrue(changed)
+        self.assertFalse(is_linkish(self.target / "local"))
 
     def test_central_link_and_conflict(self):
         changed, _, _ = sync_central_dir("sample", self.entry, self.central, self.target)
