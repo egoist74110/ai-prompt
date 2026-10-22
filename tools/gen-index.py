@@ -37,7 +37,8 @@ def parse_frontmatter(path: Path):
 def collect():
     entries = []
     problems = []
-    for directory in sorted(p for p in SKILLS.iterdir() if p.is_dir()):
+    # Symlinked skills are machine-local installs managed by an external tool; they are not central.
+    for directory in sorted(p for p in SKILLS.iterdir() if p.is_dir() and not p.is_symlink()):
         skill_md = directory / "SKILL.md"
         if not skill_md.is_file():
             continue

@@ -37,7 +37,11 @@ fi
 }
 
 # --- 3. 工作树 vs 暂存快照 ---
-worktree_skills=$(ls -d skills/*/SKILL.md 2>/dev/null | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)
+# 软链接进来的本机 skill（由外部工具安装/升级，如 ego-browser）不入库，也不参与校验。
+worktree_skills=$(for f in skills/*/SKILL.md; do
+  d="${f%/SKILL.md}"
+  [ -f "$f" ] && [ ! -L "$d" ] && echo "${d#skills/}"
+done | sort)
 # 必须与上面 ls 一样只看第一层：git 默认 pathspec 的 * 会跨目录，
 # 嵌套的 SKILL.md（如 skills/<name>/examples/*/SKILL.md）会误入暂存集合。
 staged_skills=$(git ls-files --cached -- ':(glob)skills/*/SKILL.md' | sed 's|skills/\(.*\)/SKILL.md|\1|' | sort)

@@ -15,3 +15,6 @@ skills/.trash/
 # Copyrighted voice reference clips and synthesis output (keep local)
 skills/elysia-perspective/resources/voice/clips/
 skills/elysia-perspective/resources/voice/out/
+
+# Machine-local skills symlinked in by external installers (not canonical)
+skills/ego-browser
