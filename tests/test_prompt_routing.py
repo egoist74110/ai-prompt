@@ -205,6 +205,8 @@ class PromptRoutingTests(unittest.TestCase):
         lead = read("roles/lead.md")
         self.assertIn("candidate whose `runtime` is your own runtime", lead)
         self.assertIn("Skills the worker must load", lead)
+        self.assertIn("out of quota", lead)
+        self.assertIn("out of quota", section(read("router.md"), "Roles"))
         self.assertNotIn("Response Layer", lead)
         self.assertIn("Load every Skill the brief lists", read("roles/build.md"))
         self.assertIn("explicitly approves a wider fix", read("roles/hotfix.md"))
