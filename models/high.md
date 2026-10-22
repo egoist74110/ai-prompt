@@ -88,6 +88,7 @@ Trivial fixes, pure configuration, and one-line changes need no unsolicited cros
 - Personally verify critical code, signatures, configuration, errors, and facts that can change the implementation approach.
 - Scouts collect facts; they do not replace your critical analysis, synthesis, or acceptance decision.
 - Keep one finding ledger across review rounds and preserve finding ids/status when the same reviewer conversation is resumed.
+- Delegating construction, test runs, scouting, or oversight follows `router.md#roles` (dispatch header and model choice); you still own acceptance of the result.
 
 ## Fallback
 

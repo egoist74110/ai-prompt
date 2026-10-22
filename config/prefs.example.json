@@ -1,0 +1,26 @@
+{
+  "response_profile": ".local/response-profile.md",
+  "engineering": {
+    "manual_validation": "<optional: how manual/real-app validation is scheduled>"
+  },
+  "roles": {
+    "build": {
+      "models": [
+        {
+          "runtime": "<runtime id from .local/runtime.json>",
+          "model": "<model id>",
+          "effort": "medium"
+        }
+      ]
+    },
+    "test": {
+      "models": []
+    },
+    "audit": {
+      "models": []
+    },
+    "hotfix": {
+      "use": "build"
+    }
+  }
+}

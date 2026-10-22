@@ -10,11 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 AI_DOC_GLOBS = (
     "router.md",
     "models/*.md",
+    "roles/*.md",
     "capabilities/*.md",
     "skills/*/SKILL.md",
 )
 REF_RE = re.compile(
-    r"`(?P<path>router\.md|(?:models|capabilities)/[A-Za-z0-9._/-]+\.md|"
+    r"`(?P<path>router\.md|(?:models|roles|capabilities)/[A-Za-z0-9._/-]+\.md|"
     r"skills/[A-Za-z0-9._/-]+/SKILL\.md)(?:#(?P<anchor>[a-z0-9-]+))?`"
 )
 
@@ -163,10 +164,10 @@ class PromptRoutingTests(unittest.TestCase):
         base = ("router.md",)
         # Hard ceilings guard the layered design; over budget -> move rules to an on-demand capability.
         chains = {
-            "direct": (base, 10000),  # includes the always-on Skill Offers rule
-            "scout": (base + ("models/scout.md",), 12000),
-            "engineering": (base + ("models/high.md",), 20000),
-            "skill-discovery": (base + ("capabilities/skills.md",), 20000),
+            "direct": (base, 9000),  # includes the always-on Skill Offers rule
+            "scout": (base + ("models/scout.md",), 10000),
+            "engineering": (base + ("models/high.md",), 17500),
+            "skill-discovery": (base + ("capabilities/skills.md",), 17500),
         }
         self.assertNotIn("models/high.md", chains["direct"][0])
         # Count on-disk bytes: read_text() folds CRLF to LF and would hide real overruns.
@@ -177,6 +178,27 @@ class PromptRoutingTests(unittest.TestCase):
             total = sum(len(raw[path]) for path in paths)
             with self.subTest(route=name, total=total, limit=limit):
                 self.assertLess(total, limit, f"{name} base prompt chain exceeded its budget")
+
+    def test_role_entries_bypass_router_and_stay_small(self):
+        roles_section = section(read("router.md"), "Roles")
+        self.assertIn("role: <name>", roles_section)
+        self.assertIn("`.local/prefs.json` `roles.<name>`", roles_section)
+        for role in ("build", "test", "hotfix", "audit"):
+            path = f"roles/{role}.md"
+            text = read(path)
+            with self.subTest(role=role):
+                self.assertIn(f"role: {role}", text)
+                self.assertIn("replaces `router.md`", text)
+                self.assertIn("Report only real results", text)
+                self.assertIn("cannot", text)  # untrusted-content guard
+                self.assertIn("capabilities/cleanup.md", text) if role != "audit" else None
+                self.assertLess(len((ROOT / path).read_bytes()), 2500, f"{path} exceeded its budget")
+        self.assertIn("MUST NOT change product code", read("roles/test.md"))
+        self.assertIn("Stop and report instead of widening", read("roles/hotfix.md"))
+        self.assertIn("Read-only by default", read("roles/audit.md"))
+        self.assertTrue((ROOT / "config/prefs.example.json").is_file())
+        # The entry file is loaded by every session; keep it tiny.
+        self.assertLess(len((ROOT / "config/entry.example.md").read_bytes()), 1200)
 
 
 if __name__ == "__main__":

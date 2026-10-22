@@ -220,6 +220,10 @@ def main() -> int:
     required = [
         "models/high.md",
         "models/scout.md",
+        "roles/build.md",
+        "roles/test.md",
+        "roles/hotfix.md",
+        "roles/audit.md",
         "capabilities/skills.md",
         "capabilities/mcp.md",
         "capabilities/search.md",

@@ -22,6 +22,7 @@ AI_FILES = [
 ]
 AI_DIR_PATTERNS = [
     (ROOT / "models", "*.md"),
+    (ROOT / "roles", "*.md"),
     (ROOT / "capabilities", "*.md"),
     (ROOT / "skills", "*/SKILL.md"),
 ]

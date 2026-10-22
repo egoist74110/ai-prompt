@@ -103,6 +103,7 @@ python tools/runtime_state.py runtime add <runtime-id> \
 - **Skill-first**：用户点名 Skill 或请求明确命中 Skill metadata 时，只读 `capabilities/skills.md` 做发现，再加载匹配的 `skills/<name>/SKILL.md`；不会因为 Skill 会运行命令或输出文件就自动进入 High。
 - **Engineering**：真正需要仓库/项目工程流程时才读 `models/high.md`，包括实现、代码/配置修改、项目调试、架构/重构、代码审查、构建/部署变更、较重的仓库分析和实现规划。当前 runtime 没有直接暴露中央 Skill metadata 时，规划前读一次 `capabilities/skills.md`，避免 canonical Skill 静默失效。
 - **Scout**：被要求做侦查、上下文收集、机械执行时，只读 `models/scout.md`；任务超出 Scout 委派范围时回到 router 重新判断当前 intent，不默认跳 High。
+- **角色入口（跳过 router）**：任务第一行写 `role: build|test|hotfix|audit|scout`，runtime entry 直接读 `roles/<name>.md`（scout 读 `models/scout.md`），不读 router/high。适合施工、跑测试、精准快修、全局审核这类角色已经由派活方定好的执行。各角色用哪个模型记在 `.local/prefs.json` 的 `roles`（见 `config/README.md`）。
 - Skill 的创建/修改/部署维护才加载 `capabilities/skill-maintenance.md`；普通 Skill 执行不加载。
 - 需要 runtime registry、本机 discovery 或共享 `.local` 状态时才加载 `capabilities/runtime.md`。
 - MCP、搜索、交叉审查等能力继续按各自 trigger 加载，不做预加载。
