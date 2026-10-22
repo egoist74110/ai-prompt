@@ -24,7 +24,9 @@
 
 只保存用户偏好条目（例如 `response_profile` 指向的回复语言/风格缓存）。每个会话开头都会被读取，所以必须保持很小；运行时事实放 `runtime.json`，实测经验放 `state.json`。旧版放在 `state.json` 的 `user_prefs` 会由 `python tools/runtime_state.py migrate` 自动搬过来。
 
-`roles` 条目记录每个角色（lead 总领 / build 施工 / test 测试 / review 代码审核 / hotfix 快修）派活时用哪个 runtime/模型/effort，`models` 里每个运行环境放一个候选，`runtime` 填 `.local/runtime.json` 里的 runtime id；派活时优先选和派活方同一 runtime 的候选（Claude 派 Claude 模型，Codex 派 GPT 模型），没有才取第一个。`"use": "build"` 表示沿用另一个角色的候选（例如快修沿用施工、总领沿用代码审核）。格式见 `config/prefs.example.json`。提示词选不了自己的模型，这份配置是给**派活的一方**看的：派活时按它选模型，并在派活提示词第一行写 `role: <name>`。
+`roles` 条目记录每个角色（lead 总领 / build 施工 / test 测试 / review 代码审核 / hotfix 快修）派活时用哪个 runtime/模型/effort，`models` 里每个运行环境放一个候选，`runtime` 填 `.local/runtime.json` 里的 runtime id；派活时优先选和派活方同一 runtime 的候选（Claude 派 Claude 模型，Codex 派 GPT 模型），没有才取第一个。`"use": "build"` 表示沿用另一个角色的候选（例如快修沿用施工、总领沿用代码审核）。格式见 `config/prefs.example.json`。
+
+`skill_offer_mode` 控制普通会话里主动推荐 Skill 的方式：`ask`（默认，不填也是它）先用一句话问你要不要用；`auto` 直接加载合适的 Skill 并用一句话告诉你用了哪些；`off` 不推荐，只在你点名、配置已选定、Skill 自称强制护栏或任务只能靠它完成时才加载。走角色入口的会话不读 router，不受这个开关影响。提示词选不了自己的模型，这份配置是给**派活的一方**看的：派活时按它选模型，并在派活提示词第一行写 `role: <name>`。
 
 ### `.local/state.json`
 

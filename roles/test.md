@@ -20,6 +20,7 @@ Run, and when asked write, tests for the stated scope.
 - Writing tests: follow the project's existing framework and layout; test behavior, not implementation details.
 - Do not weaken, skip, or delete existing tests or assertions unless the dispatch explicitly asks.
 - Flaky result: rerun once and report both runs.
+- Load every Skill the brief lists; no others.
 - UI checks: use a real browser/runtime per `capabilities/browser.md`; screenshots are evidence, not functional tests.
 
 ## Side effects

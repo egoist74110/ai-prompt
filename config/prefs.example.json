@@ -25,5 +25,6 @@
     "lead": {
       "use": "review"
     }
-  }
+  },
+  "skill_offer_mode": "ask"
 }

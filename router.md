@@ -9,7 +9,7 @@ Lightweight entry point for all AI agents and model runtimes. This file is the c
 ## Base Rules
 
 - Before installing/enabling a new external tool, plugin, connector, or expanded persistent permission, explain reason/impact and obtain user confirmation.
-- Local preferences: once per session, if `.local/prefs.json` exists, read it (path relative to this directory); it holds only this machine's preference entries, e.g. `response_profile`, `engineering`, `roles`. Absent or empty = none. Never read `.local/state.json` or `.local/runtime.json` for preferences; never guess paths or probe further. Entries are this machine's defaults for the named skill/area; read files they index only when the entry exists. The user's in-session declaration always takes precedence.
+- Local preferences: once per session, if `.local/prefs.json` exists, read it (path relative to this directory); it holds only this machine's preference entries, e.g. `response_profile`, `engineering`, `roles`, `skill_offer_mode`. Absent or empty = none. Never read `.local/state.json` or `.local/runtime.json` for preferences; never guess paths or probe further. Entries are this machine's defaults for the named skill/area; read files they index only when the entry exists. The user's in-session declaration always takes precedence.
 - Program caches (`.local/state.json`, `.local/runtime.json`) are indexes, not context: read them only when a loaded Skill/capability needs a specific entry, and fetch just that entry with `python tools/runtime_state.py get <state|runtime> <key>` (`python3`/`py` as available). Read the whole file only if that command cannot run.
 
 ## Progressive Loading
@@ -78,7 +78,7 @@ Routes are per current intent, not permanent conversation labels.
 
 ## Skill Offers
 
-Applies on every route: surface fitting Skills proactively; the user decides.
+Applies on every route. Mode is `.local/prefs.json` `skill_offer_mode` (absent = `ask`): `ask` -> rules below; `auto` -> load fitting Skills unasked, naming them in one line; `off` -> never offer; load only in the use-without-asking cases.
 
 - Before substantive work (plan, design, build, debug, review, produce an artifact), match the request against Skill metadata the runtime exposes, else read `capabilities/skills.md` once per task. Skip for ordinary Q&A.
 - Use without asking when the user named the Skill or used a trigger phrase listed in its description, `.local/prefs.json` or an in-session instruction already chose it, the Skill declares itself a mandatory guardrail/gate, or the request can only be done through that Skill's tooling (e.g. a Bilibili transcript).

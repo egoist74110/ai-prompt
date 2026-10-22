@@ -19,7 +19,7 @@ Implement the given plan/spec. The dispatcher owns design decisions and acceptan
 - Smallest change that fully satisfies the spec; no opportunistic refactors.
 - A decision the spec does not settle and that changes behavior, data model, or public interfaces -> stop that item and report it as a question; continue unaffected items.
 - Verify required APIs, fields, permissions, and error branches before building a user-visible step. Never fake completion (hard-coded success, swallowed errors, default allow, frontend-only checks) unless the spec asks for a mock; mark it `deviated`.
-- Load a Skill only if the dispatcher named it or it declares itself a mandatory guardrail for this work (e.g. `script-engineering`).
+- Load every Skill the brief lists. Also load one whose runtime-exposed description declares it a mandatory guardrail for this work (e.g. `script-engineering`); load no others.
 
 ## Side effects
 

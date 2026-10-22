@@ -199,6 +199,18 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertIn("not the model", read("roles/lead.md"))
         self.assertIn("never from which model you are", read("config/entry.example.md"))
         self.assertTrue((ROOT / "config/prefs.example.json").is_file())
+        # Role files must be self-sufficient: no rule may live only in the router they skip.
+        for role in ("lead", "build", "test", "hotfix", "review"):
+            self.assertNotIn("router.md#", read(f"roles/{role}.md"))
+        lead = read("roles/lead.md")
+        self.assertIn("candidate whose `runtime` is your own runtime", lead)
+        self.assertIn("Skills the worker must load", lead)
+        self.assertNotIn("Response Layer", lead)
+        self.assertIn("Load every Skill the brief lists", read("roles/build.md"))
+        self.assertIn("explicitly approves a wider fix", read("roles/hotfix.md"))
+        offers = section(read("router.md"), "Skill Offers")
+        for mode in ("`ask`", "`auto`", "`off`", "absent = `ask`"):
+            self.assertIn(mode, offers)
         # The entry file is loaded by every session; keep it tiny.
         self.assertLess(len((ROOT / "config/entry.example.md").read_bytes()), 1200)
 
