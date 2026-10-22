@@ -11,7 +11,15 @@
           "model": "<model id>",
           "effort": "medium"
         }
-      ]
+      ],
+      "domains": {
+        "frontend": [
+          "<runtime id>"
+        ],
+        "backend": [
+          "<runtime id>"
+        ]
+      }
     },
     "test": {
       "models": []

@@ -182,7 +182,7 @@ class PromptRoutingTests(unittest.TestCase):
     def test_role_entries_bypass_router_and_stay_small(self):
         roles_section = section(read("router.md"), "Roles")
         self.assertIn("role: <name>", roles_section)
-        self.assertIn("`.local/prefs.json` `roles.<name>`", roles_section)
+        self.assertIn("roles/dispatch.md", roles_section)
         for role in ("lead", "build", "test", "hotfix", "review"):
             path = f"roles/{role}.md"
             text = read(path)
@@ -203,11 +203,15 @@ class PromptRoutingTests(unittest.TestCase):
         for role in ("lead", "build", "test", "hotfix", "review"):
             self.assertNotIn("router.md#", read(f"roles/{role}.md"))
         lead = read("roles/lead.md")
-        self.assertIn("candidate whose `runtime` is your own runtime", lead)
-        self.assertIn("Skills the worker must load", lead)
-        self.assertIn("out of quota", lead)
+        self.assertIn("roles/dispatch.md", lead)
+        dispatch = read("roles/dispatch.md")
+        for term in ("`role: <name>`", "Skills the worker must load", "`.local/prefs.json` `roles.<name>`",
+                     "`domains`", "This overrides step 3", "candidate whose `runtime` is your own runtime",
+                     "out of quota", "fall back to the remaining `models`"):
+            with self.subTest(dispatch=term):
+                self.assertIn(term, dispatch)
+        self.assertLess(len((ROOT / "roles/dispatch.md").read_bytes()), 2500)
         self.assertIn("only if the user asked or approves", lead)
-        self.assertIn("out of quota", section(read("router.md"), "Roles"))
         self.assertNotIn("Response Layer", lead)
         self.assertIn("Load every Skill the brief lists", read("roles/build.md"))
         self.assertIn("explicitly approves a wider fix", read("roles/hotfix.md"))

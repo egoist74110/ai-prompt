@@ -223,6 +223,7 @@ def main() -> int:
         "roles/build.md",
         "roles/test.md",
         "roles/hotfix.md",
+        "roles/dispatch.md",
         "roles/lead.md",
         "roles/review.md",
         "capabilities/skills.md",

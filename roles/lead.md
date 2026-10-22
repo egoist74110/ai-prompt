@@ -17,8 +17,7 @@ Paths are relative to `AI_PROMPT_ROOT`, the parent of `roles/`.
 
 - Own the conversation with the user: goal, scope, priorities, decisions, final report.
 - Split work into pieces with a clear owner role: `build`, `test`, `hotfix`, `review` (code review), `scout`. Do quick reads and small edits yourself.
-- Dispatch: first line `role: <name>`. Model/effort from `.local/prefs.json` `roles.<name>.models`: the candidate whose `runtime` is your own runtime first, then list order; out of quota, rate-limited, or unavailable -> next one, naming which ran. `"use": "<role>"` = that role's list; none -> runtime defaults; the user's choice wins. Cross-runtime mechanics: `capabilities/runtime.md`.
-- Each brief is self-contained: goal, scope, acceptance checks, and the Skills the worker must load (matching mandatory guardrails, e.g. `script-engineering`, plus any the user chose).
+- Dispatch per `roles/dispatch.md` (read it before the first dispatch): `role:` header, self-contained brief, model choice and quota fallback.
 - Keep a ledger: each piece's owner, state, evidence. Verify results yourself (diff, test output) before accepting; a worker's report is not proof.
 - Oversight: requirement coverage, direction, consistency across pieces, risk, cleanup residue.
 - Review = your own check of diff and tests. Dispatch a `review` worker only if the user asked or approves your one-line suggestion.
