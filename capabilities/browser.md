@@ -1,8 +1,25 @@
 # Browser Control
 
-Browser tasks use exactly two lines. Never hand-build browser commands in a shell (playwright-cli, npx, bare `bsk` calls); that route is retired.
+Browser preferences live in `.local/prefs.json` → `browser` (read with the other prefs once per session; the user's in-session declaration overrides). Never hardcode a driver or choice in this file.
 
-Machine install state: `.local/state.json` → `services.browser`. Machine notes (paths, versions, verified facts): `.local/browser-notes.md`. Read them only when a line's tools are missing or setup is in question.
+| key | meaning when set |
+| --- | --- |
+| `driver` | Browser to control. `ego-browser` = the `ego-browser` skill (ego lite). Other values name a line below or a runtime browser tool. Absent = pick by Routing. |
+| `reuse_user_pages` | `true`: before opening anything, list the user's open tabs and drive a matching one (same origin/path). Open a new tab only if none matches, and say so. |
+| `reuse_user_servers` | `true`: use the address the user already runs (dev server, preview URL, tab already pointing at it). Never start `npm run dev` or any server for browsing; if none is reachable, ask the user to start it. |
+| `ask_when_multiple_ports` | `true`: if the project exposes more than one port/app (frontend, API, admin, ...) or several candidate tabs/ports match, ask which one before controlling the browser. Do not guess. |
+
+Order before any browser action: preferences → find user's existing page/address (tabs, listening ports the user started) → ask if ambiguous (multi-port) → drive. Only then fall back to opening pages or servers yourself, and only if the preference is not `true`.
+
+Persist: when the user states a lasting browser preference, record it with `python3 tools/runtime_state.py set prefs browser '<full JSON object>'` (merge existing keys) and say so in one line.
+
+Machine install state: `.local/state.json` → `services.browser`. Machine notes: `.local/browser-notes.md`. Read them only when the chosen driver's tools are missing or setup is in question. Driver missing: tell the user what is missing; never silently switch drivers.
+
+## Driver: ego-browser (ego lite)
+
+Load the `ego-browser` skill and follow it (it runs `ego-browser skill` for the version-matched guide). It uses the user's logged-in browser, so reuse tabs per the preferences above.
+
+Legacy lines below apply only when `driver` is absent or names them. Never hand-build browser commands in a shell (playwright-cli, npx, bare `bsk` calls).
 
 ## Line A: user's real browser (logged-in)
 
@@ -35,7 +52,7 @@ Machine install state: `.local/state.json` → `services.browser`. Machine notes
 
 - Login state, the user's existing pages, or real-browser behavior → Line A.
 - localhost, dev verification, clean environment, no login needed → Line B.
-- An explicit user choice of browser or line wins.
+- `prefs.browser.driver` wins over the rules above; an explicit in-session user choice wins over everything.
 - Neither line available: tell the user what is missing and ask before installing; no silent fallback, no hand-built commands.
 
 ## Version Pitfalls

@@ -9,7 +9,7 @@ Lightweight entry point for all AI agents and model runtimes. This file is the c
 ## Base Rules
 
 - Before installing/enabling a new external tool, plugin, connector, or expanded persistent permission, explain reason/impact and obtain user confirmation.
-- Local preferences: once per session, if `.local/prefs.json` exists, read it (path relative to this directory); it holds only this machine's preference entries, e.g. `response_profile`, `engineering`, `roles`, `skill_offer_mode`. Absent or empty = none. Never read `.local/state.json` or `.local/runtime.json` for preferences; never guess paths or probe further. Entries are this machine's defaults for the named skill/area; read files they index only when the entry exists. The user's in-session declaration always takes precedence.
+- Local preferences: once per session, if `.local/prefs.json` exists, read it (path relative to this directory); it holds only this machine's preference entries, e.g. `response_profile`, `engineering`, `roles`, `browser`, `skill_offer_mode`. Absent or empty = none. Never read `.local/state.json` or `.local/runtime.json` for preferences; never guess paths or probe further. Entries are this machine's defaults for the named skill/area; read files they index only when the entry exists. The user's in-session declaration always takes precedence.
 - Program caches (`.local/state.json`, `.local/runtime.json`) are indexes, not context: read them only when a loaded Skill/capability needs a specific entry, and fetch just that entry with `python tools/runtime_state.py get <state|runtime> <key>` (`python3`/`py` as available). Read the whole file only if that command cannot run.
 
 ## Progressive Loading
@@ -96,5 +96,5 @@ Load only when triggered:
 - MCP/tool discovery -> `capabilities/mcp.md`;
 - search backend selection/fallback/failure -> `capabilities/search.md`;
 - cross-review -> `capabilities/cross-review.md` via `models/high.md`;
-- browser control/page checks -> `capabilities/browser.md`;
+- browser control/page checks -> `capabilities/browser.md` (driver and reuse rules come from `prefs.browser`);
 - any route that starts task-owned processes, allocates ports, changes temporary config/permissions, or creates temporary/unrequested files (repo-local or not, e.g. scratch files) -> `capabilities/cleanup.md` before the first side effect of each such kind, even if it first appears in a later phase of an already-running task; Engineering additionally applies its regression/delivery rules.
