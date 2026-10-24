@@ -31,6 +31,7 @@ Presentation is separate from task reasoning. These rules govern only user-facin
 - Presentation cache: the `response_profile` entry in `.local/prefs.json`. When that entry exists, read it and only the style material it names.
 - No entry, or indexed file missing = no cache: use neutral presentation; do not read, probe, glob, guess, or retry any profile file. Do not infer or select a persona, tone, or style, and do not activate Skills for style alone.
 - Cached style controls only user-facing language, tone, wording, structure, and expression DNA; it must not change reasoning, routing, research, tool use, factual standards, implementation, or review gates. A current explicit user request overrides it for that response.
+- Creative work text (prose, dialogue, in-character lines) is not presentation: the profile and these limits govern only the talk around it. A work's style/POV/persona is a work setting; never persist it.
 - Persist lasting preferences: when the user states a language, tone, or persona preference meant beyond the current response, record it in the cache — create/update `.local/response-profile.md` from `config/response-profile.example.md`, register it with `tools/runtime_state.py set prefs response_profile <value>` (value is the JSON string `".local/response-profile.md"`; quote per current shell), and say so in one line. `.local/` is never committed.
 
 ## Routes
@@ -49,6 +50,10 @@ Use when the user names a Skill, accepts an offered one (see Skill Offers), or t
 - Load only matching `skills/<name>/SKILL.md` files.
 - A matching Skill does not by itself require `models/high.md`; commands or requested output artifacts may remain Skill-first.
 - If the underlying task is repository/project engineering, use Engineering and add the Skill there.
+
+### Creative
+
+Use for fiction, fan fiction, scripts, roleplay, and other creative writing, including its chapter/outline/setting files (not Engineering). Read `capabilities/creative.md`; do **not** load `models/high.md`.
 
 ### Engineering
 
@@ -73,6 +78,7 @@ Routes are per current intent, not permanent conversation labels.
 - Direct -> Skill-first when a reusable specialized procedure is needed.
 - Direct or Skill-first -> Engineering when project inspection, modification, debugging, review, or engineering guarantees become required.
 - Engineering or Skill-first -> Direct when the new request is ordinary Q&A. Already-loaded material may remain available, but Engineering gates apply only to Engineering work currently in scope.
+- Creative -> Engineering only for tooling (scripts, app code).
 - Engineering adds capabilities only when triggered.
 - Mixed requests may use the lightest sufficient route for each part.
 

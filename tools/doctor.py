@@ -231,6 +231,7 @@ def main() -> int:
         "capabilities/search.md",
         "capabilities/cross-review.md",
         "capabilities/cleanup.md",
+        "capabilities/creative.md",
         "config/README.md",
         "config/runtime-templates.json",
         "tools/local_state.py",

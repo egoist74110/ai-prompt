@@ -75,6 +75,7 @@ class PromptRoutingTests(unittest.TestCase):
         expected = {
             "Direct": ("ordinary Q&A", "simple code/API/syntax", "Do **not** load `models/high.md`"),
             "Skill-first": ("names a Skill", "Skill metadata", "does not by itself require `models/high.md`"),
+            "Creative": ("fiction", "roleplay", "not Engineering", "capabilities/creative.md", "do **not** load `models/high.md`"),
             "Engineering": ("implementation", "code/config changes", "project debugging", "code review", "capabilities/skills.md"),
             "Scout": ("delegated", "context collection", "models/scout.md"),
         }
@@ -89,6 +90,7 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertIn("Direct -> Skill-first", body)
         self.assertIn("Direct or Skill-first -> Engineering", body)
         self.assertIn("Engineering or Skill-first -> Direct", body)
+        self.assertIn("Creative -> Engineering only for tooling", body)
         self.assertIn("current intent", body)
         high = read("models/high.md")
         self.assertIn("current request no longer qualifies as Engineering", high)
@@ -131,6 +133,26 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertNotIn("language", base_rules.lower())
         self.assertTrue((ROOT / "config/response-profile.example.md").is_file())
 
+    def test_creative_work_is_exempt_from_response_profile(self):
+        response_layer = section(read("router.md"), "Response Layer")
+        exemption = next(line for line in response_layer.splitlines() if "Creative work text" in line)
+        self.assertIn("not presentation", exemption)
+        self.assertIn("never persist", exemption)
+
+        creative = read("capabilities/creative.md")
+        for term in (
+            "never from `response_profile`",
+            "Never record them in `.local/response-profile.md`",
+            "`artifact` deliverables",
+            "capabilities/cleanup.md",
+            "do not make the task Engineering",
+            "Switch to Engineering only for tooling",
+            "Skill Offers still apply",
+        ):
+            with self.subTest(term=term):
+                self.assertIn(term, creative)
+        self.assertNotIn("models/high.md", creative)
+
     def test_literal_ai_doc_references_and_anchors_resolve(self):
         for source in docs():
             text = source.read_text(encoding="utf-8")
@@ -165,7 +187,8 @@ class PromptRoutingTests(unittest.TestCase):
         # Hard ceilings guard the layered design; over budget -> move rules to an on-demand capability.
         chains = {
             "direct": (base, 9000),  # includes the always-on Skill Offers rule
-            "scout": (base + ("models/scout.md",), 10000),
+            "scout": (base + ("models/scout.md",), 10500),
+            "creative": (base + ("capabilities/creative.md",), 12000),
             "engineering": (base + ("models/high.md",), 17500),
             "skill-discovery": (base + ("capabilities/skills.md",), 17500),
         }
