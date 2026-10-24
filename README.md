@@ -14,7 +14,7 @@
 
 仓库只保存**可移植规则**；机器差异、运行时名单和已验证经验不再写死进 prompt / skill / Python：
 
-- `router.md`：轻量统一入口，也是唯一的常驻必读文件。它负责判断当前请求走 Direct、Skill-first、Engineering 还是 Scout，并按当前意图动态切换；同时内含所有路由都要遵守的基础底线（Base Rules）和回复语言/风格规则（Response Layer）。以前拆在 `common.md`、`response/default.md` 里，模型经常只读 router 就开工、漏读这两个文件，所以合并进来，一次读全。
+- `router.md`：轻量统一入口，也是唯一的常驻必读文件。它按「当前意图需要什么保障」把请求分到 7 条路线（Direct 答、Research 查、Writing 写、Engineering 造、Operate 办、Media 生成、Think 想），并按当前意图动态切换；同时内含所有路由都要遵守的基础底线（Base Rules，包括外部操作的底线：只做用户点名的那件事、超出就先问、做完核对结果）和回复语言/风格规则（Response Layer）。以前拆在 `common.md`、`response/default.md` 里，模型经常只读 router 就开工、漏读这两个文件，所以合并进来，一次读全。
 - 回复语言：默认跟随用户当前消息的语言，不再写死中文。长期的语言/语气/扮演偏好写进本机缓存 `.local/response-profile.md`，并在 `.local/prefs.json` 的 `response_profile` 登记（模板见 `config/response-profile.example.md`）。`prefs.json` 是专门给偏好用的小文件，每个会话开头都会读；以前偏好放在 30 KB 的 `state.json` 里，模型一读就把大量无关运行时缓存带进上下文，所以单独拆出来。
 - `models/high.md`：只服务 Engineering 路径；普通问答和单纯 Skill 执行不再默认加载。
 - `models/scout.md`：只用于被委派的上下文收集、仓库侦查和低风险机械任务；超出委派范围后回到 router 重新选路，而不是默认跳 High。
@@ -48,7 +48,19 @@ router
 router
 → skills index
 → bilibili-auto-transcript/SKILL.md
-→ 执行
+→ 执行（技能不决定路线，路线仍按意图判断）
+
+“接着写第三章”
+router
+→ Writing
+→ capabilities/writing.md
+→ 正文不受 response_profile 影响，作品设定不写进全局偏好
+
+“调研一下几个方案，写成报告发到群里”
+router
+→ Research（research.md：来源、时效、事实与推断分开）
+→ Writing（writing.md）
+→ Operate（operate.md：确认收件范围、发完核对）
 
 “分析这个仓库为什么登录失败”
 router
@@ -71,7 +83,7 @@ Engineering 上下文可以保留
 
 路由是**当前 intent 的属性，不是整段 conversation 的永久标签**。已经加载过的 Prompt 可以继续留在上下文里复用，但只有当前任务仍属于该路由时，对应 gate 才继续生效。
 
-为了防止架构再次退化成“不断往总 Prompt 里堆东西”，测试不再只看单个文件有多大，而是检查 Direct / Scout / Engineering / Skill-discovery 的**基础加载链预算**，并检查 capability 触发覆盖、跨文件引用与 section anchor 是否闭环。
+为了防止架构再次退化成“不断往总 Prompt 里堆东西”，测试不再只看单个文件有多大，而是检查 Direct / Scout / Engineering / Skill-discovery / Writing / Research / Operate 的**基础加载链预算**，并检查 capability 触发覆盖、跨文件引用与 section anchor 是否闭环。
 
 ## Runtime Registry
 
@@ -100,9 +112,14 @@ python tools/runtime_state.py runtime add <runtime-id> \
 
 - 所有模型先读 `router.md`（唯一常驻必读文件，已包含基础底线和回复规则）。
 - **Direct**：普通问答、解释、总结、翻译、头脑风暴、简单代码/API/语法问题，直接处理；默认不读 `models/high.md`。
-- **Skill-first**：用户点名 Skill 或请求明确命中 Skill metadata 时，只读 `capabilities/skills.md` 做发现，再加载匹配的 `skills/<name>/SKILL.md`；不会因为 Skill 会运行命令或输出文件就自动进入 High。
+- **Research**：需要多个来源、时效很关键、要比较或下结论、做数据分析，或用户明确要调研/报告时，读 `capabilities/research.md`（关键结论附来源、时效信息标日期/版本、事实和推断分开、来源冲突摆出来）。一次查询就能确认的事实仍归 Direct。
+- **Writing**：给人读的文字：小说、角色扮演、文章、报告、文档、PPT 内容、公告、消息草稿，读 `capabilities/writing.md`。作品正文不受 `response_profile` 影响；写作项目自己的文件不算 Engineering，但仓库里的 README/注释/提示词文件算。发出去这一步归 Operate。
 - **Engineering**：真正需要仓库/项目工程流程时才读 `models/high.md`，包括实现、代码/配置修改、项目调试、架构/重构、代码审查、构建/部署变更、较重的仓库分析和实现规划。当前 runtime 没有直接暴露中央 Skill metadata 时，规划前读一次 `capabilities/skills.md`，避免 canonical Skill 静默失效。
-- **Scout**：被要求做侦查、上下文收集、机械执行时，只读 `models/scout.md`；任务超出 Scout 委派范围时回到 router 重新判断当前 intent，不默认跳 High。
+- **Operate**：在外部系统执行操作（发布、发送、上传、删除、合并、部署、改账号设置），读 `capabilities/operate.md`：锁定目标、能预演就预演、先知道怎么撤销、做完在目标系统里核对。底线本身在 router 的 Base Rules 里，任何路线都生效。
+- **Media**：出图、视频、架构图、数据图表：先给预览或小样，产出的素材是交付物，中间文件按 cleanup 清理。
+- **Think**：用户要求帮忙做决策、评估方案、挑毛病、比较选项时：敢反驳、摆出取舍、给出推荐，不顺着说。
+- 判断不清默认 Direct；一个请求跨多类时按阶段切换（如 Research → Writing → Operate）。Skill 是各路线里用的工具，不单独成为路线。
+- **Scout**（委派模式，不是用户意图）：被委派做侦查、上下文收集、机械执行时，只读 `models/scout.md`；任务超出 Scout 委派范围时回到 router 重新判断当前 intent，不默认跳 High。
 - **角色入口（跳过 router）**：入口按任务（不按是哪个模型）识别角色，或看任务第一行的 `role: lead|build|test|hotfix|review|scout`，直接读 `roles/<name>.md`（scout 读 `models/scout.md`），不读 router/high。lead 是总领/包工头：和用户沟通、拆活派活、验收；review 只做代码审核。拿不准是哪个角色时模型会先问你。各角色用哪个模型记在 `.local/prefs.json` 的 `roles`（见 `config/README.md`）。
 - Skill 的创建/修改/部署维护才加载 `capabilities/skill-maintenance.md`；普通 Skill 执行不加载。
 - 需要 runtime registry、本机 discovery 或共享 `.local` 状态时才加载 `capabilities/runtime.md`。
@@ -167,7 +184,7 @@ python3 tools/skill_upstream.py adopt <name> --repo owner/repo --path <子目录
 - **任何路由**：只要产生任务自有副作用，就使用必要的 baseline / ownership / failure-path / cleanup 规则，避免浏览器、进程、临时配置、文件残留或误删用户原有状态。
 - **Engineering**：在上述基础上执行完整的 regression、workspace hygiene、post-cleanup smoke 和 delivery gate。
 
-Skill-first 产生一个用户明确请求的正常输出文件，并不自动变成 Engineering；真正触发 cleanup 的是任务自有的临时/辅助副作用。
+Skill 或 Writing/Media 产生一个用户明确请求的正常输出文件，并不自动变成 Engineering；真正触发 cleanup 的是任务自有的临时/辅助副作用。
 
 Engineering 任务不是“功能跑通”就结束，而是：
 

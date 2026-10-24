@@ -10,7 +10,7 @@ The repository separates portable rules from machine-specific runtime facts. Sta
 
 The system starts with the lightest prompt path that can handle the current request, and loads specialized guidance only when needed. Routing follows the user's current intent, not a keyword or the topic alone.
 
-- **`router.md`** — The only always-loaded file. Routes requests to Direct, Skill-first, Engineering, or Scout, and contains the safeguards shared by every route plus the response-language rules (reply in the user's language by default; lasting language, tone, or persona preferences live in the machine-local `.local/response-profile.md` cache).
+- **`router.md`** — The only always-loaded file. Routes requests by the guarantees the current intent needs (Direct, Research, Writing, Engineering, Operate, Media, Think), and contains the safeguards shared by every route (including the external-action floor: do exactly the named action, ask before anything wider, verify the outcome) plus the response-language rules (reply in the user's language by default; lasting language, tone, or persona preferences live in the machine-local `.local/response-profile.md` cache).
 - **`models/high.md`** — Engineering workflow, loaded only for actual project work.
 - **`models/scout.md`** — Delegated context gathering and low-risk mechanical work.
 - **`capabilities/` and `skills/`** — On-demand, specialized workflows.
@@ -23,13 +23,18 @@ An already loaded prompt may remain in context, but its gates apply only while t
 
 | Route | Typical requests | Load |
 | --- | --- | --- |
-| **Direct** | Questions, explanations, summaries, translations, brainstorming, simple code or API questions | `router.md` |
-| **Skill-first** | A named Skill or a request matching Skill metadata | Skill discovery guidance, then the matched `SKILL.md` |
+| **Direct** | Questions, explanations, learning, translations, brainstorming, simple code or API questions, a fact one lookup settles | `router.md` |
+| **Research** | Several sources, freshness, comparisons, conclusions, data analysis, investigations/reports | `capabilities/research.md` |
+| **Writing** | Fiction, roleplay, articles, reports, docs, slide content, announcements, message drafts | `capabilities/writing.md` |
 | **Engineering** | Implementations, project debugging, code/config changes, architecture, refactoring, reviews, build/deployment changes, substantial repository analysis | `models/high.md` plus only the relevant capabilities and Skills |
-| **Scout** | Delegated reconnaissance, context gathering, or low-risk mechanical tasks | `models/scout.md` |
-| **Role entry** | First line `role: lead\|build\|test\|hotfix\|review` — skips the router | `roles/<name>.md` |
+| **Operate** | Publishing, sending, uploading, deleting, merging, deploying, account/settings changes | `capabilities/operate.md` |
+| **Media** | Images, video, diagrams, charts | `router.md` (preview first) |
+| **Think** | Decisions, plan evaluation, finding flaws, comparing options | `router.md` |
+| **Role entry** | First line `role: lead\|build\|test\|hotfix\|review\|scout` — skips the router | `roles/<name>.md` or `models/scout.md` |
 
-A Skill that runs a command or writes a requested output does not automatically turn a Skill-first request into Engineering. Load `capabilities/cleanup.md` before the first task-owned side effect (such as a temporary file, process, port, or configuration change); Engineering tasks also follow its full regression and delivery gates.
+Unclear requests start at Direct. A request spanning several routes switches per phase (e.g. Research -> Writing -> Operate). Skills are tools used inside a route; a Skill never selects the route by itself.
+
+A Skill that runs a command or writes a requested output does not automatically turn the request into Engineering. Load `capabilities/cleanup.md` before the first task-owned side effect (such as a temporary file, process, port, or configuration change); Engineering tasks also follow its full regression and delivery gates.
 
 ## Runtime registry
 

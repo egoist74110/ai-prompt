@@ -71,29 +71,53 @@ def section(text: str, heading: str) -> str:
 
 class PromptRoutingTests(unittest.TestCase):
     def test_route_scenarios_have_explicit_contracts(self):
-        router = read("router.md")
+        routes = section(read("router.md"), "Routes")
+        self.assertIn("guarantees the current intent needs", routes)
+        self.assertIn("Unclear -> Direct", routes)
+        self.assertIn("switch per phase", routes)
         expected = {
-            "Direct": ("ordinary Q&A", "simple code/API/syntax", "Do **not** load `models/high.md`"),
-            "Skill-first": ("names a Skill", "Skill metadata", "does not by itself require `models/high.md`"),
-            "Creative": ("fiction", "roleplay", "not Engineering", "capabilities/creative.md", "do **not** load `models/high.md`"),
-            "Engineering": ("implementation", "code/config changes", "project debugging", "code review", "capabilities/skills.md"),
-            "Scout": ("delegated", "context collection", "models/scout.md"),
+            "Direct": ("ordinary Q&A", "simple code/API/syntax", "one lookup", "Do **not** load `models/high.md`"),
+            "Research": ("several sources", "data analysis", "capabilities/research.md"),
+            "Writing": ("fiction", "roleplay", "reports", "sending is Operate", "not Engineering", "capabilities/writing.md"),
+            "Engineering": ("implementation", "code/config changes", "project debugging", "code review", "models/high.md"),
+            "Operate": ("publish", "delete", "deploy", "capabilities/operate.md"),
+            "Media": ("images", "diagrams", "preview", "capabilities/cleanup.md"),
+            "Think": ("deciding", "trade-offs", "do not just agree"),
         }
+        names = re.findall(r"^- \*\*(\w+)\*\*:", routes, re.MULTILINE)
+        self.assertEqual(names, list(expected))
         for route, terms in expected.items():
-            body = subsection(router, route)
+            body = next(line for line in routes.splitlines() if line.startswith(f"- **{route}**:"))
             for term in terms:
                 with self.subTest(route=route, term=term):
                     self.assertIn(term, body)
-
-    def test_route_changes_are_bidirectional_and_current_intent_scoped(self):
-        body = section(read("router.md"), "Route Changes")
-        self.assertIn("Direct -> Skill-first", body)
-        self.assertIn("Direct or Skill-first -> Engineering", body)
-        self.assertIn("Engineering or Skill-first -> Direct", body)
-        self.assertIn("Creative -> Engineering only for tooling", body)
-        self.assertIn("current intent", body)
+        router = read("router.md")
+        self.assertNotIn("Skill-first", router)
+        self.assertNotIn("### Scout", router)
+        self.assertIn("models/scout.md", section(router, "Roles"))
+        self.assertIn("never selects the route by itself", section(router, "Skill Offers"))
         high = read("models/high.md")
         self.assertIn("current request no longer qualifies as Engineering", high)
+
+    def test_external_action_floor_is_always_on(self):
+        base = section(read("router.md"), "Base Rules")
+        floor = next(line for line in base.splitlines() if line.startswith("- External actions"))
+        for term in ("authorizes exactly the named action", "ask first", "verify the real outcome"):
+            self.assertIn(term, floor)
+        for role in ("lead", "build", "test", "hotfix", "review"):
+            with self.subTest(role=role):
+                self.assertIn("verify the real outcome", read(f"roles/{role}.md"))
+        operate = read("capabilities/operate.md")
+        for term in ("dry run", "undo path", "never grants permission", "Verify the real outcome in the target system"):
+            with self.subTest(term=term):
+                self.assertIn(term, operate)
+
+    def test_research_contract(self):
+        research = read("capabilities/research.md")
+        for term in ("source link", "date or version", "present the conflict", "Separate verified facts from inference",
+                     "capabilities/search.md", "capabilities/writing.md"):
+            with self.subTest(term=term):
+                self.assertIn(term, research)
 
     def test_on_demand_capability_triggers_cover_authoritative_policies(self):
         router = read("router.md")
@@ -133,13 +157,13 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertNotIn("language", base_rules.lower())
         self.assertTrue((ROOT / "config/response-profile.example.md").is_file())
 
-    def test_creative_work_is_exempt_from_response_profile(self):
+    def test_writing_work_is_exempt_from_response_profile(self):
         response_layer = section(read("router.md"), "Response Layer")
-        exemption = next(line for line in response_layer.splitlines() if "Creative work text" in line)
+        exemption = next(line for line in response_layer.splitlines() if "Writing-route work text" in line)
         self.assertIn("not presentation", exemption)
         self.assertIn("never persist", exemption)
 
-        creative = read("capabilities/creative.md")
+        creative = read("capabilities/writing.md")
         for term in (
             "never from `response_profile`",
             "Never record them in `.local/response-profile.md`",
@@ -147,6 +171,7 @@ class PromptRoutingTests(unittest.TestCase):
             "capabilities/cleanup.md",
             "do not make the task Engineering",
             "Switch to Engineering only for tooling",
+            "Sending or publishing the text is Operate",
             "Skill Offers still apply",
         ):
             with self.subTest(term=term):
@@ -188,7 +213,9 @@ class PromptRoutingTests(unittest.TestCase):
         chains = {
             "direct": (base, 9000),  # includes the always-on Skill Offers rule
             "scout": (base + ("models/scout.md",), 10500),
-            "creative": (base + ("capabilities/creative.md",), 12000),
+            "writing": (base + ("capabilities/writing.md",), 13000),
+            "research": (base + ("capabilities/research.md",), 12000),
+            "operate": (base + ("capabilities/operate.md",), 12000),
             "engineering": (base + ("models/high.md",), 17500),
             "skill-discovery": (base + ("capabilities/skills.md",), 17500),
         }

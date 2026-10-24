@@ -2980,7 +2980,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       body { background: #ffffff !important; padding: 0; }
       .container { max-width: none; }
       .toolbar, .diagram-nav, .focus-chip, .archify-toast, .no-print { display: none !important; }
-
+      
       .diagram-container, .card { box-shadow: none; border-color: #e2e8f0; }
       .diagram-container { --archify-nav-reserve: 0px !important; }
       html[data-preset="signal-flow"] .diagram-container,
@@ -3902,24 +3902,24 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       .route-journey-controls button { min-height: 2.75rem; }
       .route-probe-status { padding: 0.05rem 0.48rem 0.38rem; }
       .route-probe-node { max-width: 7.5rem; }
-
-
-
-
-
-
-
-
-
-
-
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       html[data-embed="true"][data-share-playback="true"] .diagram-container {
         padding-top: 4.25rem;
       }
       html[data-embed="true"][data-share-moment="true"] .diagram-container {
         padding-top: 4.25rem;
       }
-
+      
       .cards {
         grid-template-columns: 1fr;
         margin-top: 1rem;
@@ -3962,7 +3962,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-
+      
       html[data-present="true"]:not([data-embed="true"]) .diagram-container { padding: 0.5rem 0.5rem 3.75rem; }
       html[data-present="true"]:not([data-embed="true"]) .diagram-container[data-wide-diagram="true"] > svg {
         width: 720px;
@@ -4842,7 +4842,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       .semantic-lens,
       .diagram-guide,
       .overview-map-live { animation: none !important; }
-
+      
       .intent-trace-flow {
         animation: none !important;
         stroke-dasharray: none;
@@ -5028,7 +5028,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <path data-graph-role="automatic-crossover-underlay" d="M 460 226 L 520 226" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
           <path data-edge-from="router" data-edge-to="common" data-edge-label="内含" data-edge-key="1" data-edge-id="c-router-common" data-composition-points="460,226;520,226" data-composition-crossover="halo" data-composition-independent="true" d="M 460 226 L 520 226" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
-        <path data-edge-from="router" data-edge-to="scout" data-edge-label="Scout 按需" data-edge-key="2" data-edge-id="c-router-scout" data-composition-points="365,194;365,96;520,96" d="M 365 194 L 365 104 Q 365 96 373 96 L 520 96" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="router" data-edge-to="scout" data-edge-label="委派时" data-edge-key="2" data-edge-id="c-router-scout" data-composition-points="365,194;365,96;520,96" d="M 365 194 L 365 104 Q 365 96 373 96 L 520 96" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="common" data-edge-to="high" data-edge-label="Engineering 按需" data-edge-key="3" data-edge-id="c-common-high" data-composition-points="605,194;605,156;860,156;860,128" d="M 605 194 L 605 164 Q 605 156 613 156 L 852 156 Q 860 156 860 148 L 860 128" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <g data-graph-role="automatic-crossover" style="--step:4">
           <path data-graph-role="automatic-crossover-underlay" d="M 690 226 L 750 226" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
@@ -5066,16 +5066,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="120" y="240" class="t-muted" font-size="9" text-anchor="middle">任意 CLI Agent / 模型运行时</text>
         </g>
 
-        <g id="node-router" data-node-id="router" data-node-label="router.md" tabindex="0" role="button" aria-label="Focus router.md, 路由判断 · 统一入口, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="路由判断 · 统一入口" data-node-tag="Direct / Skill / Eng / Scout" data-node-context="中央仓库 · 可移植规则">
-          <title>router.md · 路由判断 · 统一入口 · 中央仓库 · 可移植规则 · Direct / Skill / Eng / Scout</title>
+        <g id="node-router" data-node-id="router" data-node-label="router.md" tabindex="0" role="button" aria-label="Focus router.md, 按意图保障分路 · 统一入口, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="按意图保障分路 · 统一入口" data-node-tag="7 routes by intent" data-node-context="中央仓库 · 可移植规则">
+          <title>router.md · 按意图保障分路 · 统一入口 · 中央仓库 · 可移植规则 · 7 routes by intent</title>
           <rect x="270" y="194" width="190" height="64" rx="6" class="c-mask"/>
           <rect x="270" y="194" width="190" height="64" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(276 200) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="365" y="224" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">router.md</text>
-        <text data-detail="context" x="365" y="240" class="t-muted" font-size="9" text-anchor="middle">路由判断 · 统一入口</text>
-        <text data-detail="fine" x="365" y="250" class="t-backend" font-size="7" text-anchor="middle">Direct / Skill / Eng / Scout</text>
+        <text data-detail="context" x="365" y="240" class="t-muted" font-size="9" text-anchor="middle">按意图保障分路 · 统一入口</text>
+        <text data-detail="fine" x="365" y="250" class="t-backend" font-size="7" text-anchor="middle">7 routes by intent</text>
         </g>
 
         <g id="node-common" data-node-id="common" data-node-label="Base Rules" tabindex="0" role="button" aria-label="Focus Base Rules, router.md 内置底线, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="router.md 内置底线" data-node-context="中央仓库 · 可移植规则">
@@ -5089,15 +5089,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="605" y="240" class="t-muted" font-size="9" text-anchor="middle">router.md 内置底线</text>
         </g>
 
-        <g id="node-scout" data-node-id="scout" data-node-label="models/scout.md" tabindex="0" role="button" aria-label="Focus models/scout.md, Scout 路径 · 委派侦查, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Scout 路径 · 委派侦查" data-node-context="中央仓库 · 可移植规则">
-          <title>models/scout.md · Scout 路径 · 委派侦查 · 中央仓库 · 可移植规则</title>
+        <g id="node-scout" data-node-id="scout" data-node-label="models/scout.md" tabindex="0" role="button" aria-label="Focus models/scout.md, role: scout · 委派侦查, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="role: scout · 委派侦查" data-node-context="中央仓库 · 可移植规则">
+          <title>models/scout.md · role: scout · 委派侦查 · 中央仓库 · 可移植规则</title>
           <rect x="520" y="64" width="170" height="64" rx="6" class="c-mask"/>
           <rect x="520" y="64" width="170" height="64" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(526 70) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="605" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">models/scout.md</text>
-        <text data-detail="context" x="605" y="110" class="t-muted" font-size="9" text-anchor="middle">Scout 路径 · 委派侦查</text>
+        <text data-detail="context" x="605" y="110" class="t-muted" font-size="9" text-anchor="middle">role: scout · 委派侦查</text>
         </g>
 
         <g id="node-high" data-node-id="high" data-node-label="models/high.md" tabindex="0" role="button" aria-label="Focus models/high.md, Engineering 路径, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Engineering 路径" data-node-context="中央仓库 · 可移植规则">
@@ -5111,8 +5111,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="860" y="110" class="t-muted" font-size="9" text-anchor="middle">Engineering 路径</text>
         </g>
 
-        <g id="node-capabilities" data-node-id="capabilities" data-node-label="capabilities/" tabindex="0" role="button" aria-label="Focus capabilities/, 按需能力模块, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="按需能力模块" data-node-tag="search · cleanup · runtime · …" data-node-context="中央仓库 · 可移植规则">
-          <title>capabilities/ · 按需能力模块 · 中央仓库 · 可移植规则 · search · cleanup · runtime · …</title>
+        <g id="node-capabilities" data-node-id="capabilities" data-node-label="capabilities/" tabindex="0" role="button" aria-label="Focus capabilities/, 按需能力模块, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="按需能力模块" data-node-tag="research · writing · operate · cleanup …" data-node-context="中央仓库 · 可移植规则">
+          <title>capabilities/ · 按需能力模块 · 中央仓库 · 可移植规则 · research · writing · operate · cleanup …</title>
           <rect x="750" y="194" width="220" height="64" rx="6" class="c-mask"/>
           <rect x="750" y="194" width="220" height="64" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(756 200) scale(0.6875)">
@@ -5120,7 +5120,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           </g>
           <text data-node-label="" data-detail-anchor="" x="860" y="224" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">capabilities/</text>
         <text data-detail="context" x="860" y="240" class="t-muted" font-size="9" text-anchor="middle">按需能力模块</text>
-        <text data-detail="fine" x="860" y="250" class="t-backend" font-size="7" text-anchor="middle">search · cleanup · runtime · …</text>
+        <text data-detail="fine" x="860" y="250" class="t-backend" font-size="7" text-anchor="middle">research · writing · operate · cleanup …</text>
         </g>
 
         <g id="node-tools" data-node-id="tools" data-node-label="tools/" tabindex="0" role="button" aria-label="Focus tools/, Python 工具链, 中央仓库 · 可移植规则" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Python 工具链" data-node-tag="init · sync · doctor" data-node-context="中央仓库 · 可移植规则">
@@ -5202,9 +5202,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <rect x="475" y="206" width="30" height="14" rx="3" class="c-mask"/>
           <text x="490" y="216" class="t-edge-default" font-size="8" text-anchor="middle">内含</text>
         </g>
-        <g data-detail="context" data-edge-from="router" data-edge-to="scout" data-edge-label="Scout 按需" data-edge-key="2" data-edge-id="c-router-scout">
-          <rect x="413.5" y="76" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="442.5" y="86" class="t-edge-default" font-size="8" text-anchor="middle">Scout 按需</text>
+        <g data-detail="context" data-edge-from="router" data-edge-to="scout" data-edge-label="委派时" data-edge-key="2" data-edge-id="c-router-scout">
+          <rect x="423.1" y="76" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="442.5" y="86" class="t-edge-default" font-size="8" text-anchor="middle">委派时</text>
         </g>
         <g data-detail="context" data-edge-from="common" data-edge-to="high" data-edge-label="Engineering 按需" data-edge-key="3" data-edge-id="c-common-high">
           <rect x="689.1" y="136" width="86.8" height="14" rx="3" class="c-mask"/>
@@ -5442,6 +5442,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <li>router.md（内含基础底线）是恒定最小加载，永远从最轻路径开始</li>
           <li>意图命中才升级：high / scout / capabilities 按需加载</li>
           <li>frontmatter 是 Skill 元数据唯一来源，发现索引可随时重建</li>
+          <li>7 条路线按意图需要的保障划分；外部操作底线常驻 Base Rules</li>
         </ul>
       </div>
 

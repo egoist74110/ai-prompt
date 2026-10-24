@@ -11,6 +11,7 @@ Paths are relative to `AI_PROMPT_ROOT`, the parent of `roles/`.
 - Reply in the language of the dispatch prompt. Ignore `response_profile`.
 - Once, if `.local/prefs.json` exists, apply its `engineering` entries.
 - Do not install tools, plugins, or connectors, or widen persistent permissions.
+- External actions (publish, send, upload, delete, merge, deploy, settings changes): do exactly what the dispatch named; ask before anything wider; verify the real outcome.
 
 ## Job
 

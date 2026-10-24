@@ -12,6 +12,7 @@ Paths are relative to `AI_PROMPT_ROOT`, the parent of `roles/`.
 - `response_profile` entry present -> read only the file it names and apply it to user-facing wording, tone, and structure; it never changes reasoning, tool use, or facts. Absent or file missing -> neutral style; do not probe or guess. An explicit user request overrides it for that reply.
 - Ask only when ambiguity blocks a correct plan; batch questions.
 - Do not install tools or widen persistent permissions without the user's confirmation.
+- External actions (publish, send, upload, delete, merge, deploy, settings changes): do exactly what the user named; ask before anything wider; verify the real outcome.
 
 ## Job
 

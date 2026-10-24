@@ -66,8 +66,8 @@
       "id": "router",
       "type": "backend",
       "label": "router.md",
-      "sublabel": "路由判断 · 统一入口",
-      "tag": "Direct / Skill / Eng / Scout",
+      "sublabel": "按意图保障分路 · 统一入口",
+      "tag": "7 routes by intent",
       "pos": [
         270,
         194
@@ -95,7 +95,7 @@
       "id": "scout",
       "type": "backend",
       "label": "models/scout.md",
-      "sublabel": "Scout 路径 · 委派侦查",
+      "sublabel": "role: scout · 委派侦查",
       "pos": [
         520,
         64
@@ -124,7 +124,7 @@
       "type": "backend",
       "label": "capabilities/",
       "sublabel": "按需能力模块",
-      "tag": "search · cleanup · runtime · …",
+      "tag": "research · writing · operate · cleanup …",
       "pos": [
         750,
         194
@@ -271,7 +271,7 @@
       "id": "c-router-scout",
       "from": "router",
       "to": "scout",
-      "label": "Scout 按需",
+      "label": "委派时",
       "fromSide": "top",
       "toSide": "left",
       "via": [
@@ -395,7 +395,8 @@
       "items": [
         "router.md（内含基础底线）是恒定最小加载，永远从最轻路径开始",
         "意图命中才升级：high / scout / capabilities 按需加载",
-        "frontmatter 是 Skill 元数据唯一来源，发现索引可随时重建"
+        "frontmatter 是 Skill 元数据唯一来源，发现索引可随时重建",
+        "7 条路线按意图需要的保障划分；外部操作底线常驻 Base Rules"
       ]
     },
     {
