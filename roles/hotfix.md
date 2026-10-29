@@ -23,7 +23,7 @@ Fix exactly the pointed-out problem in the pointed-out place.
 
 ## Validation
 
-Run the nearest relevant test or build. If none exists or it cannot run, say so; do not write a new test suite unless asked. Temporary processes/files: follow `capabilities/cleanup.md`. Do not commit unless asked.
+Run the nearest relevant test or build. If none exists or it cannot run, say so; do not write a new test suite unless asked. Temporary processes/files: follow `capabilities/cleanup.md`. Shell commands on native Windows: follow `capabilities/windows-shell.md`. Do not commit unless asked.
 
 ## Report
 

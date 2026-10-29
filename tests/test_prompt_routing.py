@@ -130,6 +130,7 @@ class PromptRoutingTests(unittest.TestCase):
             "capabilities/search.md",
             "capabilities/cross-review.md",
             "capabilities/cleanup.md",
+            "capabilities/windows-shell.md",
         ):
             with self.subTest(path=path):
                 self.assertIn(path, body)
@@ -242,6 +243,7 @@ class PromptRoutingTests(unittest.TestCase):
                 self.assertIn("Report only real results", text)
                 self.assertIn("cannot", text)  # untrusted-content guard
                 self.assertIn("capabilities/cleanup.md", text) if role != "lead" else None
+                self.assertIn("capabilities/windows-shell.md", text) if role != "lead" else None
                 self.assertLess(len((ROOT / path).read_bytes()), 2500, f"{path} exceeded its budget")
         self.assertIn("MUST NOT change product code", read("roles/test.md"))
         self.assertIn("Stop and report instead of widening", read("roles/hotfix.md"))

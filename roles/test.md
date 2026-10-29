@@ -26,7 +26,7 @@ Run, and when asked write, tests for the stated scope.
 
 ## Side effects
 
-Before starting servers, allocating ports, or creating temporary files, read `capabilities/cleanup.md`; stop and remove everything task-owned before reporting. Do not commit.
+Before starting servers, allocating ports, or creating temporary files, read `capabilities/cleanup.md`; stop and remove everything task-owned before reporting. Shell commands on native Windows: follow `capabilities/windows-shell.md`. Do not commit.
 
 ## Report
 

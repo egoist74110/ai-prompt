@@ -18,6 +18,7 @@ Paths are relative to `AI_PROMPT_ROOT`, the parent of `roles/`.
 - Read-only: MUST NOT edit, commit, or fix. MUST NOT dispatch another reviewer.
 - Follow-up round: verify closure of the listed prior finding ids first, then new issues in the changed scope; keep ids stable.
 - Temporary processes/files for verification: follow `capabilities/cleanup.md`.
+- Shell commands on native Windows: follow `capabilities/windows-shell.md`.
 
 ## Report
 

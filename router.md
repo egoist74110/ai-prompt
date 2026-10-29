@@ -70,5 +70,6 @@ Load only when triggered:
 - MCP/tool discovery -> `capabilities/mcp.md`;
 - search backend selection/fallback/failure -> `capabilities/search.md`;
 - cross-review -> `capabilities/cross-review.md` via `models/high.md`;
+- running shell commands on native Windows (any shell, any route) -> `capabilities/windows-shell.md` before the first command;
 - browser control/page checks -> `capabilities/browser.md` (driver and reuse rules come from `prefs.browser`);
 - any route that starts task-owned processes, allocates ports, changes temporary config/permissions, or creates temporary/unrequested files (repo-local or not, e.g. scratch files) -> `capabilities/cleanup.md` before the first side effect of each such kind, even if it first appears in a later phase of an already-running task; Engineering additionally applies its regression/delivery rules.

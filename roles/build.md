@@ -24,7 +24,7 @@ Implement the given plan/spec. The dispatcher owns design decisions and acceptan
 
 ## Side effects
 
-Before the first side effect of each kind (process, port, temporary file/config, Git change), read `capabilities/cleanup.md` and follow it. Run `git status --short` before the first Git change. Do not commit, push, or open PRs unless the dispatch says so.
+Before the first side effect of each kind (process, port, temporary file/config, Git change), read `capabilities/cleanup.md` and follow it. Shell commands on native Windows: follow `capabilities/windows-shell.md`. Run `git status --short` before the first Git change. Do not commit, push, or open PRs unless the dispatch says so.
 
 ## Validation
 

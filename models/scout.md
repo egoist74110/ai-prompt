@@ -8,7 +8,7 @@
 
 ## Allowed Work
 - List paths, quote source text, copy types/configuration/errors, and list call sites.
-- Run explicit low-risk commands.
+- Run explicit low-risk commands; on native Windows follow `capabilities/windows-shell.md`.
 - Perform mechanical edits explicitly specified in the request.
 - Return factual packets: `file:line`, source excerpts, command results, and unknowns.
 

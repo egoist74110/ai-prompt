@@ -97,6 +97,13 @@ For PowerShell 7+-only scripts, UTF-8 without BOM is normally appropriate.
 
 Do not "fix" this problem globally by adding a BOM to every text file.
 
+### C# from PowerShell
+
+- C# MUST live in a `.cs` file loaded with `Add-Type -Path`. MUST NOT pass C# source as a string or here-string to `Add-Type -TypeDefinition`/`-MemberDefinition`: `$`, backticks, quotes, and braces collide with PowerShell parsing, and errors point at the wrong line.
+- Windows PowerShell 5.1 compiles with the legacy C# 5 compiler: no `$"..."` interpolation, `?.`, `nameof`, expression-bodied members, or newer syntax. pwsh 7+ uses a current compiler.
+- A type cannot be redefined in the same session: after changing the `.cs`, run in a fresh process (`-File`), or rename the type.
+- Anything beyond a small interop shim -> a real project built with `dotnet build`/`csc` and invoked as an executable.
+
 ### PowerShell syntax/version discipline
 
 - Avoid syntax or parameters introduced after 5.1 when 5.1 is in scope.
@@ -199,6 +206,8 @@ Prefer, in order:
 2. a checked-in or temporary script file passed to the target interpreter;
 3. stdin/script-block transport;
 4. nested command strings only when unavoidable.
+
+Running ad-hoc commands on native Windows (not authoring a script): follow `capabilities/windows-shell.md` in the ai-prompt root.
 
 When crossing shells, identify which layer expands each `$`, `%`, quote, backslash, glob, and newline.
 

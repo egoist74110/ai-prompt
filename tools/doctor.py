@@ -231,6 +231,7 @@ def main() -> int:
         "capabilities/search.md",
         "capabilities/cross-review.md",
         "capabilities/cleanup.md",
+        "capabilities/windows-shell.md",
         "capabilities/research.md",
         "capabilities/writing.md",
         "capabilities/operate.md",

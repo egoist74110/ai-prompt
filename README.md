@@ -21,6 +21,7 @@
 - `skills/` / `capabilities/`：按触发条件加载的专业流程；禁止为了“可能有用”而全量塞入上下文。
 - `capabilities/runtime.md`：只有需要 runtime registry、本机 discovery、共享 `.local` 状态时才加载。
 - `capabilities/skill-maintenance.md`：只有创建、修改、重命名、删除、部署或同步 Skill 时才加载；正常执行 Skill 不需要它。
+- `capabilities/windows-shell.md`：只在原生 Windows 上跑命令时加载（mac/Linux 不触发）。防「被 PowerShell 咬」：非平凡的 PowerShell 一律先落盘成 `.ps1` 再 `pwsh -File` 执行，禁止 `-Command`/`bash -c`/`cmd /c` 内联拼命令；原生命令参数单引号或 `--%`；Git Bash 调 Windows 程序注意 MSYS 路径改写（`MSYS_NO_PATHCONV=1`）；一旦出现解析错误立即改走落盘，不反复换引号。默认 shell 换成 Git Bash 属于持久配置，AI 只建议不自改。
 - `capabilities/cleanup.md`：任何路由只要产生任务自有的临时文件/进程/端口/配置等副作用，就按需加载 ownership/cleanup 规则；Engineering 额外执行完整回归与交付规则。
 - `config/runtime-templates.json`：首次初始化的 starter runtime data；不是永久支持名单。
 - `.local/runtime.json`：当前机器 OS、路径、**动态 runtime registry**、credential locator、执行侧等本地配置；不提交。
