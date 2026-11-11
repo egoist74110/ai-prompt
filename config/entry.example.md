@@ -14,3 +14,5 @@ Before anything else, pick a role from the task and how it was handed to you; ne
 
 Role found -> say it in one short line (unsure between two: ask the user which), then read only `<root>/roles/<name>.md` (`scout`: `<root>/models/scout.md`); do not read `router.md`.
 No clear role, or the request outgrows the role -> read `<root>/router.md` first, then follow it.
+
+Before any agent launch, apply `<root>/roles/dispatch.md`. Delegated workers may never launch other agents.

@@ -88,10 +88,8 @@ Trivial fixes, pure configuration, and one-line changes need no unsolicited cros
 - Personally verify critical code, signatures, configuration, errors, and facts that can change the implementation approach.
 - Scouts collect facts; they do not replace your critical analysis, synthesis, or acceptance decision.
 - Keep one finding ledger across review rounds and preserve finding ids/status when the same reviewer conversation is resumed.
-- Delegating construction, test runs, code review, or scouting follows `roles/dispatch.md` (dispatch header and model choice); you still own acceptance of the result.
+- Apply the launch gate in `roles/dispatch.md` before delegating construction, tests, code review, or scouting. If you hand off dispatch, you still own acceptance of the result.
 
 ## Fallback
 
-If the scout is unavailable, a configured verified low-cost registry runtime may collect facts using only `models/scout.md`.
-
-Fallback scouting is limited to files/paths/source quotes and low-risk mechanical steps; it makes no architecture or acceptance decisions. The implementer remains responsible for cleanup of any fallback side effects.
+If no eligible scout can be launched under `roles/dispatch.md`, collect facts directly.

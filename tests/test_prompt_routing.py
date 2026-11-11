@@ -259,9 +259,14 @@ class PromptRoutingTests(unittest.TestCase):
         dispatch = read("roles/dispatch.md")
         for term in ("`role: <name>`", "Skills the worker must load", "`.local/prefs.json` `roles.<name>`",
                      "`domains`", "This overrides step 3", "candidate whose `runtime` is your own runtime",
-                     "out of quota", "fall back to the remaining `models`"):
+                     "out of quota", "fall back to the remaining `models`", "strict allowlist",
+                     "user's choice if it matches an eligible entry", "use its configured effort",
+                     "Never switch roles or upgrade effort"):
             with self.subTest(dispatch=term):
                 self.assertIn(term, dispatch)
+        launch_gate = section(dispatch, "Launch gate")
+        for family in ("Claude Fable", "Claude Opus", "GPT Astra", "`gpt-6-astra`"):
+            self.assertIn(family, launch_gate)
         self.assertLess(len((ROOT / "roles/dispatch.md").read_bytes()), 2500)
         self.assertIn("only if the user asked or approves", lead)
         self.assertNotIn("Response Layer", lead)

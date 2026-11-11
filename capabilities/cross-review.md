@@ -23,7 +23,7 @@ Trivial fixes and isolated low-risk changes may stop after self-review unless th
 
 ## Reviewer Selection
 
-Candidates come only from `.local/runtime.json.runtimes`. Filter in this order:
+Apply `roles/dispatch.md` before creating or resuming a reviewer. Select only from the `review` role allowlist, intersected with `.local/runtime.json.runtimes`. The runtime registry cannot add model candidates. Pass the selected model explicitly and use its configured effort. Filter runtimes in this order:
 
 1. `enabled != false` and `capabilities` contains `review`.
 2. Resolved executable exists (or minimal discovery resolves it) and `review.args` is configured; an empty args array is valid.
@@ -49,7 +49,7 @@ Keep non-secret review artifacts there (for example request/response snapshots, 
 
 Also record the session in `.local/state.json -> cross_review.sessions.<review_id>`, including at minimum:
 
-- selected `runtime_id` and verified `runtime_identity`;
+- selected `runtime_id`, verified `runtime_identity`, and explicit reviewer model;
 - repository/worktree identity and review scope;
 - current round number and status;
 - last reviewed commit/tree/diff boundary;
@@ -66,7 +66,7 @@ On the first round, discover continuation facts only as far as needed. If the ru
 
 Every second or later review round MUST continue the same reviewer conversation whenever that round belongs to the same review thread.
 
-- Reuse the same `review_id` and reviewer `runtime_identity`.
+- Reuse the same `review_id`, reviewer `runtime_identity`, and verified eligible reviewer model.
 - Resume the recorded native `session_ref`, cache, or persistent process instead of starting a fresh conversation.
 - Tell the reviewer what the orchestrator changed since the previous round, which previous findings were fixed/rejected/deferred, and the new diff/commit boundary.
 - Ask the reviewer to verify closure of previous findings first, then inspect regressions/new issues in the changed scope.
@@ -79,7 +79,7 @@ If the recorded reviewer conversation cannot be resumed, do **not** silently sta
 First round:
 
 ```text
-<runtime.executable> <runtime.review.args...> "<review request>"
+<runtime.executable> <runtime.review.args...> <explicit model args...> "<review request>"
 ```
 
 Later rounds use the verified runtime-native continuation strategy from local registry/state facts. Do not invent resume flags. Resolve executable paths, arguments, model selection, permissions, workspace facts, session refs, and cache locators from current-session/local registry state.

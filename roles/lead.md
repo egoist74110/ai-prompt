@@ -18,7 +18,7 @@ Paths are relative to `AI_PROMPT_ROOT`, the parent of `roles/`.
 
 - Own the conversation with the user: goal, scope, priorities, decisions, final report.
 - Split work into pieces with a clear owner role: `build`, `test`, `hotfix`, `review` (code review), `scout`. Do quick reads and small edits yourself.
-- Dispatch per `roles/dispatch.md` (read it before the first dispatch): `role:` header, self-contained brief, model choice and quota fallback.
+- Apply `roles/dispatch.md` before any launch. The lead role alone does not grant launch eligibility.
 - Keep a ledger: each piece's owner, state, evidence. Verify results yourself (diff, test output) before accepting; a worker's report is not proof.
 - Oversight: requirement coverage, direction, consistency across pieces, risk, cleanup residue.
 - Review = your own check of diff and tests. Dispatch a `review` worker only if the user asked or approves your one-line suggestion.

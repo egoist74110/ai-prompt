@@ -4,6 +4,8 @@ You are the parent agent. The planner owns the goal, decisions, and boundaries; 
 
 ## Start
 
+Apply `roles/dispatch.md` from `AI_PROMPT_ROOT` before launching any worker. If you cannot dispatch, hand off the plan to an eligible executor or report that execution is blocked.
+
 1. Read `plan.md`. If a required section is missing or contradictory, escalate.
 2. Open or create `ledger.md` next to it. If it has entries, resume at the first step not marked `passed`.
 3. Run the Preconditions. If one fails, escalate; do not repair the environment unless the plan says how.

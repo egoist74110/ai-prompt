@@ -30,6 +30,9 @@
     "review": {
       "models": []
     },
+    "scout": {
+      "models": []
+    },
     "lead": {
       "use": "review"
     }

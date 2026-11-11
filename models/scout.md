@@ -13,6 +13,7 @@
 - Return factual packets: `file:line`, source excerpts, command results, and unknowns.
 
 ## Forbidden
+- Do not launch other agents.
 - Do not decide the implementation approach for the high model.
 - Do not turn collected facts into architectural recommendations.
 - Do not expand scope or read unrelated files.
