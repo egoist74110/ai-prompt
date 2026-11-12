@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -29,20 +30,38 @@ RUNTIME_CONSUMERS = [ROOT / "tools" / name for name in ("bootstrap.py", "doctor.
 RUNTIME_TEMPLATE = ROOT / "config" / "runtime-templates.json"
 
 
-def iter_files():
-    for path in ROOT.rglob("*"):
-        if path.resolve() == SELF or not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
+def candidate_files():
+    """Files that could reach the central repo: tracked or untracked-but-not-ignored.
+
+    Git-ignored paths (e.g. runtime-synced Skills) never get committed, so they are
+    skipped. Without git, fall back to walking the tree.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            cwd=ROOT, capture_output=True, check=True,
+        ).stdout
+        paths = (ROOT / p for p in out.decode("utf-8").split("\0") if p)
+    except (OSError, subprocess.CalledProcessError):
+        paths = ROOT.rglob("*")
+    for path in paths:
+        if path.resolve() == SELF or not path.is_file():
             continue
         if any(part in IGNORE_DIRS for part in path.relative_to(ROOT).parts):
             continue
         yield path
 
 
+def iter_files():
+    for path in candidate_files():
+        if path.suffix.lower() in TEXT_SUFFIXES:
+            yield path
+
+
 def iter_python_files():
-    for path in ROOT.rglob("*.py"):
-        if path.resolve() == SELF or any(part in IGNORE_DIRS for part in path.relative_to(ROOT).parts):
-            continue
-        yield path
+    for path in candidate_files():
+        if path.suffix.lower() == ".py":
+            yield path
 
 
 def starter_runtime_ids() -> list[str]:

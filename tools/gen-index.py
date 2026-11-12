@@ -34,11 +34,16 @@ def parse_frontmatter(path: Path):
     return name, desc
 
 
+def is_link(path: Path) -> bool:
+    # Windows directory junctions are not symlinks to Path.is_symlink().
+    return path.is_symlink() or getattr(path, "is_junction", lambda: False)()
+
+
 def collect():
     entries = []
     problems = []
-    # Symlinked skills are machine-local installs managed by an external tool; they are not central.
-    for directory in sorted(p for p in SKILLS.iterdir() if p.is_dir() and not p.is_symlink()):
+    # Symlinked/junctioned skills are machine-local installs managed by an external tool; they are not central.
+    for directory in sorted(p for p in SKILLS.iterdir() if p.is_dir() and not is_link(p)):
         skill_md = directory / "SKILL.md"
         if not skill_md.is_file():
             continue
