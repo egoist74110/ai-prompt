@@ -4,16 +4,16 @@ Applies to every agent launch, including CLI and session tools.
 
 ## Launch gate
 
-- High-tier families: Claude Fable, Claude Opus, and GPT Astra (e.g. `gpt-6-astra`), including versioned IDs and aliases. They may neither launch agents nor run as workers.
-- Any top-level, non-high-tier agent may launch agents. Delegated workers never launch agents, even if assigned `lead`.
+- High-tier families: Claude Fable, Claude Opus, and GPT Astra (e.g. `gpt-6-astra`), including versioned IDs and aliases. They never run as workers.
+- Any top-level agent, high-tier included, may launch agents; workers always come from the allowlists below, never high-tier. Delegated workers never launch agents, even if assigned `lead`.
 - Launch when the user asks, an authorized workflow requires it, or delegation clearly pays off on your own judgment: broad scouting across many files, test runs, or bounded mechanical work whose output would flood your context. Do it yourself when a handful of tool calls settles it. Use the fewest workers needed and reuse existing workers for follow-ups.
-- Verify both model identities. If ineligible, work directly when optional or hand off to an existing eligible dispatcher or the user. Never launch a dispatcher as a workaround.
+- Verify your own position (top-level, not a worker) and the worker's model identity. If ineligible, work directly when optional or hand off to the user. Never launch a dispatcher as a workaround.
 
 ## Prompt
 
 - First line: `role: <name>` (`lead`, `build`, `test`, `hotfix`, `review`, `scout`).
 - Self-contained brief: goal, scope, acceptance checks, Skills the worker must load (mandatory or user-selected), and the known `build`/`hotfix` domain.
-- Cross-runtime mechanics (flags, sessions, model/effort options): `capabilities/runtime.md`.
+- Launching through another runtime's CLI: `capabilities/runtime.md` (Dispatching To A Runtime CLI).
 
 ## Model choice
 

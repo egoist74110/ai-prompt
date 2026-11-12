@@ -21,6 +21,14 @@ Runtime names are local data, not central constants.
 - Users may register arbitrary runtimes; central Python must not require edits for each new runtime.
 - Full schema: `config/README.md`.
 
+## Dispatching To A Runtime CLI
+
+For a worker on another runtime (or when the in-session agent tool cannot pin the model), launch that runtime's CLI from `.local/runtime.json` `runtimes.<id>.dispatch`:
+
+- `read` (scout/test) or `write` (build/hotfix) is an argv template; substitute `{model}`, `{effort}`, `{prompt}` from the selected allowlist entry and the brief, and pass each item as one argument. Run from the task's working directory with stdin closed (`</dev/null`); obey its `notes`.
+- No `dispatch` entry -> read that CLI's `--help` once, run a minimal read-only probe that proves the model and effort took effect, and record the verified template plus version in `dispatch`. An unverifiable model pin -> skip that candidate.
+- Report the model/effort the CLI actually reported, not just the one requested.
+
 ## Fact Priority
 
 Stop at the first sufficient layer:
