@@ -50,9 +50,11 @@
 README.md / CONTRIBUTING.md
   → 中文：用途、背景、维护方法、示例、排障
 
-SKILL.md / capabilities/*.md / models/*.md
+capabilities/*.md / models/*.md / roles/*.md
   → English: minimal executable rules
 ```
+
+Skill（`SKILL.md`、它的 references、`capabilities/skills.md` 里对应的那行描述）不限语言，模型能读懂就行。
 
 不要在同一个机器 Prompt 里先用中文讲一遍原理，再用英文写一遍规则。也不要把只有 AI 才需要的内部执行细节大量复制到 README。
 
@@ -77,8 +79,8 @@ SKILL.md / capabilities/*.md / models/*.md
 | README / CONTRIBUTING | 简体中文 | 人容易理解和维护 |
 | Router / model prompt | English | AI 低 token、明确执行 |
 | Capability instruction | English | AI 执行规则 |
-| `SKILL.md` | English | AI 技能工作流 |
-| Reference / design doc | 看主要消费者 | 人读则中文，AI 加载则英文 |
+| Skill（`SKILL.md` 及其 references） | 不限 | 模型能读懂即可 |
+| 其他 Reference / design doc | 看主要消费者 | 人读则中文，AI 加载则英文 |
 | 配置中的模型指令字段 | English | 会进入模型上下文 |
 | 业务数据 / fixture / 专有名词 | 保持原义 | 不机械翻译 |
 
@@ -86,9 +88,7 @@ SKILL.md / capabilities/*.md / models/*.md
 
 ## 5. 不允许的做法
 
-- 不允许新增中文 AI 指令并长期留在机器 Prompt 中。
-  - 例外 1：从 GitHub 拿来的 Skill（带 `UPSTREAM.json`）保持上游原样，不翻译，语言检查自动跳过。
-  - 例外 2：角色扮演/人格类 Skill 的台词和说话风格翻译会变味，在 frontmatter 里加 `metadata:` → `persona: true`，语言检查自动跳过。
+- 不允许新增中文 AI 指令并长期留在 router / models / roles / capabilities 中（Skill 不受此限，语言检查不扫 Skill）。
 - 不允许为了“统一英文”把面向维护者的 README 也改成生硬英文。
 - 不允许只改 README 就认为 AI 行为已经改变。
 - 不允许同一条完整规则在人类文档和多个 AI Prompt 中反复复制；人类文档解释，AI 文档执行。

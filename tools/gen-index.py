@@ -2,7 +2,8 @@
 """Generate/check the AI-facing skill discovery index from skills/*/SKILL.md.
 
 SKILL.md frontmatter is the single metadata source. capabilities/skills.md is a
-machine-facing discovery cache and therefore must stay concise, English, and portable.
+machine-facing discovery cache and therefore must stay concise and portable. Descriptions
+may be in any language the model understands.
 """
 from __future__ import annotations
 
@@ -14,7 +15,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
 INDEX = ROOT / "capabilities" / "skills.md"
-CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
 
 
 def parse_frontmatter(path: Path):
@@ -64,8 +64,6 @@ def collect():
             except (OSError, ValueError):
                 problems.append(f"{sidecar.relative_to(ROOT)}: invalid JSON")
         desc = re.sub(r"\s+", " ", desc).strip()
-        if CJK.search(desc):
-            problems.append(f"{skill_md.relative_to(ROOT)}: description must be English")
         entries.append((name, directory.name, desc))
     return entries, problems
 
@@ -106,8 +104,6 @@ def check(entries, problems):
     expected = render(entries)
     if normalized(text) != normalized(expected):
         problems.append("capabilities/skills.md differs from generated SKILL.md metadata; run python tools/gen-index.py")
-    if CJK.search(text):
-        problems.append("skills.md contains CJK text; regenerate after translating SKILL frontmatter")
     if re.search(r"(?:/Users/[^/]+|[A-Za-z]:\\\\Users\\\\[^\\]+).*?\.ai-prompt", text):
         problems.append("skills.md contains a machine absolute ai-prompt path")
     return problems

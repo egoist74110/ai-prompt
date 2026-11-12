@@ -5,7 +5,7 @@ Browser preferences live in `.local/prefs.json` → `browser` (read with the oth
 | key | meaning when set |
 | --- | --- |
 | `driver` | Browser to control. `ego-browser` = the `ego-browser` skill (ego lite). Other values name a line below or a runtime browser tool. Absent = pick by Routing. |
-| `tablet_driver` | Browser to control instead of `driver` when the work targets a tablet (iPad/平板/tablet layout, touch, or Safari/WebKit behavior on a tablet). `playwright-webkit` = the driver section of that name below. Absent = use `driver`. |
+| `tablet_driver` | Browser to control instead of `driver` when the work targets a tablet (iPad/tablet layout, touch, or Safari/WebKit behavior on a tablet). `playwright-webkit` = the driver section of that name below. Absent = use `driver`. |
 | `reuse_user_pages` | `true`: before opening anything, list the user's open tabs and drive a matching one (same origin/path). Open a new tab only if none matches, and say so. |
 | `reuse_user_servers` | `true`: use the address the user already runs (dev server, preview URL, tab already pointing at it). Never start `npm run dev` or any server for browsing; if none is reachable, ask the user to start it. |
 | `ask_when_multiple_ports` | `true`: if the project exposes more than one port/app (frontend, API, admin, ...) or several candidate tabs/ports match, ask which one before controlling the browser. Do not guess. |

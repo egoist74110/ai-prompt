@@ -4,6 +4,9 @@
 Human-facing README/CONTRIBUTING docs, business data, fixtures, and scripts are
 outside this guard unless explicitly classified below. Reference files that a
 SKILL.md instructs the model to read belong here when they contain execution rules.
+
+Skills are exempt: a Skill (SKILL.md, its references, and its line in the generated
+capabilities/skills.md index) may be written in any language the model understands.
 """
 from __future__ import annotations
 
@@ -15,26 +18,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 AI_FILES = [
     ROOT / "router.md",
-    ROOT / "skills" / "cdn-asset-ops" / "references" / "setup.md",
-    ROOT / "skills" / "cdn-asset-ops" / "references" / "operations.md",
-    ROOT / "skills" / "task-orchestration" / "references" / "planner.md",
-    ROOT / "skills" / "task-orchestration" / "references" / "executor.md",
 ]
 AI_DIR_PATTERNS = [
     (ROOT / "models", "*.md"),
     (ROOT / "roles", "*.md"),
     (ROOT / "capabilities", "*.md"),
-    (ROOT / "skills", "*/SKILL.md"),
 ]
+# Generated from Skill frontmatter, so it inherits the Skills' language freedom.
+EXEMPT = {ROOT / "capabilities" / "skills.md"}
 
 CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
-
-
-def is_persona(path: Path) -> bool:
-    if path.name != "SKILL.md":
-        return False
-    match = re.match(r"\A---\s*\n(.*?)\n---\s*\n", path.read_text(encoding="utf-8"), re.DOTALL)
-    return bool(match and re.search(r"^\s+persona:\s*true\s*$", match.group(1), re.MULTILINE))
 
 
 def iter_ai_files():
@@ -47,9 +40,7 @@ def iter_ai_files():
         if not base.is_dir():
             continue
         for path in sorted(base.glob(pattern)):
-            # Vendored Skills (UPSTREAM.json) stay byte-identical to upstream; persona/roleplay Skills
-            # (frontmatter `metadata: persona: true`) keep their native voice, which translation would distort.
-            if (path.parent / "UPSTREAM.json").is_file() or is_persona(path):
+            if path in EXEMPT:
                 continue
             if path.is_file() and path not in seen:
                 seen.add(path)
