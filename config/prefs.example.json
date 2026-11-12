@@ -30,6 +30,9 @@
     "review": {
       "models": []
     },
+    "escalate": {
+      "models": []
+    },
     "scout": {
       "models": []
     },
