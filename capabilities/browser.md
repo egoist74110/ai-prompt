@@ -5,6 +5,7 @@ Browser preferences live in `.local/prefs.json` → `browser` (read with the oth
 | key | meaning when set |
 | --- | --- |
 | `driver` | Browser to control. `ego-browser` = the `ego-browser` skill (ego lite). Other values name a line below or a runtime browser tool. Absent = pick by Routing. |
+| `tablet_driver` | Browser to control instead of `driver` when the work targets a tablet (iPad/平板/tablet layout, touch, or Safari/WebKit behavior on a tablet). `playwright-webkit` = the driver section of that name below. Absent = use `driver`. |
 | `reuse_user_pages` | `true`: before opening anything, list the user's open tabs and drive a matching one (same origin/path). Open a new tab only if none matches, and say so. |
 | `reuse_user_servers` | `true`: use the address the user already runs (dev server, preview URL, tab already pointing at it). Never start `npm run dev` or any server for browsing; if none is reachable, ask the user to start it. |
 | `ask_when_multiple_ports` | `true`: if the project exposes more than one port/app (frontend, API, admin, ...) or several candidate tabs/ports match, ask which one before controlling the browser. Do not guess. |
@@ -18,6 +19,13 @@ Machine install state: `.local/state.json` → `services.browser`. Machine notes
 ## Driver: ego-browser (ego lite)
 
 Load the `ego-browser` skill and follow it (it runs `ego-browser skill` for the version-matched guide). It uses the user's logged-in browser, so reuse tabs per the preferences above.
+
+## Driver: playwright-webkit (WebKit tablet)
+
+- Channel: the `playwright-webkit` MCP server's `browser_*` tools (Playwright MCP on WebKit with tablet emulation; launch flags live in the user's MCP config, not here). Use the MCP tools only; never launch Playwright from a shell instead.
+- Isolated browser: no access to the user's ego-lite tabs or logins, so `reuse_user_pages` does not apply; `reuse_user_servers` and `ask_when_multiple_ports` still do.
+- It is the WebKit engine, not the Safari app: for final visual sign-off, or Apple Pay, codecs, ITP and system gestures/keyboard, point the user to the iOS Simulator instead of claiming parity.
+- Tools missing (e.g. the server was added after this session started): say so and ask the user to start a new session; never silently fall back to `driver`.
 
 Legacy lines below apply only when `driver` is absent or names them. Never hand-build browser commands in a shell (playwright-cli, npx, bare `bsk` calls).
 
