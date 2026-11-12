@@ -25,7 +25,7 @@ Runtime names are local data, not central constants.
 
 For a worker on another runtime (or when the in-session agent tool cannot pin the model), launch that runtime's CLI from `.local/runtime.json` `runtimes.<id>.dispatch`:
 
-- `read` (scout/test) or `write` (build/hotfix) is an argv template; substitute `{model}`, `{effort}`, `{prompt}` from the selected allowlist entry and the brief, and pass each item as one argument. Run from the task's working directory with stdin closed (`</dev/null`); obey its `notes`.
+- `read` (scout/test) or `write` (build/hotfix) is an argv template; substitute `{model}`, `{effort}`, `{prompt}` from the selected allowlist entry and the brief, and `{root}` with `AI_PROMPT_ROOT`; pass each item as one argument. Run from the task's working directory with stdin closed (`</dev/null`); obey its `notes`. `shell: false` means that CLI cannot run commands headless: never pick it for work that must run commands (tests, builds), and never bypass with a skip-all-permissions flag.
 - No `dispatch` entry -> read that CLI's `--help` once, run a minimal read-only probe that proves the model and effort took effect, and record the verified template plus version in `dispatch`. An unverifiable model pin -> skip that candidate.
 - Report the model/effort the CLI actually reported, not just the one requested.
 
