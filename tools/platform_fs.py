@@ -33,18 +33,27 @@ def is_linkish(path: Path) -> bool:
     return path.is_symlink() or is_junction(path)
 
 
+def _strip_nt_prefix(raw: str) -> str:
+    # Windows readlink on a junction returns the extended-length form (\\?\C:\... or \\?\UNC\host\...).
+    if raw.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + raw[8:]
+    if raw.startswith("\\\\?\\"):
+        return raw[4:]
+    return raw
+
+
 def link_target(path: Path, resolve: bool = True) -> Path | None:
-    """Return the link's target; resolve=False keeps intermediate symlinks (symlinks only)."""
+    """Return the link's target; resolve=False keeps intermediate symlinks in the stored target."""
     try:
-        if path.is_symlink():
-            raw = os.readlink(path)
-            target = Path(raw)
+        junction = is_junction(path)
+        if path.is_symlink() or (junction and not resolve):
+            target = Path(_strip_nt_prefix(os.readlink(path)))
             if not target.is_absolute():
                 target = path.parent / target
             return target.resolve() if resolve else Path(os.path.abspath(target))
-        if is_junction(path):
+        if junction:
             return path.resolve()
-    except OSError:
+    except (OSError, ValueError):
         return None
     return None
 

@@ -218,7 +218,8 @@ class PromptRoutingTests(unittest.TestCase):
             "research": (base + ("capabilities/research.md",), 12000),
             "operate": (base + ("capabilities/operate.md",), 12000),
             "engineering": (base + ("models/high.md",), 17500),
-            "skill-discovery": (base + ("capabilities/skills.md",), 17500),
+            # The index grows with each Skill; raise this when Skills are added, not by trimming router rules.
+            "skill-discovery": (base + ("capabilities/skills.md",), 19000),
         }
         self.assertNotIn("models/high.md", chains["direct"][0])
         # Count on-disk bytes: read_text() folds CRLF to LF and would hide real overruns.
@@ -267,7 +268,8 @@ class PromptRoutingTests(unittest.TestCase):
         launch_gate = section(dispatch, "Launch gate")
         for family in ("Claude Fable", "Claude Opus", "GPT Astra", "`gpt-6-astra`"):
             self.assertIn(family, launch_gate)
-        self.assertLess(len((ROOT / "roles/dispatch.md").read_bytes()), 2500)
+        # On-demand (loaded only when launching), so it carries the full model-choice rules.
+        self.assertLess(len((ROOT / "roles/dispatch.md").read_bytes()), 4000)
         self.assertIn("only if the user asked or approves", lead)
         self.assertNotIn("Response Layer", lead)
         self.assertIn("Load every Skill the brief lists", read("roles/build.md"))

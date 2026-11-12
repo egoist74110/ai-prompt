@@ -12,7 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import doctor
 import local_state
-from platform_fs import create_dir_link, is_linkish, points_to, remove_linkish
+from platform_fs import create_dir_link, is_linkish, link_target, points_to, remove_linkish
 from sync_skills import sync_central_dir, sync_per_skill
 
 
@@ -95,7 +95,8 @@ class CoreBehaviorTests(unittest.TestCase):
         changed, _, record = sync_per_skill("sample", self.entry, self.central, self.target, previous)
         self.assertTrue(changed)
         stable = self.central.resolve() / "local"
-        self.assertEqual(Path(os.readlink(self.target / "local")), stable)
+        # Raw readlink on a Windows junction carries a \\?\ prefix; compare the stored target instead.
+        self.assertEqual(link_target(self.target / "local", resolve=False), stable)
         alias.unlink()
         alias.symlink_to(versions / "2.0" / "local", target_is_directory=True)
         changed, _, record = sync_per_skill("sample", self.entry, self.central, self.target, record)
