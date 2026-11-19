@@ -213,6 +213,26 @@ class CoreBehaviorTests(unittest.TestCase):
                 self.assertEqual(runtime_state.cmd_pick(argparse.Namespace(kind="prefs", keys=["response_style", bad])), 2)
                 self.assertEqual(out.getvalue(), "")
 
+    def test_setting_a_presentation_key_drops_the_other(self):
+        data = {"response_style": "zh", "skill_offer_mode": "ask"}
+        runtime_state.set_entry(data, "prefs", "response_profile", ".local/response-profile.md")
+        self.assertEqual(data, {"response_profile": ".local/response-profile.md", "skill_offer_mode": "ask"})
+        runtime_state.set_entry(data, "prefs", "response_style", "en")
+        self.assertEqual(data, {"response_style": "en", "skill_offer_mode": "ask"})
+        # End to end through the CLI, as a model would run it.
+        directory = self.root / "local"
+        files = {kind: directory / f"{kind}.json" for kind in ("runtime", "state", "prefs")}
+        with patch.object(local_state, "LOCAL", directory), patch.object(local_state, "FILES", files), \
+                patch.object(runtime_state, "FILES", files):
+            for argv in (["set", "prefs", "response_style", '"zh"'],
+                         ["set", "prefs", "response_profile", '".local/response-profile.md"']):
+                with patch.object(sys, "argv", ["runtime_state.py", *argv]):
+                    self.assertEqual(runtime_state.main(), 0)
+            self.assertEqual(local_state.read_kind("prefs"), {"response_profile": ".local/response-profile.md"})
+        other = {"response_style": "zh"}
+        runtime_state.set_entry(other, "state", "response_profile", "x")
+        self.assertEqual(other, {"response_style": "zh", "response_profile": "x"})  # only prefs are exclusive
+
     def test_contended_empty_lock_file_waits_instead_of_writing(self):
         target = self.root / "state.json"
         lock = self.root / "state.json.lock"

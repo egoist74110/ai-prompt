@@ -45,6 +45,15 @@ def cmd_pick(args: argparse.Namespace) -> int:
     print(json.dumps(picked, ensure_ascii=False, separators=(",", ":"))); return 0
 
 
+# Presentation keys are exclusive: storing one drops the other in the same locked write.
+EXCLUSIVE_PREFS = {"response_style": "response_profile", "response_profile": "response_style"}
+
+
+def set_entry(data: dict, kind: str, key: str, value) -> None:
+    set_value(data, key, value)
+    if kind == "prefs" and key in EXCLUSIVE_PREFS: data.pop(EXCLUSIVE_PREFS[key], None)
+
+
 def _json_list(value: str, parser: argparse.ArgumentParser, label: str) -> list[str]:
     try: parsed = json.loads(value)
     except json.JSONDecodeError as exc: parser.error(f"{label} is not valid JSON: {exc}")
@@ -143,7 +152,7 @@ def main() -> int:
     if args.cmd == "set":
         try: value = json.loads(args.value)
         except json.JSONDecodeError as exc: parser.error(f"value is not valid JSON: {exc}")
-        update_kind(args.kind, lambda data: set_value(data, args.key, value)); return 0
+        update_kind(args.kind, lambda data: set_entry(data, args.kind, args.key, value)); return 0
     if args.cmd == "unset":
         holder = {"changed": False}; update_kind(args.kind, lambda data: holder.update(changed=unset_value(data, args.key))); return 0 if holder["changed"] else 2
     return 1

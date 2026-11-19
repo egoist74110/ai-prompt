@@ -176,7 +176,7 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertIn("`response_style` entry", response_layer)
         self.assertIn("set prefs response_style", response_layer)
         self.assertIn("wins if both exist", response_layer)
-        self.assertIn("setting either key unsets the other", response_layer)
+        self.assertIn("`set` on either key unsets the other", response_layer)
         # Prefs are fetched per key so role allowlists never enter ordinary sessions.
         self.assertIn("runtime_state.py pick prefs", base_rules)
         self.assertIn("response_style response_profile skill_offer_mode", base_rules)

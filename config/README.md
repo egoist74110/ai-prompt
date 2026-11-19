@@ -24,7 +24,7 @@
 
 只保存用户偏好条目。模型不整份读它，而是用 `python tools/runtime_state.py pick prefs <key>...` 只取当前需要的键（只读，文件不存在时输出 `{}`）：router 取 `response_style`/`response_profile`/`skill_offer_mode`，浏览器取 `browser`，Engineering 和施工/测试取 `engineering`，派活取 `roles`。所以派活名单再长也不会进普通会话的上下文；但仍应保持精简。
 
-回复语言/风格：一句话能说清的直接写在 `response_style`（例如 `"始终用简体中文回复；语气中性"`），不用单独文件；只有扮演人设、表达 DNA 这类长内容才写进 `.local/response-profile.md`，并用 `response_profile` 登记路径。两者只保留一个：写入其中一个时删掉另一个（`tools/runtime_state.py unset prefs <key>`）；万一两者都在，以 `response_style` 为准。运行时事实放 `runtime.json`，实测经验放 `state.json`。旧版放在 `state.json` 的 `user_prefs` 会由 `python tools/runtime_state.py migrate` 自动搬过来。
+回复语言/风格：一句话能说清的直接写在 `response_style`（例如 `"始终用简体中文回复；语气中性"`），不用单独文件；只有扮演人设、表达 DNA 这类长内容才写进 `.local/response-profile.md`，并用 `response_profile` 登记路径。两者只保留一个：用 `tools/runtime_state.py set prefs` 写入其中一个时，会在同一次加锁写入里自动删掉另一个；万一手工编辑导致两者都在，以 `response_style` 为准。运行时事实放 `runtime.json`，实测经验放 `state.json`。旧版放在 `state.json` 的 `user_prefs` 会由 `python tools/runtime_state.py migrate` 自动搬过来。
 
 `roles` 条目记录每个角色（lead 总领 / build 施工 / test 测试 / review 代码审核 / hotfix 快修）派活时用哪个 runtime/模型/effort，`models` 里每个运行环境放一个候选，`runtime` 填 `.local/runtime.json` 里的 runtime id；派活时优先选和派活方同一 runtime 的候选（Claude 派 Claude 模型，Codex 派 GPT 模型），没有才按列表顺序往下；某个候选没额度、被限流或不可用时，自动降到下一个，并说明实际用了哪个。`"use": "build"` 表示沿用另一个角色的候选（例如快修沿用施工、总领沿用代码审核）。格式见 `config/prefs.example.json`。
 

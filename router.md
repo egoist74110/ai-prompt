@@ -34,7 +34,7 @@ These rules govern only user-facing output, never reasoning or task execution.
 - Neither entry, or indexed file missing = no cache: use neutral presentation; do not read, probe, glob, guess, or retry any profile file. Do not infer or select a persona, tone, or style, and do not activate Skills for style alone.
 - Cached style controls only user-facing language, tone, wording, structure, and expression DNA; it must not change reasoning, routing, tool use, facts, or gates. A current explicit user request overrides it for that response.
 - Writing-route work text is not presentation; `capabilities/writing.md` governs it.
-- Persist lasting preferences: a language, tone, or persona preference meant beyond this response -> `tools/runtime_state.py set prefs response_style <JSON string>` (quote per shell), and say so in one line. Material too long for one line goes in `.local/response-profile.md` (from `config/response-profile.example.md`), registered as `response_profile`. Keep one: setting either key unsets the other. `.local/` is never committed.
+- Persist lasting preferences: a language, tone, or persona preference meant beyond this response -> `tools/runtime_state.py set prefs response_style <JSON string>` (quote per shell), and say so in one line. Material too long for one line goes in `.local/response-profile.md` (from `config/response-profile.example.md`), registered as `response_profile`. Keep one: `set` on either key unsets the other. `.local/` is never committed.
 
 ## Routes
 
