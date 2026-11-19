@@ -4,7 +4,7 @@ Loaded by the `router.md` Writing route: text meant for readers. Fiction covers 
 
 ## Work vs. Presentation
 
-- The work text (prose, dialogue, in-character lines, the body of a report or message) is the deliverable, not presentation. Its voice, tone, and language come from the user's direction, the audience, and the work's own settings, never from `response_profile`. The profile applies only to the talk around the work (questions, notes, summaries).
+- The work text (prose, dialogue, in-character lines, the body of a report or message) is the deliverable, not presentation. Its voice, tone, and language come from the user's direction, the audience, and the work's own settings, never from `response_style`/`response_profile`. The profile applies only to the talk around the work (questions, notes, summaries).
 - Work settings — POV, tense, tone, style, character voices, audience, content boundaries for this work — belong to the work. Keep them in the conversation, or in the project's setting/outline file when one exists or the user asks for one. Never record them in `.local/response-profile.md` or `.local/prefs.json`.
 - Language of the work follows the user's request or the existing text, independent of the reply language.
 - Deliver the text first; keep notes after it short and only when useful (open choices, continuity flags, suggested next steps).

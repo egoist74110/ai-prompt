@@ -98,6 +98,13 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertIn("never selects the route by itself", section(router, "Skill Offers"))
         high = read("models/high.md")
         self.assertIn("current request no longer qualifies as Engineering", high)
+        # Read-only analysis stops at high.md; implementer gates load on demand.
+        self.assertIn("`models/high-gates.md`", section(high, "Identity Gate"))
+        self.assertIn("pick prefs engineering", high)
+        for gate in ("Requirement Coverage Gate", "Side-Effect / Cleanup Gate", "Cross-Review Gate"):
+            with self.subTest(gate=gate):
+                self.assertNotIn(f"## {gate}", high)
+                self.assertIn(f"## {gate}", read("models/high-gates.md"))
 
     def test_external_action_floor_is_always_on(self):
         base = section(read("router.md"), "Base Rules")
@@ -111,6 +118,24 @@ class PromptRoutingTests(unittest.TestCase):
         for term in ("dry run", "undo path", "never grants permission", "Verify the real outcome in the target system"):
             with self.subTest(term=term):
                 self.assertIn(term, operate)
+
+    def test_drive_proceeds_by_default_without_dropping_gates(self):
+        drive = read("capabilities/drive.md")
+        for term in ("do not wait for a reply", "one message", "recommended answer", "Done means the acceptance checks pass",
+                     "fails twice", "never removes a gate", "role's own scope limits", "no opportunistic refactors",
+                     "Every assumption", "Not for Q&A"):
+            with self.subTest(term=term):
+                self.assertIn(term, drive)
+        stops = section(drive, "Stop and ask only when")
+        for term in ("external or irreversible", "public interface", "two readings", "hard gate"):
+            self.assertIn(term, stops.lower())
+        self.assertIn("capabilities/drive.md", read("roles/build.md"))
+        self.assertIn("capabilities/drive.md", read("roles/lead.md"))
+        # Narrow roles keep their own stop rules instead of drive's follow-through.
+        self.assertNotIn("drive.md", read("roles/hotfix.md"))
+        self.assertNotIn("drive.md", read("roles/test.md"))
+        self.assertIn("never pause implementation", read("models/high-gates.md"))
+        self.assertIn("offer in the message where you start", section(read("router.md"), "Skill Offers"))
 
     def test_research_contract(self):
         research = read("capabilities/research.md")
@@ -131,6 +156,7 @@ class PromptRoutingTests(unittest.TestCase):
             "capabilities/cross-review.md",
             "capabilities/cleanup.md",
             "capabilities/windows-shell.md",
+            "capabilities/drive.md",
         ):
             with self.subTest(path=path):
                 self.assertIn(path, body)
@@ -147,6 +173,13 @@ class PromptRoutingTests(unittest.TestCase):
         response_layer = section(router, "Response Layer")
 
         self.assertIn("`response_profile` entry in `.local/prefs.json`", response_layer)
+        self.assertIn("`response_style` entry", response_layer)
+        self.assertIn("set prefs response_style", response_layer)
+        # Prefs are fetched per key so role allowlists never enter ordinary sessions.
+        self.assertIn("runtime_state.py pick prefs", base_rules)
+        self.assertIn("response_style response_profile skill_offer_mode", base_rules)
+        self.assertIn("pick prefs roles", read("roles/dispatch.md"))
+        self.assertIn("pick prefs browser", read("capabilities/browser.md"))
         self.assertIn("do not read, probe", response_layer)
         self.assertIn("Do not infer or select a persona", response_layer)
         self.assertIn("user-facing", response_layer)
@@ -166,7 +199,7 @@ class PromptRoutingTests(unittest.TestCase):
 
         creative = read("capabilities/writing.md")
         for term in (
-            "never from `response_profile`",
+            "never from `response_style`/`response_profile`",
             "Never record them in `.local/response-profile.md`",
             "`artifact` deliverables",
             "capabilities/cleanup.md",
@@ -217,7 +250,8 @@ class PromptRoutingTests(unittest.TestCase):
             "writing": (base + ("capabilities/writing.md",), 13000),
             "research": (base + ("capabilities/research.md",), 12000),
             "operate": (base + ("capabilities/operate.md",), 12000),
-            "engineering": (base + ("models/high.md",), 17500),
+            "engineering": (base + ("models/high.md",), 13500),  # read-only analysis
+            "engineering-implement": (base + ("models/high.md", "models/high-gates.md"), 18000),
             # The index grows with each Skill; raise this when Skills are added, not by trimming router rules.
             "skill-discovery": (base + ("capabilities/skills.md",), 19000),
         }

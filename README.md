@@ -15,18 +15,19 @@
 仓库只保存**可移植规则**；机器差异、运行时名单和已验证经验不再写死进 prompt / skill / Python：
 
 - `router.md`：轻量统一入口，也是唯一的常驻必读文件。它按「当前意图需要什么保障」把请求分到 7 条路线（Direct 答、Research 查、Writing 写、Engineering 造、Operate 办、Media 生成、Think 想），并按当前意图动态切换；同时内含所有路由都要遵守的基础底线（Base Rules，包括外部操作的底线：只做用户点名的那件事、超出就先问、做完核对结果）和回复语言/风格规则（Response Layer）。以前拆在 `common.md`、`response/default.md` 里，模型经常只读 router 就开工、漏读这两个文件，所以合并进来，一次读全。
-- 回复语言：默认跟随用户当前消息的语言，不再写死中文。长期的语言/语气/扮演偏好写进本机缓存 `.local/response-profile.md`，并在 `.local/prefs.json` 的 `response_profile` 登记（模板见 `config/response-profile.example.md`）。`prefs.json` 是专门给偏好用的小文件，每个会话开头都会读；以前偏好放在 30 KB 的 `state.json` 里，模型一读就把大量无关运行时缓存带进上下文，所以单独拆出来。
-- `models/high.md`：只服务 Engineering 路径；普通问答和单纯 Skill 执行不再默认加载。
+- 回复语言：默认跟随用户当前消息的语言，不再写死中文。长期的语言/语气偏好写进 `.local/prefs.json` 的 `response_style`（一句话）；只有扮演人设这类长内容才写进 `.local/response-profile.md` 并用 `response_profile` 登记（模板见 `config/response-profile.example.md`）。`prefs.json` 是专门给偏好用的小文件，模型用 `tools/runtime_state.py pick` 只取当前需要的键，不整份读；以前偏好放在 30 KB 的 `state.json` 里，模型一读就把大量无关运行时缓存带进上下文，所以单独拆出来。
+- `models/high.md`：只服务 Engineering 路径；普通问答和单纯 Skill 执行不再默认加载。只读分析读它就够了；要改文件、跑会产生副作用的命令或派审查时，再读 `models/high-gates.md`（需求台账、清理、交叉审查、交付门槛）。
 - `models/scout.md`：只用于被委派的上下文收集、仓库侦查和低风险机械任务；超出委派范围后回到 router 重新选路，而不是默认跳 High。
 - `skills/` / `capabilities/`：按触发条件加载的专业流程；禁止为了“可能有用”而全量塞入上下文。
 - `capabilities/runtime.md`：只有需要 runtime registry、本机 discovery、共享 `.local` 状态时才加载。
 - `capabilities/skill-maintenance.md`：只有创建、修改、重命名、删除、部署或同步 Skill 时才加载；正常执行 Skill 不需要它。
 - `capabilities/windows-shell.md`：只在原生 Windows 上跑命令时加载（mac/Linux 不触发）。防「被 PowerShell 咬」：非平凡的 PowerShell 一律先落盘成 `.ps1` 再 `pwsh -File` 执行，禁止 `-Command`/`bash -c`/`cmd /c` 内联拼命令；原生命令参数单引号或 `--%`；Git Bash 调 Windows 程序注意 MSYS 路径改写（`MSYS_NO_PATHCONV=1`）；一旦出现解析错误立即改走落盘，不反复换引号。默认 shell 换成 Git Bash 属于持久配置，AI 只建议不自改。
+- `capabilities/drive.md`：执行改代码/配置/文件或多步任务时加载的“主动推进”规则：开工先一句话复述目标和推断出的隐含要求、不等回复直接干；可撤销的本地选择按项目惯例自己定并写进报告；验收检查没过就继续修；只在对外/不可逆操作、无依据的接口/数据模型/用户可见行为决定、需求两种读法会做出不同东西、硬闸门（安装、持久权限、高级模型派活、永久删除）时停下，并且问题一次问完、附推荐答案。它不放宽任何闸门，也不扩大范围；hotfix/test 这类刻意收窄的角色不加载它。主要为了治 GPT 系“戳一下动一下”：它严格照字面执行，所以把“何时继续”写成明确规则最有效。
 - `capabilities/cleanup.md`：任何路由只要产生任务自有的临时文件/进程/端口/配置等副作用，就按需加载 ownership/cleanup 规则；Engineering 额外执行完整回归与交付规则。
 - `config/runtime-templates.json`：首次初始化的 starter runtime data；不是永久支持名单。
 - `.local/runtime.json`：当前机器 OS、路径、**动态 runtime registry**、credential locator、执行侧等本地配置；不提交。
 - `.local/state.json`：当前机器已经实测跑通的 skill/MCP/search/API/headless strategy；不提交。
-- `.local/prefs.json`：只放用户偏好（如 `response_profile`），每个会话开头都会读，所以必须保持很小；不放运行时事实和经验缓存。不提交。
+- `.local/prefs.json`：只放用户偏好（如 `response_style`），按键读取（`runtime_state.py pick`），仍应保持精简；不放运行时事实和经验缓存。不提交。
 - `tools/runtime_registry.py`：runtime seed/register/discovery 通用数据层，不认识具体产品名。
 - `tools/runtime_state.py`：本地状态 + runtime registry CLI。
 - `tools/doctor.py`：遍历本地 registry 做跨平台只读体检。

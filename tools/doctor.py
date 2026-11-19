@@ -219,6 +219,7 @@ def main() -> int:
     print("== 1. router 引用文件 ==")
     required = [
         "models/high.md",
+        "models/high-gates.md",
         "models/scout.md",
         "roles/build.md",
         "roles/test.md",
@@ -231,6 +232,7 @@ def main() -> int:
         "capabilities/search.md",
         "capabilities/cross-review.md",
         "capabilities/cleanup.md",
+        "capabilities/drive.md",
         "capabilities/windows-shell.md",
         "capabilities/research.md",
         "capabilities/writing.md",

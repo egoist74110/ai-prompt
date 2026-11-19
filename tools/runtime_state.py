@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from local_state import FILES, LOCAL, diagnose, ensure_files, get_value, migrate_local_files, read_kind, repair_content_quotes, set_value, unset_value, update_kind
+from local_state import FILES, LOCAL, _read_path, diagnose, ensure_files, get_value, migrate_local_files, read_kind, repair_content_quotes, set_value, unset_value, update_kind
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -27,6 +27,20 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def cmd_pick(args: argparse.Namespace) -> int:
+    """Print only the requested top-level/dotted entries as one JSON object.
+
+    Read-only: never creates .local files, so a missing document prints {}.
+    """
+    path = FILES[args.kind]
+    data = _read_path(path) if path.is_file() else {}
+    picked = {}
+    for key in args.keys:
+        try: picked[key] = get_value(data, key)
+        except KeyError: continue
+    print(json.dumps(picked, ensure_ascii=False, separators=(",", ":"))); return 0
+
+
 def _json_list(value: str, parser: argparse.ArgumentParser, label: str) -> list[str]:
     try: parsed = json.loads(value)
     except json.JSONDecodeError as exc: parser.error(f"{label} is not valid JSON: {exc}")
@@ -44,6 +58,7 @@ def main() -> int:
     detect = sub.add_parser("detect"); detect.add_argument("--refresh", action="store_true"); detect.add_argument("--runtime")
     show = sub.add_parser("show"); show.add_argument("kind", choices=FILES)
     get = sub.add_parser("get"); get.add_argument("kind", choices=FILES); get.add_argument("key")
+    pick = sub.add_parser("pick", help="print only the named entries as one JSON object; read-only, {} when absent"); pick.add_argument("kind", choices=FILES); pick.add_argument("keys", nargs="+")
     setp = sub.add_parser("set"); setp.add_argument("kind", choices=FILES); setp.add_argument("key"); setp.add_argument("value", help="JSON value; strings need JSON quotes")
     unset = sub.add_parser("unset"); unset.add_argument("kind", choices=FILES); unset.add_argument("key")
     check = sub.add_parser("check", help="validate the .local documents; --fix-quotes repairs unescaped quotes")
@@ -56,7 +71,9 @@ def main() -> int:
     remove = runtime_sub.add_parser("remove"); remove.add_argument("name")
     for action in ("enable", "disable"): p = runtime_sub.add_parser(action); p.add_argument("name")
     runtime_detect = runtime_sub.add_parser("detect"); runtime_detect.add_argument("name", nargs="?"); runtime_detect.add_argument("--refresh", action="store_true")
-    args = parser.parse_args(); ensure_files()
+    args = parser.parse_args()
+    if args.cmd == "pick": return cmd_pick(args)
+    ensure_files()
 
     if args.cmd in {"init", "migrate"}:
         migrate_local_files(); from runtime_registry import seed_templates

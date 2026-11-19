@@ -1,6 +1,6 @@
 # Local Response Profile
 
-Copy this file to `.local/response-profile.md` only when a persistent custom presentation style is wanted, then register it by setting `response_profile` to `.local/response-profile.md` in `.local/prefs.json` (`tools/runtime_state.py set prefs response_profile <JSON string>`). Without that index entry the file is never read. The `.local/` copy is machine-local and must not be committed.
+Most preferences fit in one line: store them as `response_style` in `.local/prefs.json` (`tools/runtime_state.py set prefs response_style <JSON string>`) and skip this file. Copy this file to `.local/response-profile.md` only when the style needs more than a line (persona voice, expression DNA), then register it by setting `response_profile` to `.local/response-profile.md` in `.local/prefs.json` (`tools/runtime_state.py set prefs response_profile <JSON string>`). Without that index entry the file is never read. The `.local/` copy is machine-local and must not be committed.
 
 ## Scope
 

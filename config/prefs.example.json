@@ -1,5 +1,5 @@
 {
-  "response_profile": ".local/response-profile.md",
+  "response_style": "<optional: e.g. Reply in Simplified Chinese; neutral voice>",
   "engineering": {
     "manual_validation": "<optional: how manual/real-app validation is scheduled>"
   },

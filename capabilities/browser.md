@@ -1,6 +1,6 @@
 # Browser Control
 
-Browser preferences live in `.local/prefs.json` → `browser` (read with the other prefs once per session; the user's in-session declaration overrides). Never hardcode a driver or choice in this file.
+Browser preferences live in `.local/prefs.json` → `browser` (fetch once per session with `python tools/runtime_state.py pick prefs browser`; the user's in-session declaration overrides). Never hardcode a driver or choice in this file.
 
 | key | meaning when set |
 | --- | --- |

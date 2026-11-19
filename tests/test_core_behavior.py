@@ -10,8 +10,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+import argparse
+import json
+
 import doctor
 import local_state
+import runtime_state
 from platform_fs import create_dir_link, is_linkish, link_target, points_to, remove_linkish
 from sync_skills import sync_central_dir, sync_per_skill
 
@@ -183,6 +187,25 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertNotIn("user_prefs", local_state.read_kind("state"))
             local_state.migrate_local_files()
             self.assertEqual(local_state.read_kind("prefs"), {"response_profile": "p.md"})
+
+    def test_pick_returns_only_named_prefs_and_never_creates_files(self):
+        directory = self.root / "local"
+        files = {kind: directory / f"{kind}.json" for kind in ("runtime", "state", "prefs")}
+
+        def pick(*keys):
+            out = io.StringIO()
+            with patch.object(runtime_state, "FILES", files), contextlib.redirect_stdout(out):
+                self.assertEqual(runtime_state.cmd_pick(argparse.Namespace(kind="prefs", keys=list(keys))), 0)
+            return json.loads(out.getvalue())
+
+        self.assertEqual(pick("response_style"), {})
+        self.assertFalse(directory.exists())
+        directory.mkdir()
+        files["prefs"].write_text(json.dumps({"response_style": "zh", "roles": {"build": {"models": []}},
+                                              "engineering": {"manual_validation": "later"}}), encoding="utf-8")
+        self.assertEqual(pick("response_style", "skill_offer_mode", "engineering.manual_validation"),
+                         {"response_style": "zh", "engineering.manual_validation": "later"})
+        self.assertNotIn("roles", pick("response_style"))
 
     def test_contended_empty_lock_file_waits_instead_of_writing(self):
         target = self.root / "state.json"

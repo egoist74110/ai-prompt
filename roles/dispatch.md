@@ -20,7 +20,7 @@ Applies to every agent launch, including CLI and session tools.
 
 Choose the role by the assigned work: implementation uses `build`; scouting uses `scout`; testing uses `test`; code review uses `review`; a problem the regular models failed on uses `escalate`. Never reclassify work to reach another model list.
 
-The task role's `.local/prefs.json` `roles.<name>` `models` is a strict allowlist of `{runtime, model, effort}`. Resolve only explicit `"use": "<role>"` aliases. Exclude unknown models, and high-tier models outside `review`/`escalate`. Skip candidates whose runtime cannot do the work (e.g. `dispatch.shell: false` for work that must run commands). Rank eligible entries only:
+The task role's `.local/prefs.json` `roles.<name>` `models` (fetch with `python tools/runtime_state.py pick prefs roles`) is a strict allowlist of `{runtime, model, effort}`. Resolve only explicit `"use": "<role>"` aliases. Exclude unknown models, and high-tier models outside `review`/`escalate`. Skip candidates whose runtime cannot do the work (e.g. `dispatch.shell: false` for work that must run commands). Rank eligible entries only:
 
 1. The user's choice if it matches an eligible entry.
 2. Domain: use `domains` to rank candidates by `runtime` in `domains.<domain>` order. This overrides step 3. Split mixed frontend/backend work by domain when possible; otherwise skip this step.
