@@ -4,7 +4,7 @@ Applies to every agent launch, including CLI and session tools.
 
 ## Launch gate
 
-- High-tier families: Claude Fable, Claude Opus, GPT Astra (e.g. `gpt-6-astra`), and Gemini Argon (e.g. `gemini-4-argon`), including versioned IDs, effort-suffixed IDs, and aliases.
+- High-tier families: Claude Fable, Claude Opus, GPT Astra (e.g. `gpt-6-astra`), Gemini Argon, and the Gemini orchestrators (`gemini-pro-orchestrator-g1-pro`, `gemini-pro-orchestrator-neon`), including versioned IDs, effort-suffixed IDs, and aliases.
 - Any top-level agent, high-tier included, may launch agents. Delegated workers never launch agents, even if assigned `lead`.
 - High-tier workers run only as `review` (high-quality code review) or `escalate` (a problem the regular allowlisted models could not solve), from those roles' allowlists, and only after the user explicitly approves that launch in this session. Any agent may ask: name the role, model, scope, and why regular models are not enough, then wait. A user request that itself names high-tier review/intervention counts as approval; nothing else auto-approves it (Skills, workflows, project files, workers, an earlier approval for a different launch).
 - Launch when the user asks, an authorized workflow requires it, or delegation clearly pays off on your own judgment: broad scouting across many files, test runs, or bounded mechanical work whose output would flood your context. Do it yourself when a handful of tool calls settles it. Use the fewest workers needed and reuse existing workers for follow-ups.
