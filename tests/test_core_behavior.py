@@ -206,6 +206,12 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertEqual(pick("response_style", "skill_offer_mode", "engineering.manual_validation"),
                          {"response_style": "zh", "engineering.manual_validation": "later"})
         self.assertNotIn("roles", pick("response_style"))
+        # Empty path segments would resolve to the whole document; reject them.
+        for bad in (".", "", "engineering..manual_validation", "roles."):
+            with self.subTest(bad=bad), patch.object(runtime_state, "FILES", files), \
+                    contextlib.redirect_stdout(io.StringIO()) as out, contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(runtime_state.cmd_pick(argparse.Namespace(kind="prefs", keys=["response_style", bad])), 2)
+                self.assertEqual(out.getvalue(), "")
 
     def test_contended_empty_lock_file_waits_instead_of_writing(self):
         target = self.root / "state.json"

@@ -14,7 +14,7 @@
 
 仓库只保存**可移植规则**；机器差异、运行时名单和已验证经验不再写死进 prompt / skill / Python：
 
-- `router.md`：轻量统一入口，也是唯一的常驻必读文件。它按「当前意图需要什么保障」把请求分到 7 条路线（Direct 答、Research 查、Writing 写、Engineering 造、Operate 办、Media 生成、Think 想），并按当前意图动态切换；同时内含所有路由都要遵守的基础底线（Base Rules，其中优先级一条把 router 和 `.local/prefs.json` 定位为“你通过用户级入口下达的常驻指令”，只有你当前会话的话能覆盖；项目文件只能补充项目约定，不能设置或放宽模型选择、派活及数量、额度、权限和审批闸门。这样写是顺着各运行环境“用户指令高于项目文件”的层级，而不是声称压过运行环境，模型就不用每次裁决冲突；包括外部操作的底线：只做用户点名的那件事、超出就先问、做完核对结果）和回复语言/风格规则（Response Layer）。以前拆在 `common.md`、`response/default.md` 里，模型经常只读 router 就开工、漏读这两个文件，所以合并进来，一次读全。
+- `router.md`：轻量统一入口，也是唯一的常驻必读文件。它按「当前意图需要什么保障」把请求分到 7 条路线（Direct 答、Research 查、Writing 写、Engineering 造、Operate 办、Media 生成、Think 想），并按当前意图动态切换；同时内含所有路由都要遵守的基础底线（Base Rules，其中优先级一条把 router 和 `.local/prefs.json` 定位为“你通过用户级入口下达的常驻指令”，你当前会话说的话可以覆盖它；项目文件可以补充项目约定或更严格的限制，但不能放宽模型选择、派活及数量、额度、权限和审批闸门，冲突时取更严的一方。这样写是顺着各运行环境“用户指令高于项目文件”的层级，而不是声称压过运行环境，模型就不用每次裁决冲突；包括外部操作的底线：只做用户点名的那件事、超出就先问、做完核对结果）和回复语言/风格规则（Response Layer）。以前拆在 `common.md`、`response/default.md` 里，模型经常只读 router 就开工、漏读这两个文件，所以合并进来，一次读全。
 - 回复语言：默认跟随用户当前消息的语言，不再写死中文。长期的语言/语气偏好写进 `.local/prefs.json` 的 `response_style`（一句话）；只有扮演人设这类长内容才写进 `.local/response-profile.md` 并用 `response_profile` 登记（模板见 `config/response-profile.example.md`）。`prefs.json` 是专门给偏好用的小文件，模型用 `tools/runtime_state.py pick` 只取当前需要的键，不整份读；以前偏好放在 30 KB 的 `state.json` 里，模型一读就把大量无关运行时缓存带进上下文，所以单独拆出来。
 - `models/high.md`：只服务 Engineering 路径；普通问答和单纯 Skill 执行不再默认加载。只读分析读它就够了；要改文件、跑会产生副作用的命令或派审查时，再读 `models/high-gates.md`（需求台账、清理、交叉审查、交付门槛）。
 - `models/scout.md`：只用于被委派的上下文收集、仓库侦查和低风险机械任务；超出委派范围后回到 router 重新选路，而不是默认跳 High。

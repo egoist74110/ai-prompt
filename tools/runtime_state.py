@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
 from local_state import FILES, LOCAL, _read_path, diagnose, ensure_files, get_value, migrate_local_files, read_kind, repair_content_quotes, set_value, unset_value, update_kind
 
@@ -32,6 +33,9 @@ def cmd_pick(args: argparse.Namespace) -> int:
 
     Read-only: never creates .local files, so a missing document prints {}.
     """
+    bad = [key for key in args.keys if not key or any(not part for part in key.split("."))]
+    if bad:
+        print(f"pick: invalid key(s) {bad}; use non-empty dotted names like engineering.manual_validation", file=sys.stderr); return 2
     path = FILES[args.kind]
     data = _read_path(path) if path.is_file() else {}
     picked = {}
