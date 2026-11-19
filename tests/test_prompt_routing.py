@@ -135,7 +135,7 @@ class PromptRoutingTests(unittest.TestCase):
         self.assertNotIn("drive.md", read("roles/hotfix.md"))
         self.assertNotIn("drive.md", read("roles/test.md"))
         self.assertIn("never pause implementation", read("models/high-gates.md"))
-        self.assertIn("offer in the message where you start", section(read("router.md"), "Skill Offers"))
+        self.assertIn("in the message where you start work", section(read("router.md"), "Skill Offers"))
 
     def test_research_contract(self):
         research = read("capabilities/research.md")
@@ -195,12 +195,13 @@ class PromptRoutingTests(unittest.TestCase):
         response_layer = section(read("router.md"), "Response Layer")
         exemption = next(line for line in response_layer.splitlines() if "Writing-route work text" in line)
         self.assertIn("not presentation", exemption)
-        self.assertIn("never persist", exemption)
+        self.assertIn("capabilities/writing.md", exemption)
 
         creative = read("capabilities/writing.md")
         for term in (
             "never from `response_style`/`response_profile`",
             "Never record them in `.local/response-profile.md`",
+            "applies only to the talk around the work",
             "`artifact` deliverables",
             "capabilities/cleanup.md",
             "do not make the task Engineering",
@@ -239,6 +240,14 @@ class PromptRoutingTests(unittest.TestCase):
         ):
             self.assertNotIn(engineering_policy, common)
         self.assertIn("expanded persistent permission", common)
+        precedence = next(line for line in common.splitlines() if line.startswith("- Precedence"))
+        # Framed as the user's own instructions (which runtimes rank above project files), not as a
+        # claim to outrank the runtime, so models do not have to adjudicate a conflict.
+        for term in ("user's own standing instructions", "user-level entry", "agent launches or their number",
+                     "quota/cost limits", "approval gates", "always use subagents", "name the conflict"):
+            with self.subTest(precedence=term):
+                self.assertIn(term, precedence)
+        self.assertNotIn("runtime presents", precedence)
         self.assertIn("runtime_state.py get <state|runtime> <key>", common)
 
     def test_base_route_prompt_budgets(self):
