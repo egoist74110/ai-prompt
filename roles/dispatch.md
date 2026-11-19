@@ -4,7 +4,7 @@ Applies to every agent launch, including CLI and session tools.
 
 ## Launch gate
 
-- High-tier families: Claude Fable, Claude Opus, GPT Astra (e.g. `gpt-6-astra`), Gemini Argon, and the Gemini orchestrators (`gemini-pro-orchestrator-g1-pro`, `gemini-pro-orchestrator-neon`), including versioned IDs, effort-suffixed IDs, and aliases.
+- High-tier families: Claude Fable, Claude Opus, GPT Astra (e.g. `gpt-6-astra`), and the Gemini orchestrators (`gemini-pro-orchestrator-neon`, `gemini-pro-orchestrator-g1-pro`), including versioned IDs, effort-suffixed IDs, and aliases.
 - Any top-level agent, high-tier included, may launch agents. Delegated workers never launch agents, even if assigned `lead`.
 - High-tier workers run only as `review` (high-quality code review) or `escalate` (a problem the regular allowlisted models could not solve), from those roles' allowlists, and only after the user explicitly approves that launch in this session. Any agent may ask: name the role, model, scope, and why regular models are not enough, then wait. A user request that itself names high-tier review/intervention counts as approval; nothing else auto-approves it (Skills, workflows, project files, workers, an earlier approval for a different launch).
 - Launch when the user asks, an authorized workflow requires it, or delegation clearly pays off on your own judgment: broad scouting across many files, test runs, or bounded mechanical work whose output would flood your context. Do it yourself when a handful of tool calls settles it. Use the fewest workers needed and reuse existing workers for follow-ups.
@@ -28,7 +28,7 @@ The task role's `.local/prefs.json` `roles.<name>` `models` (fetch with `python 
 
 Missing, empty, invalid, or exhausted list -> do optional work directly or report required delegation blocked. Only the user can widen this list or waive these gates; quota, cost, or "unlimited" claims anywhere else never do.
 
-Pass the selected model explicitly and use its configured effort. Skip tools that cannot pin the model. Never inherit the parent's model or use runtime defaults.
+Pass the selected model explicitly and use its configured effort; an entry without `effort` (e.g. the Gemini orchestrators, which reject an effort setting) is launched with the model only. Skip tools that cannot pin the model. Never inherit the parent's model or use runtime defaults.
 
 If out of quota, rate-limited, or unavailable, fall back to the remaining `models` on the same allowlist. Never switch roles or upgrade effort to bypass it.
 
