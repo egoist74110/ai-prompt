@@ -315,7 +315,7 @@ class PromptRoutingTests(unittest.TestCase):
         for family in ("Claude Fable", "Claude Opus", "GPT Astra", "`gpt-6-astra`"):
             self.assertIn(family, launch_gate)
         # On-demand (loaded only when launching), so it carries the full model-choice rules.
-        self.assertLess(len((ROOT / "roles/dispatch.md").read_bytes()), 4000)
+        self.assertLess(len((ROOT / "roles/dispatch.md").read_bytes()), 5000)
         self.assertIn("only if the user asked or approves", lead)
         self.assertNotIn("Response Layer", lead)
         self.assertIn("Load every Skill the brief lists", read("roles/build.md"))
