@@ -29,6 +29,17 @@ For a worker on another runtime (or when the in-session agent tool cannot pin th
 - No `dispatch` entry -> read that CLI's `--help` once, run a minimal read-only probe that proves the model and effort took effect, and record the verified template plus version in `dispatch`. An unverifiable model pin -> skip that candidate.
 - Report the model/effort the CLI actually reported, not just the one requested.
 
+### Supervising a cross-runtime worker
+
+A worker on a different runtime family than yours (e.g. Claude launching Codex or Gemini through their CLI), where the in-session agent tool cannot launch it and no native completion notice exists, is supervised, never fire-and-forget. Same-runtime workers (Claude launching Claude, Codex launching Codex, even with a different model) use the runtime's own agent tool and its native completion notification; this section does not apply to them.
+
+- Launch it in the background and attach a monitor in the same step (the runtime's monitor / background-exit notification, e.g. Claude Code's `Monitor` or a backgrounded command with exit notification). Do not block silently in the foreground, and do not poll with sleep loops.
+- The monitor must surface every one of: normal completion, abnormal exit (non-zero code, crash, killed, quota/rate-limit or auth error), and silence beyond a stated timeout (no output/progress, suspected hang), plus the worker's final output. Redirect output to a file under the task's scratch area so the monitor and you can read it.
+- Do not end your turn, report done, or start work that depends on the result until the monitor has delivered a terminal event (completion, failure, or timeout). Independent work may continue meanwhile.
+- On each event, act at once: completion -> read the real output and verify it against the acceptance checks before accepting; failure or timeout -> stop the worker, capture the error, then fall back to the next allowlist entry or finish the work yourself per `roles/dispatch.md`; never retry the same launch blindly or loop.
+- When the monitor itself is unavailable, say so and use the nearest equivalent (backgrounded run plus exit notification); if nothing can notify you, do not launch the worker for work you must wait on.
+- Leave nothing behind: kill the worker's process and monitor on every exit path (`capabilities/cleanup.md`), and report the outcome and any fallback in the dispatch report.
+
 ## Fact Priority
 
 Stop at the first sufficient layer:

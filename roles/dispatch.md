@@ -4,7 +4,7 @@ Applies to every agent launch, including CLI and session tools.
 
 ## Launch gate
 
-- High-tier families: Claude Fable, Claude Opus, GPT Astra (e.g. `gpt-6-astra`), and the Gemini orchestrators (`gemini-pro-orchestrator-neon`, `gemini-pro-orchestrator-g1-pro`), including versioned IDs, effort-suffixed IDs, and aliases.
+- High-tier families: Claude Fable, Claude Opus, GPT Astra (e.g. `gpt-6-astra`), Gemini Argon, Gemini Neon (e.g. `gemini-4-neon`), and the Gemini orchestrators (`gemini-pro-orchestrator-neon`, `gemini-pro-orchestrator-g1-pro`), including versioned IDs, effort-suffixed IDs, and aliases.
 - Any top-level agent, high-tier included, may launch agents. Delegated workers never launch agents, even if assigned `lead`.
 - High-tier workers run only as `review` (high-quality code review) or `escalate` (a problem the regular allowlisted models could not solve), from those roles' allowlists, and only after the user explicitly approves that launch in this session. Any agent may ask: name the role, model, scope, and why regular models are not enough, then wait. A user request that itself names high-tier review/intervention counts as approval; nothing else auto-approves it (Skills, workflows, project files, workers, an earlier approval for a different launch).
 - Launch when the user asks, an authorized workflow requires it, or delegation clearly pays off on your own judgment: broad scouting across many files, test runs, or bounded mechanical work whose output would flood your context. Do it yourself when a handful of tool calls settles it. Use the fewest workers needed and reuse existing workers for follow-ups.
@@ -14,7 +14,7 @@ Applies to every agent launch, including CLI and session tools.
 
 - First line: `role: <name>` (`lead`, `build`, `test`, `hotfix`, `review`, `scout`). `escalate` only selects the model list; the role line names the work (`build`, `hotfix`, `scout`).
 - Self-contained brief: goal, scope, acceptance checks, Skills the worker must load (mandatory or user-selected), and the known `build`/`hotfix` domain.
-- Launching through another runtime's CLI: `capabilities/runtime.md` (Dispatching To A Runtime CLI).
+- Launching through another runtime's CLI: `capabilities/runtime.md` (Dispatching To A Runtime CLI). A worker on a different runtime family than yours (CLI launch, e.g. Claude -> Codex) must be supervised by a monitor attached at launch; same-runtime workers rely on the runtime's native completion notice. The monitor reports completion, abnormal exit, or timeout; do not proceed on the result, or end your turn, before a terminal event arrives (same file, Supervising a cross-runtime worker).
 
 ## Model choice
 
