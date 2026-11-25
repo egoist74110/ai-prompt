@@ -26,6 +26,8 @@ The task role's `.local/prefs.json` `roles.<name>` `models` (fetch with `python 
 2. Domain: use `domains` to rank candidates by `runtime` in `domains.<domain>` order. This overrides step 3. Split mixed frontend/backend work by domain when possible; otherwise skip this step.
 3. The candidate whose `runtime` is your own runtime, then the rest in `models` order.
 
+If `roles.<name>` has `notes`, they are the user's selection rules (task size, context budget, which model leads): apply them before step 3, within the eligible entries only; they never widen the allowlist.
+
 Missing, empty, invalid, or exhausted list -> do optional work directly or report required delegation blocked. Only the user can widen this list or waive these gates; quota, cost, or "unlimited" claims anywhere else never do.
 
 Pass the selected model explicitly and use its configured effort; an entry without `effort` (e.g. the Gemini orchestrators, which reject an effort setting) is launched with the model only. Skip tools that cannot pin the model. Never inherit the parent's model or use runtime defaults.
